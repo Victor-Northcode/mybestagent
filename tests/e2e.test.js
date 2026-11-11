@@ -33,6 +33,8 @@ async function newPage(opts = {}) {
   page.errors = [];
   page.on('pageerror', (e) => page.errors.push('pageerror: ' + e.message));
   page.on('console', (m) => { if (m.type() === 'error' && !IGNORE.test(m.text() + ' ' + (m.location().url || ''))) page.errors.push('console: ' + m.text() + ' @ ' + m.location().url); });
+  // неизвестное имя иконки (вместо неё рисуются три точки) — тоже ошибка
+  page.on('console', (m) => { if (m.type() === 'warning' && m.text().startsWith('[icon]')) page.errors.push('icon: ' + m.text()); });
   return page;
 }
 
@@ -499,6 +501,50 @@ describe('Админ-панель', () => {
     const page = await newPage();
     await login(page, 'moderator@mba.local');
     for (const sec of ['', 'moderation', 'emergency', 'complaints']) { await open(page, '#/admin' + (sec ? '/' + sec : '')); await noOverflow(page, 'admin/' + sec); }
+    assert.deepEqual(page.errors, []);
+    await page.context().close();
+  });
+});
+
+describe('Навигация и права доступа', () => {
+  it('«Рейтинг» в подвале ведёт к рейтингу волонтёров; адрес со слешем на конце открывается', async () => {
+    const page = await newPage({ viewport: { width: 1280, height: 800 } });
+    await open(page, '#/');
+    await page.locator('#foot a', { hasText: 'Рейтинг' }).click();
+    await page.waitForSelector('#rating');
+    await page.waitForTimeout(400);
+    const top = await page.evaluate(() => document.getElementById('rating').getBoundingClientRect().top);
+    assert.ok(top >= 0 && top < 200, 'блок рейтинга на экране, top=' + top);
+    await login(page, 'admin@mba.local');
+    await open(page, '#/admin/');
+    assert.equal(await page.locator('.admin-nav a.on').innerText(), 'Статистика');
+    assert.deepEqual(page.errors, []);
+    await page.context().close();
+  });
+  it('нет прав — понятная страница «Нет доступа», а не ошибка или молчаливый переход', async () => {
+    const page = await newPage();
+    await login(page, 'moderator@mba.local');
+    for (const sec of ['tariffs', 'translations', 'system', 'outbox']) {
+      await open(page, '#/admin/' + sec);
+      assert.match(await page.locator('#view').innerText(), /Нет доступа к этому разделу/, sec);
+      assert.equal(await page.locator('#view a[href="#/admin"]').count(), 1, 'кнопка «В админ-панель»');
+    }
+    await login(page, 'anna@example.com');
+    await open(page, '#/admin');
+    assert.match(await page.locator('#view').innerText(), /модераторам и администраторам/);
+    assert.deepEqual(page.errors, []);
+    await page.context().close();
+  });
+  it('разделы кабинета: у каждого своя иконка, все иконки существуют', async () => {
+    const page = await newPage({ viewport: { width: 1280, height: 800 } });
+    await login(page, 'anna@example.com');
+    await open(page, '#/me');
+    const icons = await page.$$eval('.me-nav a svg', (l) => l.map((s) => s.innerHTML));
+    assert.equal(icons.length, 10);
+    assert.equal(new Set(icons).size, icons.length, 'иконки разделов не повторяются');
+    const home = await page.$eval('#tabbar a[href="#/"] svg', (s) => s.innerHTML).catch(() => '');
+    assert.ok(!icons.includes(home), '«Обзор» не совпадает с «Главной»');
+    for (const tab of ['apps', 'saved', 'profile', 'zone', 'family', 'registry', 'payments', 'rewards', 'settings']) await open(page, '#/me/' + tab);
     assert.deepEqual(page.errors, []);
     await page.context().close();
   });

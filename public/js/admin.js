@@ -13,7 +13,7 @@ const SECTIONS = () => [
   ['complaints', 'flag', tr('Жалобы', 'Complaints'), 'complaints'],
   ['applications', 'file', tr('Все заявки', 'All reports'), null],
   ['users', 'users', tr('Пользователи', 'Users'), null],
-  ['roles', 'star', tr('Волонтёры и партнёры', 'Volunteers & partners'), 'roles'],
+  ['roles', 'handshake', tr('Волонтёры и партнёры', 'Volunteers & partners'), 'roles'],
   ['support', 'help', tr('Поддержка', 'Support'), 'tickets'],
   ['deletion', 'trash', tr('Запросы на удаление', 'Removal requests'), 'deletion'],
   ['leads', 'inbox', tr('Партнёры и инвесторы', 'Leads'), 'leads'],
@@ -26,7 +26,7 @@ const SECTIONS = () => [
     ['system', 'db', tr('Система', 'System'), null],
     ['outbox', 'mail', tr('Исходящие', 'Outbox'), null]
   ] : []),
-  ['audit', 'eye', tr('Журнал действий', 'Audit log'), null]
+  ['audit', 'history', tr('Журнал действий', 'Audit log'), null]
 ];
 
 async function shell(view, sec, title, fn) {
@@ -408,7 +408,7 @@ sec('outbox', () => tr('Исходящие e-mail и SMS', 'Outgoing e-mail & SM
   const ST = { sent: [tr('отправлено', 'sent'), 'chip-ok'], failed: [tr('ошибка', 'failed'), 'chip-lost'], queued: [tr('отправляется', 'sending'), 'chip-warn'], logged: [tr('только журнал', 'log only'), ''] };
   mount(el, h`<p class="muted small" style="margin-bottom:14px">${tr('Журнал писем и SMS за последний год. Одноразовые коды в журнале скрыты.', 'Log of e-mails and SMS for the last year. One-time codes are hidden.')}</p>
     ${items.length ? h`<div class="table-wrap" tabindex="0"><table class="t"><thead><tr><th>${tr('Время', 'Time')}</th><th>${tr('Канал', 'Channel')}</th><th>${tr('Кому', 'To')}</th><th>${tr('Текст', 'Text')}</th><th>${tr('Статус', 'Status')}</th></tr></thead><tbody>${items.map((o) => h`<tr><td class="xs">${fmtDate(o.created_at, true)}</td><td><span class="chip">${o.channel === 'sms' ? 'SMS' : 'E-mail'}</span></td><td class="small">${o.target}</td><td class="small"><b>${o.subject}</b><div class="muted" style="white-space:pre-wrap">${o.body}</div></td><td><span class="chip ${(ST[o.status] || ST.logged)[1]}">${(ST[o.status] || ST.logged)[0]}</span>${o.error ? h`<div class="xs muted" style="max-width:220px">${o.error}</div>` : ''}</td></tr>`)}</tbody></table></div>` : emptyBox(tr('Пусто', 'Empty'))}`);
-});
+}, { admin: true });
 sec('audit', () => tr('Журнал действий', 'Audit log'), async (el) => {
   const { items } = await GET('/admin/audit');
   mount(el, h`<div class="table-wrap" tabindex="0"><table class="t"><thead><tr><th>${tr('Время', 'Time')}</th><th>${tr('Кто', 'Who')}</th><th>${tr('Действие', 'Action')}</th><th>${tr('Объект', 'Target')}</th><th>IP</th></tr></thead><tbody>

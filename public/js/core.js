@@ -38,7 +38,8 @@ export const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 /* ---------- иконки: Phosphor (regular / fill / duotone), viewBox 256 ---------- */
 import { R as IR, F as IF, D as ID } from './icons.js';
 // icon('map') — контурная; icon('map', '', 'fill') — залитая; icon('paw', '', 'duo') — двухтоновая.
-export const icon = (name, cls = '', v = '') => raw(`<svg class="ic ${cls}" viewBox="0 0 256 256" aria-hidden="true">${(v === 'fill' ? IF[name] : v === 'duo' ? ID[name] : 0) || IR[name] || IR.more}</svg>`);
+// неизвестное имя иконки — предупреждение в консоли (иначе вместо неё молча рисуются три точки)
+export const icon = (name, cls = '', v = '') => (IR[name] || console.warn('[icon] нет иконки: ' + name), raw(`<svg class="ic ${cls}" viewBox="0 0 256 256" aria-hidden="true">${(v === 'fill' ? IF[name] : v === 'duo' ? ID[name] : 0) || IR[name] || IR.more}</svg>`));
 export const iconSvg = (name, v = 'fill') => `<svg viewBox="0 0 256 256">${(v === 'fill' ? IF[name] : 0) || IR[name] || ''}</svg>`;
 
 export const CAT = {
@@ -107,7 +108,7 @@ let leaveFns = [];
 export function route(pattern, handler, opts = {}) { routes.push({ re: new RegExp('^' + pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)') + '$'), handler, opts }); }
 export function onLeave(fn) { leaveFns.push(fn); }
 export function go(hash) { if (location.hash === hash) handleRoute(); else location.hash = hash; }
-export const currentPath = () => (location.hash.replace(/^#/, '') || '/').split('?')[0];
+export const currentPath = () => (location.hash.replace(/^#/, '') || '/').split('?')[0].split('#')[0].replace(/(.)\/+$/, '$1');
 export const query = () => new URLSearchParams(location.hash.split('?')[1] || '');
 let rendering = 0;
 export async function handleRoute() {
@@ -118,8 +119,13 @@ export async function handleRoute() {
   const r = routes.find((x) => x.re.test(path)) || routes.find((x) => x.opts.notFound);
   const params = (r.re.exec(path) || {}).groups || {};
   if (r.opts.auth && !state.user) { go('#/login?next=' + encodeURIComponent('#' + path)); return; }
-  if (r.opts.mod && !(state.user && ['moderator', 'admin'].includes(state.user.role))) { go('#/'); return; }
   const view = $('#view');
+  const denied = (r.opts.mod && !(state.user && ['moderator', 'admin'].includes(state.user.role))) || (r.opts.admin && !(state.user && state.user.role === 'admin'));
+  if (denied) {
+    ++rendering; document.body.dataset.route = 'denied'; renderChrome(); view.className = 'view';
+    mount(view, h`<div class="wrap"><div class="empty" style="margin-top:40px">${icon('lock')}<b>${tr('Нет доступа к этому разделу', 'No access to this section')}</b>${r.opts.admin ? tr('Раздел доступен только администратору.', 'This section is for administrators only.') : tr('Раздел доступен модераторам и администраторам.', 'This section is for moderators and administrators.')}<div class="row" style="justify-content:center;gap:10px;margin-top:16px;flex-wrap:wrap">${r.opts.admin && state.user && state.user.role === 'moderator' ? h`<a class="btn btn-sm" href="#/admin">${tr('В админ-панель', 'Admin panel')}</a>` : ''}<a class="btn btn-ghost btn-sm" href="#/">${tr('На главную', 'Home')}</a></div></div></div>`);
+    window.scrollTo({ top: 0, behavior: 'instant' }); return;
+  }
   const id = ++rendering;
   document.body.dataset.route = path.split('/')[1] || 'home';
   renderChrome();

@@ -136,7 +136,7 @@ route('/', async (view) => {
           <h2>${t('home.inv', 'Стать партнёром или инвестором', 'Become a partner or investor')}</h2>
           <p class="muted" style="margin-top:10px">${t('home.inv_t', 'Расскажите о себе — ответим в течение двух рабочих дней.', 'Tell us about yourself — we’ll reply within two business days.')}</p>
           <ul class="perks">
-            ${[['radar', tr('Оповещения по вашей зоне', 'Alerts for your area'), tr('Водители, курьеры и отряды получают экстренные поиски рядом', 'Drivers, couriers and teams get nearby emergency searches')],
+            ${[['zone', tr('Оповещения по вашей зоне', 'Alerts for your area'), tr('Водители, курьеры и отряды получают экстренные поиски рядом', 'Drivers, couriers and teams get nearby emergency searches')],
               ['seal', tr('Значок проверенного партнёра', 'Verified partner badge'), tr('Профиль организации и доверие пользователей', 'Organisation profile and user trust')],
               ['trend', tr('Статистика и отчёты', 'Stats and reports'), tr('Сколько находок вернули ваши сотрудники', 'How many finds your team returned')]]
               .map(([ic, ti, tx]) => h`<li><span class="perk-ic">${icon(ic, '', 'duo')}</span><div><b>${ti}</b><span>${tx}</span></div></li>`)}
@@ -759,7 +759,7 @@ route('/a/:id', async (view, p) => {
         <div class="card pad"><dl class="kv">${kv.map(([k, v]) => h`<div><dt>${k}</dt><dd>${v}</dd></div>`)}</dl></div>
         ${a.lat != null ? h`<div class="mini-map" id="mm"></div>` : ''}
         ${owner && a.matches ? h`<div><div class="sec-head" style="margin-bottom:12px"><h3>${t('a.matches', 'Возможные совпадения', 'Possible matches')}</h3><span class="chip">${a.matches.length}</span></div>
-          ${a.matches.length ? h`<div class="apps">${a.matches.map((m, i) => appCard(m, i, { score: m.score }))}</div>` : empty('radar', t('a.no_matches', 'Совпадений пока нет', 'No matches yet'), t('a.no_matches_t', 'Сообщим, как только появится похожая.', 'We’ll notify you when one appears.'))}</div>` : ''}
+          ${a.matches.length ? h`<div class="apps">${a.matches.map((m, i) => appCard(m, i, { score: m.score }))}</div>` : empty('match', t('a.no_matches', 'Совпадений пока нет', 'No matches yet'), t('a.no_matches_t', 'Сообщим, как только появится похожая.', 'We’ll notify you when one appears.'))}</div>` : ''}
       </div>
       <aside class="stack d-side">
         ${owner ? ownerPanel(a) : visitorPanel(a)}
@@ -1003,7 +1003,7 @@ route('/chat/:id', async (view, p) => {
 }, { auth: true, full: true });
 
 /* =================== УВЕДОМЛЕНИЯ =================== */
-const NIC = { match: 'radar', emergency: 'siren', chat: 'chat', moderation: 'shield', status: 'check', points: 'award', payment: 'card', family: 'users', support: 'help', role: 'star', registry: 'gem' };
+const NIC = { match: 'match', emergency: 'siren', chat: 'chat', moderation: 'shield', status: 'check', points: 'award', payment: 'card', family: 'users', support: 'help', role: 'handshake', registry: 'gem' };
 route('/notifications', async (view) => {
   const { items } = await GET('/notifications');
   mount(view, h`<div class="wrap" style="max-width:760px"><div class="page-head"><h1>${t('n.title', 'Уведомления', 'Notifications')}</h1></div>
@@ -1015,8 +1015,8 @@ route('/notifications', async (view) => {
 
 /* =================== ЛИЧНЫЙ КАБИНЕТ =================== */
 const ME_TABS = () => [
-  ['', 'home', t('me.overview', 'Обзор', 'Overview')], ['apps', 'file', t('me.apps', 'Мои заявки', 'My reports')], ['saved', 'bookmark', t('me.saved', 'Сохранённые', 'Saved')],
-  ['profile', 'user', t('me.profile', 'Профиль', 'Profile')], ['zone', 'radar', t('me.zone', 'Зона оповещений', 'Alert zone')], ['family', 'users', t('me.family', 'Семья', 'Family')],
+  ['', 'dash', t('me.overview', 'Обзор', 'Overview')], ['apps', 'file', t('me.apps', 'Мои заявки', 'My reports')], ['saved', 'bookmark', t('me.saved', 'Сохранённые', 'Saved')],
+  ['profile', 'idcard', t('me.profile', 'Профиль', 'Profile')], ['zone', 'zone', t('me.zone', 'Зона оповещений', 'Alert zone')], ['family', 'users', t('me.family', 'Семья', 'Family')],
   ['registry', 'gem', t('me.registry', 'Реестр ценностей', 'Valuables')], ['payments', 'card', t('me.payments', 'Платежи', 'Payments')], ['rewards', 'award', t('me.rewards', 'Баллы и статус', 'Points & status')],
   ['settings', 'settings', t('me.settings', 'Настройки', 'Settings')]
 ];
@@ -1066,14 +1066,14 @@ async function meOverview(el, u) {
       ${[['#/me/apps', 'file', t('me.apps', 'Мои заявки', 'My reports'), apps.items.length, apps.items.filter((a) => a.match_count).length],
         ['#/chats', 'chat', t('chats.title', 'Сообщения', 'Messages'), chats.items.length, u.unreadChats],
         ['#/me/saved', 'bookmark', t('me.saved', 'Сохранённые', 'Saved'), saved.items.length, 0],
-        ['#/me/zone', 'radar', t('me.zone', 'Зона оповещений', 'Alert zone'), u.zone.enabled ? `${u.zone.radius} ${tr('км', 'km')}` : tr('выкл.', 'off'), 0],
+        ['#/me/zone', 'zone', t('me.zone', 'Зона оповещений', 'Alert zone'), u.zone.enabled ? `${u.zone.radius} ${tr('км', 'km')}` : tr('выкл.', 'off'), 0],
         ['#/me/family', 'users', t('me.family', 'Семья', 'Family'), u.family_id ? tr('подключена', 'on') : tr('не подключена', 'not set up'), 0],
         ['#/me/registry', 'gem', t('me.registry', 'Реестр ценностей', 'Valuables'), `${vals.items.length} ${tr(plural(vals.items.length, 'предмет', 'предмета', 'предметов'), vals.items.length === 1 ? 'item' : 'items')}`, 0],
         ['#/me/rewards', 'award', t('me.rewards', 'Баллы и статус', 'Points & status'), u.points, 0],
         ['#/support', 'help', t('sup.title', 'Поддержка', 'Support'), tr('ответим в чате', 'chat with us'), 0]]
         .map(([href, ic, l, sub, badge], i) => h`<a class="tile reveal" style="--i:${i}" href="${href}"><div class="t-ic">${icon(ic)}</div><b>${l}</b>${sub !== '' ? h`<small>${sub}</small>` : ''}${badge ? h`<span class="dotbadge">${badge}</span>` : ''}</a>`)}
     </div>
-    ${u.role === 'user' ? h`<a class="card pad row reveal" style="margin-top:16px" href="#/community">${icon('star')}<div class="grow"><b>${t('me.become', 'Станьте волонтёром или партнёром', 'Become a volunteer or partner')}</b><div class="small muted">${t('me.become_t', 'Получайте экстренные оповещения и баллы за помощь', 'Get emergency alerts and points for helping')}</div></div>${icon('chevR')}</a>` : ''}
+    ${u.role === 'user' ? h`<a class="card pad row reveal" style="margin-top:16px" href="#/community">${icon('handshake')}<div class="grow"><b>${t('me.become', 'Станьте волонтёром или партнёром', 'Become a volunteer or partner')}</b><div class="small muted">${t('me.become_t', 'Получайте экстренные оповещения и баллы за помощь', 'Get emergency alerts and points for helping')}</div></div>${icon('chevR')}</a>` : ''}
     ${notes.items.length ? h`<div class="sec-head" style="margin-top:26px"><h3>${tr('Последние события', 'Recent activity')}</h3><a class="link small" href="#/notifications">${tr('Все', 'All')}</a></div>
       <div class="list reveal">${notes.items.slice(0, 4).map((n) => h`<a href="${n.link || '#/notifications'}"><div class="t-ic feed-ic n-${n.type}">${icon(NIC[n.type] || 'bell', '', 'duo')}</div>
         <div class="grow" style="min-width:0"><b style="display:block">${n.title}</b><div class="small muted ellipsis">${n.body}</div></div><span class="xs muted" style="flex:none">${ago(n.created_at)}</span></a>`)}</div>` : ''}
@@ -1082,7 +1082,7 @@ async function meOverview(el, u) {
 async function meApps(el) {
   const { items } = await GET('/my/applications');
   mount(el, h`<div class="sec-head"><h2>${t('me.apps', 'Мои заявки', 'My reports')}</h2><a class="btn btn-sm" href="#/new/lost">${icon('plus')}${tr('Новая', 'New')}</a></div>
-    ${items.length ? h`<div class="apps-list">${items.map((a) => appRow(a, a.match_count ? h`<span class="chip chip-found">${icon('radar')}${a.match_count}</span>` : icon('chevR')))}</div>`
+    ${items.length ? h`<div class="apps-list">${items.map((a) => appRow(a, a.match_count ? h`<span class="chip chip-found">${icon('match')}${a.match_count}</span>` : icon('chevR')))}</div>`
       : empty('file', t('me.apps_empty', 'У вас пока нет заявок', 'You have no reports yet'), t('me.apps_empty_t', 'Добавьте заранее карточки близких — при беде останется одно нажатие.', 'Add your loved ones in advance — in trouble it will take one tap.'), h`<a class="btn btn-sm" href="#/new/lost">${t('home.lost', 'Я потерял', 'I lost')}</a>`)}`);
 }
 async function meSaved(el) {
@@ -1169,7 +1169,7 @@ async function meProfile(el, u) {
           <p class="xs muted" style="margin-top:10px">${tr('Фамилия — до инициала, контакты скрыты. Связь — через анонимный чат.', 'Surname shortened to an initial, contacts hidden. Contact via anonymous chat.')}</p>
         </section>
         <nav class="list reveal prof-links">
-          <a href="#/me/zone">${icon('radar')}<span class="grow">${t('me.zone', 'Зона оповещений', 'Alert zone')}<small>${u.zone.enabled ? `${tr('включена', 'on')} · ${u.zone.radius} ${tr('км', 'km')}` : tr('выключена', 'off')}</small></span>${icon('chevR')}</a>
+          <a href="#/me/zone">${icon('zone')}<span class="grow">${t('me.zone', 'Зона оповещений', 'Alert zone')}<small>${u.zone.enabled ? `${tr('включена', 'on')} · ${u.zone.radius} ${tr('км', 'km')}` : tr('выключена', 'off')}</small></span>${icon('chevR')}</a>
           <a href="#/me/settings">${icon('settings')}<span class="grow">${t('me.settings', 'Настройки', 'Settings')}<small>${tr('Уведомления, язык, тема', 'Notifications, language, theme')}</small></span>${icon('chevR')}</a>
           <a href="#/me/family">${icon('users')}<span class="grow">${t('me.family', 'Семья', 'Family')}<small>${u.family_id ? tr('подключена', 'connected') : tr('не подключена', 'not set up')}</small></span>${icon('chevR')}</a>
           <a href="#/legal/privacy">${icon('file')}<span class="grow">${tr('Как мы храним данные', 'How we store data')}<small>${tr('Политика конфиденциальности', 'Privacy policy')}</small></span>${icon('chevR')}</a>
@@ -1581,7 +1581,7 @@ route('/community', async (view) => {
             <div id="pfields" class="stack hide"><label class="field"><span>${t('com.org', 'Название организации', 'Organisation name')} <em>*</em></span><input name="org_name" maxlength="160"></label>
             <label class="field"><span>${t('com.org_type', 'Тип организации', 'Organisation type')}</span><select name="org_type">${dict('partner_type').map((v) => h`<option>${v}</option>`)}</select></label></div>
             <label class="field"><span>${t('com.about', 'О себе: опыт, транспорт, когда готовы помогать', 'About you: experience, transport, availability')}</span><textarea name="details" rows="3" maxlength="2000"></textarea></label>
-            ${u && !u.zone.enabled ? h`<div class="note note-amber small">${icon('radar')}<div>${t('com.need_zone', 'Сначала укажите зону оповещений — туда будут приходить экстренные вызовы.', 'Set your alert zone first — emergency calls will arrive there.')} <a class="link" href="#/me/zone">${tr('Указать', 'Set')}</a></div></div>` : ''}
+            ${u && !u.zone.enabled ? h`<div class="note note-amber small">${icon('zone')}<div>${t('com.need_zone', 'Сначала укажите зону оповещений — туда будут приходить экстренные вызовы.', 'Set your alert zone first — emergency calls will arrive there.')} <a class="link" href="#/me/zone">${tr('Указать', 'Set')}</a></div></div>` : ''}
             <button class="btn btn-block">${t('com.send', 'Отправить заявку', 'Send request')}</button></form></div>`}
         <div class="steps" style="grid-template-columns:1fr">${[[t('com.s1', 'Зона', 'Zone'), t('com.s1t', 'Укажите район, где готовы помогать.', 'Choose the area where you can help.')], [t('com.s2', 'Оповещение', 'Alert'), t('com.s2t', 'При экстренном поиске рядом придёт push без персональных данных.', 'A push without personal data arrives during an emergency nearby.')], [t('com.s3', 'Помощь', 'Help'), t('com.s3t', 'Сообщите о находке или напишите автору в анонимный чат.', 'Report a find or message the author anonymously.')]].map(([a, b]) => h`<div class="step"><h4>${a}</h4><p>${b}</p></div>`)}</div>
       </div>
@@ -1592,7 +1592,7 @@ route('/community', async (view) => {
   $$('#rs button', view).forEach((b) => b.onclick = () => { role = b.dataset.v; $$('#rs button', view).forEach((x) => x.classList.toggle('on', x === b)); $('#pfields', view).classList.toggle('hide', role !== 'partner'); });
   const rf = $('#rf', view);
   if (rf) rf.onsubmit = (e) => { e.preventDefault(); if (!state.user) return needLogin(); busy(e.submitter, async () => { try { await POST('/role-requests', Object.assign(formData(e.target), { role })); toast(tr('Заявка отправлена на рассмотрение', 'Request sent for review')); go('#/community'); } catch (er) { toastErr(er); } }); };
-  if (location.hash.includes('#rating')) $('#rating', view).scrollIntoView();
+  if (location.hash.includes('#rating')) requestAnimationFrame(() => { const r = $('#rating', view); if (r) r.scrollIntoView({ block: 'start' }); });
 });
 
 /* =================== ПОДДЕРЖКА =================== */
