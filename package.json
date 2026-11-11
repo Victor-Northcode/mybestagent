@@ -1,0 +1,33 @@
+{
+  "name": "my-best-agent-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Мой лучший агент — платформа поиска людей, животных и вещей (первая очередь)",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env --no-warnings server/index.js",
+    "dev": "node --no-warnings --watch server/index.js",
+    "backup": "node --no-warnings server/backup.js",
+    "test": "node --test --test-concurrency=1 \"tests/*.test.js\"",
+    "test:e2e": "node --test tests/e2e.test.js",
+    "test:api": "node --test tests/api.test.js",
+    "test:prod": "node --test tests/production.test.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "compression": "1.8.2",
+    "exceljs": "4.4.0",
+    "express": "4.22.3",
+    "nodemailer": "10.2.1",
+    "pdfkit": "0.20.2",
+    "web-push": "3.6.7"
+  },
+  "devDependencies": {
+    "playwright-core": "1.64.0"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
+  }
+}

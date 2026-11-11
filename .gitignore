@@ -1,0 +1,13 @@
+# Данные платформы: база app.db, журнал WAL, ключи, загрузки и резервные копии — не публикуются
+data/
+*.db
+*.db-wal
+*.db-shm
+secret.key
+vapid.json
+
+node_modules/
+npm-debug.log*
+.env
+.env.*
+!.env.example

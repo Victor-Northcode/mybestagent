@@ -1,0 +1,6 @@
+Демо-фотографии для тестового наполнения (заменяются реальными фото пользователей).
+cat.jpg        — "Orange Tabby Cat sitting on a couch", Wikimedia Commons, CC BY 4.0
+cat-home.jpg   — "Red tabby sitting on a cat house", Wikimedia Commons, CC0
+keys.jpg       — "Various keys on keyring", Wikimedia Commons, CC BY-SA 4.0
+spitz.jpg      — "Happy white pomeranian", Wikimedia Commons, CC0
+labrador.jpg, backpack.jpg, volunteer.jpg, volunteers.jpg, dog-happy.jpg — Unsplash (Unsplash License)

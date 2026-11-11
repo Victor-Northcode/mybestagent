@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Мой лучший агент — поиск людей, животных и вещей</title>
+<meta name="description" content="Международная платформа поиска и возврата потерянных людей, животных и вещей: заявки «Потерял» и «Нашёл», карта, автоматические совпадения, экстренные оповещения рядом, анонимный чат, реестр ценностей.">
+<meta name="theme-color" content="#ffffff">
+<meta name="color-scheme" content="light dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Мой агент">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:site_name" content="Мой лучший агент">
+<meta property="og:title" content="Мой лучший агент">
+<meta property="og:description" content="Поиск людей, животных и вещей: потерял, нашёл, совпадения и помощь рядом.">
+<meta property="og:image" content="/assets/icon-512.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/assets/favicon.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="preload" href="/fonts/golos-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/fonts/golos.css">
+<link rel="stylesheet" href="/vendor/leaflet.css">
+<link rel="stylesheet" href="/css/app.css">
+<script src="/vendor/leaflet.js"></script>
+<script type="module" src="/js/app.js"></script>
+</head>
+<body>
+<header class="top" id="top"></header>
+<main id="view" class="view"><div class="spinner" style="margin-top:30vh"></div></main>
+<footer class="footer" id="foot"></footer>
+<nav class="tabbar" id="tabbar" aria-label="Навигация"></nav>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<noscript><p style="padding:24px">Для работы платформы включите JavaScript.</p></noscript>
+</body>
+</html>
