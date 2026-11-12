@@ -300,7 +300,7 @@ sec('tariffs', () => tr('Тарифы', 'Plans'), async (el, act) => {
   mount(act, h`<button class="btn btn-sm" id="nt">${icon('plus')}${tr('Тариф', 'Plan')}</button>`); $('#nt', act).onclick = () => form();
   await load();
 }, { admin: true });
-const DICT_T = () => ({ species: tr('Виды животных', 'Animal species'), thing_type: tr('Типы вещей', 'Item types'), complaint_reason: tr('Причины жалоб', 'Complaint reasons'), partner_type: tr('Типы партнёров', 'Partner types') });
+const DICT_T = () => ({ species: tr('Виды животных', 'Animal species'), complaint_reason: tr('Причины жалоб', 'Complaint reasons'), partner_type: tr('Типы партнёров', 'Partner types') });
 sec('dicts', () => tr('Справочники', 'Dictionaries'), async (el) => {
   const load = async () => {
     const { items } = await GET('/admin/dicts');

@@ -1763,7 +1763,7 @@ body.map-open { overflow: hidden; }
 .nav a.nav-lost.on { background: var(--lost); color: #fff; }
 .nav a.nav-found.on { background: var(--found); color: #fff; }
 
-/* =========================================================
+/* ==================================================
    Кнопка SOS в шапке и окно экстренных служб
    ========================================================= */
 .sos-btn {
@@ -1819,3 +1819,13 @@ body.map-open { overflow: hidden; }
   .lang-btn { padding: 0 8px; }
   .lang-btn .ic { display: none; }
 }
+=======
+/* Тип вещи в мастере заявки: переключатели-«пилюли» */
+.tpick { display: flex; flex-wrap: wrap; gap: 8px; }
+.tpick label { position: relative; display: inline-flex; }
+.field .tpick input { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; opacity: 0; cursor: pointer; }
+.tpick span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 999px; background: var(--surface); border: 1.5px solid var(--line-2); font-weight: 700; font-size: 15px; color: var(--ink-2); transition: background .2s, color .2s, border-color .2s; }
+.tpick label:hover span { border-color: var(--ink); }
+.tpick input:checked + span { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.tpick input:focus-visible + span { outline: 2px solid var(--blue); outline-offset: 2px; }
+.field.has-err .tpick span { border-color: var(--red-solid); }

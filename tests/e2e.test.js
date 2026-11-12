@@ -379,6 +379,12 @@ describe('Мастер заявки', () => {
     await open(page, '#/new/found');
     await page.locator('[data-cat="things"]').click();
     await page.locator('input[name="title"]').fill('Найден синий зонт');
+    await page.locator('#next').click(); // тип вещи не выбран — шаг не пройти
+    await page.waitForSelector('.field.has-err .tpick');
+    assert.equal(await page.locator('input[name="th_color"]').count(), 0, 'уточнения появляются после выбора типа');
+    await page.locator('.tpick label', { hasText: 'Аксессуары' }).click();
+    await page.locator('input[name="th_color"]').fill('синий');
+    assert.equal(await page.locator('input[name="title"]').inputValue(), 'Найден синий зонт', 'смена типа не стирает введённое');
     await page.locator('#next').click();
     await page.locator('#ph input[type=file]').setInputFiles(path.join(__dirname, '..', 'public', 'assets', 'demo', 'keys.jpg'));
     await page.waitForSelector('#ph .ph-item img');
@@ -407,6 +413,7 @@ describe('Мастер заявки', () => {
     const href = await page.locator('.success a[href^="#/a/"]').first().getAttribute('href');
     const item = await page.evaluate(async (id) => (await (await fetch('/api/applications/' + id)).json()).item, href.split('/').pop());
     assert.equal(item.photos.length, 1, 'фото сохранилось в заявке');
+    assert.deepEqual(item.details, { thing_type: 'accessories', color: 'синий' }, 'тип и уточнения вещи сохранились');
     assert.deepEqual(page.errors, []);
     await page.context().close();
   });

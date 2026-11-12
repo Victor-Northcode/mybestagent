@@ -12,6 +12,7 @@ const S = require('./services');
 const I18N = require('./i18n');
 const YK = require('./yookassa');
 const SEO = require('./seo');
+const THINGS = require('./things');
 
 if (seed()) for (const a of all("SELECT * FROM applications WHERE status = 'published' ORDER BY id")) S.runMatching(a);
 
@@ -470,6 +471,8 @@ function readDetails(b, category) {
     if (health.length) d.health = health;
   }
   if (category === 'animals') for (const [k, max] of Object.entries(PET_TEXT)) text(k, max);
+  // вещи: тип (одежда, аксессуары, украшения, авто, другое) и уточнения к нему — server/things.js
+  if (category === 'things') Object.assign(d, THINGS.readThingDetails(src));
   return d;
 }
 // Заголовок заявки о животном, если автор его не написал: «Пропажа: собака, такса, рыжий»
@@ -503,6 +506,7 @@ function readApp(b, isNew, existing) {
   o.photos = JSON.stringify(photos);
   const details = readDetails(b, category);
   o.details = JSON.stringify(details);
+  if (details.thing_type) o.species = THINGS.THING_TYPES[details.thing_type].ru;
   if (!o.title && category === 'animals') o.title = petTitle(kind, o.species, details);
   if (!o.title) fail(400, 'title_required', 'Укажите заголовок');
   if (category === 'people') {

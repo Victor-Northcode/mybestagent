@@ -579,12 +579,41 @@ export const optName = (k, v) => { const o = OPT[k] && OPT[k][v]; return o ? tr(
 const optSelect = (name, cur) => h`<select name="${name}"><option value="">—</option>${Object.keys(OPT[name]).map((v) => h`<option value="${v}" ${cur === v ? 'selected' : ''}>${optName(name, v)}</option>`)}</select>`;
 const fld = (label, control) => h`<label class="field"><span>${label}</span>${control}</label>`;
 const txt = (d, name, max, ph = '') => h`<input name="${name}" value="${d[name] ?? ''}" maxlength="${max}" placeholder="${ph}" autocomplete="off">`;
+// Вещи: тип и уточнения к нему (тот же список — в server/things.js). В форме уточнения называются th_<поле>.
+const THING_TYPES = ['clothes', 'accessories', 'jewelry', 'auto', 'other'];
+const THING_FIELDS = { clothes: ['size', 'color', 'brand'], accessories: ['brand', 'color', 'material'], jewelry: ['metal', 'stones', 'engraving'], auto: ['brand', 'model', 'color', 'plate'], other: [] };
+const THING_MAX = { size: 20, color: 40, brand: 60, model: 60, material: 60, metal: 40, stones: 80, engraving: 80, plate: 12 };
+const thingName = (k) => ({ clothes: tr('Одежда', 'Clothing'), accessories: tr('Аксессуары', 'Accessories'), jewelry: tr('Украшения', 'Jewellery'), auto: tr('Авто', 'Car'), other: tr('Другое', 'Other') })[k] || k;
+const thingLabel = (k, type) => ({
+  size: tr('Размер', 'Size'), color: tr('Цвет', 'Colour'), brand: type === 'auto' ? tr('Марка', 'Make') : tr('Бренд', 'Brand'), model: tr('Модель', 'Model'),
+  material: tr('Материал', 'Material'), metal: tr('Металл, проба', 'Metal, hallmark'), stones: tr('Камни, вставки', 'Stones, inlays'), engraving: tr('Гравировка, надпись', 'Engraving'), plate: tr('Госномер', 'Licence plate')
+})[k] || k;
+const thingHint = (k, type) => ({
+  size: '48, M, 42', color: type === 'auto' ? tr('Серебристый', 'Silver') : tr('Чёрный', 'Black'), brand: type === 'auto' ? 'Kia' : 'Zara', model: 'Rio',
+  material: tr('Кожа, ткань', 'Leather, fabric'), metal: tr('Золото 585', 'Gold 585'), stones: tr('Фианит, жемчуг', 'Zirconia, pearl'), engraving: tr('«Навсегда» внутри кольца', '“Forever” inside the ring'), plate: tr('А123ВС 77', 'A123BC 77')
+})[k] || '';
+const thingTitleHint = (type) => ({
+  clothes: tr('Чёрная пуховая куртка', 'Black down jacket'), accessories: tr('Кожаный кошелёк с картами', 'Leather wallet with cards'),
+  jewelry: tr('Золотое обручальное кольцо', 'Gold wedding ring'), auto: tr('Серебристый седан', 'Silver sedan'), other: tr('Связка ключей с брелоком', 'Keys with a key ring')
+})[type] || tr('Чёрный рюкзак с ноутбуком', 'Black backpack with laptop');
+// все уточнения передаются явно: поля другого типа уходят пустыми и не смешиваются с общими параметрами (окрас животного и т. п.)
+const thingDetails = (d) => {
+  const own = THING_FIELDS[d.thing_type] || [];
+  const o = { thing_type: d.thing_type };
+  for (const k of Object.keys(THING_MAX)) o[k] = own.includes(k) ? d['th_' + k] || '' : '';
+  return o;
+};
 const localDate = (dt = new Date()) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 async function wizard(view, kind, existing) {
   const edit = !!existing;
   const d = existing ? Object.assign({}, existing) : { kind, category: query().get('category') || '', photos: [], event_date: localDate(), contact: state.user.phone || state.user.email || '', emergency_radius: 3, emergency_on: false };
   kind = d.kind;
   if (existing && existing.details) { Object.assign(d, existing.details); for (const x of existing.details.health || []) d['h_' + x] = true; }
+  // уточнения вещи — в поля формы th_<поле>
+  if (existing && existing.category === 'things' && existing.details && THING_FIELDS[existing.details.thing_type]) {
+    d.thing_type = existing.details.thing_type;
+    for (const k of THING_FIELDS[d.thing_type]) if (existing.details[k]) d['th_' + k] = existing.details[k];
+  }
   // у заявки о человеке отдельный шаг «Приметы»
   const stepsFor = () => d.category === 'people' ? ['cat', 'details', 'looks', 'photos', 'place', 'final'] : ['cat', 'details', 'photos', 'place', 'final'];
   let steps = stepsFor();
@@ -631,7 +660,10 @@ async function wizard(view, kind, existing) {
         if (!d.title) d.title = `${tr('Пропал человек', 'Missing person')}: ${d.person_name}, ${d.person_age} ${tr(plural(+d.person_age, 'год', 'года', 'лет'), 'y.o.')}`;
       }
       if (d.category === 'animals') { if (!d.title && !d.species && !d.breed && !d.color) return err(t('wiz.e_pet', 'Укажите вид животного, породу или кличку', 'Enter the species, breed or name'), 'species'); }
-      else if (!d.title) return err(t('wiz.e_title', 'Заполните заголовок', 'Fill in the title'), 'title');
+      else {
+        if (d.category === 'things' && !THING_FIELDS[d.thing_type]) return err(t('wiz.e_ttype', 'Выберите тип вещи', 'Choose the item type'), 'thing_type');
+        if (!d.title) return err(d.category === 'things' ? t('wiz.e_thing', 'Напишите, что за вещь', 'Say what the item is') : t('wiz.e_title', 'Заполните заголовок', 'Fill in the title'), 'title');
+      }
     }
     if (s === 'place' && (d.lat == null || d.lat === '')) return err(t('wiz.e_place', 'Отметьте место на карте', 'Mark the place on the map'), '#picker');
     if (s === 'place' && !d.event_date) return err(tr('Укажите дату', 'Enter the date'), 'event_date');
@@ -706,6 +738,12 @@ async function wizard(view, kind, existing) {
           <label class="field"><span>${t('wiz.relation', 'Кем вы приходитесь', 'Your relation')} <em>*</em></span><select name="relation"><option value="">—</option><option value="relative" ${d.relation === 'relative' ? 'selected' : ''}>${t('wiz.rel_rel', 'Родственник', 'Relative')}</option><option value="legal_rep" ${d.relation === 'legal_rep' ? 'selected' : ''}>${t('wiz.rel_legal', 'Законный представитель', 'Legal representative')}</option></select></label>
           <div id="minorNote"></div>
           <label class="field"><span>${t('wiz.title_opt', 'Заголовок (необязательно)', 'Title (optional)')}</span><input name="title" value="${d.title || ''}" maxlength="140"><p class="hint">${tr('Если не заполнить — сформируется автоматически', 'Generated automatically if empty')}</p></label>`
+        : c === 'things' ? h`
+          <div class="field" role="radiogroup" aria-labelledby="ttype-l"><span id="ttype-l">${t('wiz.thing_type', 'Тип вещи', 'Item type')} <em>*</em></span>
+            <div class="tpick">${THING_TYPES.map((k) => h`<label><input type="radio" name="thing_type" value="${k}" ${d.thing_type === k ? 'checked' : ''}><span>${thingName(k)}</span></label>`)}</div></div>
+          <label class="field"><span>${t('wiz.t_thing', 'Вещь — что именно', 'Item — what exactly')} <em>*</em></span><input name="title" value="${d.title || ''}" maxlength="140" placeholder="${thingTitleHint(d.thing_type)}"></label>
+          ${(THING_FIELDS[d.thing_type] || []).length ? h`<div class="grid-2">${THING_FIELDS[d.thing_type].map((k) => h`<label class="field"><span>${thingLabel(k, d.thing_type)}</span><input name="th_${k}" value="${d['th_' + k] || ''}" maxlength="${THING_MAX[k]}" placeholder="${thingHint(k, d.thing_type)}" ${k === 'plate' ? 'autocapitalize=characters' : ''}></label>`)}</div>` : ''}
+          <label class="field"><span>${t('wiz.thing_desc', 'Описание', 'Description')}</span><textarea name="features" rows="3" maxlength="1000" placeholder="${tr('Цвет, материал, приметы, серийный номер, что было внутри', 'Colour, material, marks, serial number, what was inside')}">${d.features || ''}</textarea></label>`
         : h`
           ${c === 'people' ? h`<div class="note note-blue">${icon('shield')}<div>${t('wiz.pf_note', 'Без документов и домашнего адреса. Укажите, где человек сейчас: полиция, больница, остановка. Заявку проверит модератор.', 'No documents or home address. Say where the person is now: police, hospital, bus stop. A moderator will review it.')}</div></div>
             <div class="grid-pair"><label class="field"><span>${t('wiz.approx_age', 'Примерный возраст', 'Approximate age')}</span><input name="person_age" type="number" min="0" max="120" inputmode="numeric" value="${d.person_age ?? ''}"></label>
@@ -719,10 +757,10 @@ async function wizard(view, kind, existing) {
           <label class="field"><span>${t('wiz.marks', 'Особые приметы', 'Distinguishing marks')}</span><textarea name="features" rows="3" maxlength="1000" placeholder="${tr('Чип, клеймо, шрамы, разные глаза, купированный хвост, хромает', 'Chip, tattoo, scars, odd eyes, docked tail, limps')}">${d.features || ''}</textarea></label>
           ${fld(t('wiz.pet_clothes', 'Одежда, если есть', 'Clothing, if any'), txt(d, 'clothes', 150, tr('Красный ошейник с адресником, шлейка, комбинезон', 'Red collar with a tag, harness, coat')))}
           <label class="field"><span>${isLost ? t('wiz.pet_name', 'Кличка и коротко (необязательно)', 'Name and short description (optional)') : t('wiz.pet_name_f', 'Коротко: кого нашли (необязательно)', 'Short: what you found (optional)')}</span><input name="title" value="${d.title || ''}" maxlength="140" placeholder="${isLost ? tr('Такса Буся', 'Dachshund Busya') : tr('Рыжая собака без ошейника', 'Ginger dog without a collar')}"><p class="hint">${tr('Если не заполнить — заголовок соберётся из вида, породы и окраса', 'If empty, the title is built from species, breed and colour')}</p></label>`
-          : h`          ${c !== 'people' ? h`<label class="field"><span>${t('wiz.thing_type', 'Тип вещи', 'Item type')}</span><select name="species"><option value="">—</option>${dict('thing_type').map((v) => h`<option ${d.species === v ? 'selected' : ''}>${v}</option>`)}</select></label>` : ''}
+          : h`
           <label class="field"><span>${c === 'animals' ? (isLost ? t('wiz.t_pet', 'Кличка и коротко', 'Name and short description') : t('wiz.t_pet_f', 'Коротко: кого нашли', 'Short: what you found')) : c === 'things' ? t('wiz.t_thing', 'Что за вещь', 'What item') : t('wiz.t_person_f', 'Коротко: кого нашли', 'Short: who you found')} <em>*</em></span><input name="title" value="${d.title || ''}" maxlength="140" placeholder="${c === 'animals' ? tr('Рыжий кот Барсик', 'Ginger cat Barsik') : c === 'things' ? tr('Чёрный рюкзак с ноутбуком', 'Black backpack with laptop') : tr('Пожилой мужчина без документов', 'Elderly man without documents')}"></label>
           ${c !== 'people' ? h`<label class="field"><span>${t('wiz.features', 'Приметы', 'Distinctive features')}</span><textarea name="features" rows="3" maxlength="1000" placeholder="${c === 'animals' ? tr('Порода, окрас, ошейник, чип, клеймо', 'Breed, colour, collar, chip') : tr('Цвет, марка, серийный номер, брелоки', 'Colour, brand, serial number')}">${d.features || ''}</textarea></label>` : ''}`}`}
-        <label class="field"><span>${c === 'animals' ? t('wiz.comments', 'Комментарии', 'Comments') : t('wiz.desc', 'Подробное описание', 'Full description')}</span><textarea name="description" rows="4" maxlength="4000" placeholder="${c === 'animals' ? tr('Характер, на что откликается, как подойти, чем приманить', 'Temper, what it responds to, how to approach') : ''}">${d.description || ''}</textarea></label>
+        <label class="field"><span>${c === 'animals' || c === 'things' ? t('wiz.comments', 'Комментарии', 'Comments') : t('wiz.desc', 'Подробное описание', 'Full description')}</span><textarea name="description" rows="4" maxlength="4000" placeholder="${c === 'animals' ? tr('Характер, на что откликается, как подойти, чем приманить', 'Temper, what it responds to, how to approach') : c === 'things' ? tr('Где и как это случилось, кому передали находку, как её забрать', 'How it happened, who has the item now, how to collect it') : ''}">${d.description || ''}</textarea></label>
       </form>`;
     }
     if (s === 'looks') body = h`<h2>${t('wiz.looks', 'Приметы', 'Appearance')}</h2><p class="muted" style="margin-top:8px">${t('wiz.looks_t', 'Заполните то, что знаете: по этим приметам человека узнают на улице и подберут похожие заявки.', 'Fill in what you know: people use these details to recognise the person, and we use them to match reports.')}</p>
@@ -831,6 +869,9 @@ async function wizard(view, kind, existing) {
       const sp = $('[name=species]', view);
       sp.onchange = () => mount($('#breedList', view), (BREEDS[speciesRu(sp.value)] || []).map((v) => h`<option value="${v}">`));
     }
+    if (s === 'details' && d.category === 'things') {
+      $$('[name=thing_type]', view).forEach((r) => r.onchange = () => { saveStep(); draw(); const on = $('[name=thing_type]:checked', view); if (on) on.focus({ preventScroll: true }); });
+    }
     if (s === 'details' && d.category === 'people' && isLost) {
       const upd = () => { const a = $('[name=person_age]', view).value; mount($('#minorNote', view), a !== '' && +a < 18 ? h`<div class="note note-amber">${icon('alert')}<div>${t('wiz.minor', 'Человеку меньше 18 лет: заявку подаёт только законный представитель.', 'Under 18: only a legal guardian can file.')}</div></div>` : ''); };
       $('[name=person_age]', view).oninput = upd; upd();
@@ -854,7 +895,7 @@ async function wizard(view, kind, existing) {
     const body = {
       kind: d.kind, category: d.category, title: d.title, description: d.description, features: d.features, species: d.species,
       person_name: d.person_name, person_age: d.person_age, relation: d.relation, confirm_rights: !!d.confirm_rights,
-      details: Object.assign(Object.fromEntries(DETAIL_KEYS.map((k) => [k, d[k] ?? ''])), { health: Object.keys(OPT.health).filter((x) => d['h_' + x]) }),
+      details: Object.assign(Object.fromEntries(DETAIL_KEYS.map((k) => [k, d[k] ?? ''])), { health: Object.keys(OPT.health).filter((x) => d['h_' + x]) }, d.category === 'things' ? thingDetails(d) : {}),
       event_date: d.event_date, event_time: d.event_time || '', lat: d.lat, lng: d.lng, address: d.address, city: d.city, contact: d.contact, reward: d.reward,
       photos: d.photos || [], family: !!d.family, emergency_radius: d.emergency_on ? +d.emergency_radius : null
     };
@@ -893,7 +934,10 @@ route('/a/:id', async (view, p) => {
     if (a.person_age != null) kv.push([t('wiz.age', 'Возраст', 'Age'), a.person_age]);
     if (a.last_seen && !structuredPlace && !a.address) kv.push([t('wiz.last_seen', 'Последнее местонахождение', 'Last known location'), a.last_seen]);
   }
-  if (a.species) kv.push([a.category === 'animals' ? t('wiz.species', 'Вид животного', 'Species') : t('wiz.thing_type', 'Тип вещи', 'Item type'), a.species]);
+  if (a.category === 'things' && THING_FIELDS[dt.thing_type]) {
+    kv.push([t('wiz.thing_type', 'Тип вещи', 'Item type'), thingName(dt.thing_type)]);
+    for (const k of THING_FIELDS[dt.thing_type]) if (dt[k]) kv.push([thingLabel(k, dt.thing_type), dt[k]]);
+  } else if (a.species) kv.push([a.category === 'animals' ? t('wiz.species', 'Вид животного', 'Species') : t('wiz.thing_type', 'Тип вещи', 'Item type'), a.species]);
   if (a.category === 'animals') {
     if (dt.breed) kv.push([t('wiz.breed', 'Порода', 'Breed'), dt.breed]);
     if (dt.color) kv.push([t('wiz.color', 'Окрас', 'Colour'), dt.color]);
@@ -946,8 +990,8 @@ route('/a/:id', async (view, p) => {
         ${a.reward ? h`<div class="reward">${icon('gift', 'ic-lg')}<div class="grow"><div class="xs muted" style="font-weight:700">${t('a.reward', 'Вознаграждение', 'Reward')}</div><b>${money(a.reward)}</b></div><span class="xs muted" style="max-width:130px;text-align:right">${t('a.reward_t', 'Платит автор заявки', 'Paid by the author')}</span></div>` : ''}
       </div>
       <div class="stack-lg d-rest">
-        ${a.features ? h`<div><h3 style="font-size:15px;margin-bottom:8px">${a.category !== 'things' ? t('wiz.marks', 'Особые приметы', 'Distinguishing marks') : t('wiz.features', 'Приметы', 'Distinctive features')}</h3><p>${a.features}</p></div>` : ''}
-        ${a.description ? h`<div><h3 style="font-size:15px;margin-bottom:8px">${a.category === 'animals' ? t('wiz.comments', 'Комментарии', 'Comments') : t('a.desc', 'Описание', 'Description')}</h3><p style="white-space:pre-wrap">${a.description}</p></div>` : ''}
+        ${a.features ? h`<div><h3 style="font-size:15px;margin-bottom:8px">${a.category !== 'things' ? t('wiz.marks', 'Особые приметы', 'Distinguishing marks') : t('wiz.thing_desc', 'Описание', 'Description')}</h3><p>${a.features}</p></div>` : ''}
+        ${a.description ? h`<div><h3 style="font-size:15px;margin-bottom:8px">${a.category === 'animals' || a.category === 'things' ? t('wiz.comments', 'Комментарии', 'Comments') : t('a.desc', 'Описание', 'Description')}</h3><p style="white-space:pre-wrap">${a.description}</p></div>` : ''}
         <div class="card pad"><dl class="kv">${kv.map(([k, v]) => h`<div><dt>${k}</dt><dd>${v}</dd></div>`)}</dl></div>
         ${looks.length ? h`<div><h3 style="font-size:15px;margin-bottom:8px">${t('wiz.looks', 'Приметы', 'Appearance')}</h3><div class="card pad"><dl class="kv" id="looks">${looks.map(([k, v]) => h`<div><dt>${k}</dt><dd>${v}</dd></div>`)}</dl></div></div>` : ''}
         ${a.lat != null ? h`<div class="mini-map" id="mm"></div>` : ''}

@@ -131,17 +131,24 @@ function speciesOf(a) { const txt = [a.species, a.title].join(' ').toLowerCase()
 const detailsOf = (a) => { try { return JSON.parse(a.details || '{}'); } catch (e) { return {}; } };
 // Одежда, обувь и ориентир, а у животных — порода, окрас, одежда и парк — тоже приметы для сравнения
 const detailWords = (d) => [d.clothes_top, d.clothes_bottom, d.headwear, d.shoes, d.landmark, d.breed, d.color, d.clothes, d.park].filter(Boolean).join(' ');
+// Уточнения вещи (размер, цвет, марка, госномер…) — приметы; тип вещи сравнивается отдельно и приметой не считается
+const THING_KEYS = ['size', 'color', 'brand', 'model', 'material', 'metal', 'stones', 'engraving', 'plate', 'landmark'];
+const matchText = (a, d) => (a.category === 'things' && d.thing_type
+  ? [a.title, a.features, a.description, ...THING_KEYS.map((k) => d[k])]
+  : [a.title, a.features, a.description, a.species, detailWords(d)]).filter(Boolean).join(' ');
 function matchScore(a, b) {
   if (a.category !== b.category || a.kind === b.kind) return 0;
   if (a.category === 'animals') { const sa = speciesOf(a), sb = speciesOf(b); if (sa && sb && sa !== sb) return 0; }
   const da = detailsOf(a), db = detailsOf(b);
+  // одежда ≠ авто: разные типы вещей не совпадают («Другое» сравнивается с любым типом)
+  if (a.category === 'things' && da.thing_type && db.thing_type && da.thing_type !== db.thing_type && da.thing_type !== 'other' && db.thing_type !== 'other') return 0;
   if (a.category === 'people') {
     // разный пол или заметно разный возраст (у найденного возраст примерный) — не тот человек
     if (da.sex && db.sex && da.sex !== db.sex) return 0;
     if (a.person_age != null && b.person_age != null && Math.abs(a.person_age - b.person_age) > 15) return 0;
   }
-  const wa = words([a.title, a.features, a.description, a.species, detailWords(da)].join(' '));
-  const wb = words([b.title, b.features, b.description, b.species, detailWords(db)].join(' '));
+  const wa = words(matchText(a, da));
+  const wb = words(matchText(b, db));
   const generic = /^(соба|пес|кот|кош|птиц|живот|вещ|предм|человек|мужчин|женщин|dog|cat)/; // слова-виды не считаются приметой
   let hit = 0; for (const w of wa) if (wb.has(w) && !generic.test(w)) hit++;
   if (!hit) return 0; // без общих примет совпадением не считаем — только место и дата недостаточно

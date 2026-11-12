@@ -35,7 +35,6 @@ function seedBase() {
 
     const D = (type, list) => list.forEach(([r, e], i) => run('INSERT INTO dicts (type, value_ru, value_en, sort) VALUES (?,?,?,?)', type, r, e, i));
     D('species', [['Собака', 'Dog'], ['Кошка', 'Cat'], ['Птица', 'Bird'], ['Грызун', 'Rodent'], ['Другое', 'Other']]);
-    D('thing_type', [['Документы', 'Documents'], ['Ключи', 'Keys'], ['Телефон', 'Phone'], ['Сумка / рюкзак', 'Bag / backpack'], ['Кошелёк', 'Wallet'], ['Украшения', 'Jewellery'], ['Техника', 'Electronics'], ['Другое', 'Other']]);
     D('complaint_reason', [['Мошенничество', 'Fraud'], ['Ложная информация', 'False information'], ['Оскорбления', 'Abuse'], ['Спам', 'Spam'], ['Нарушение приватности', 'Privacy violation'], ['Другое', 'Other']]);
     D('partner_type', [['Служба такси', 'Taxi service'], ['Служба доставки', 'Delivery service'], ['Приют для животных', 'Animal shelter'], ['Поисковый отряд', 'Search team'], ['Ветклиника', 'Vet clinic'], ['Другое', 'Other']]);
   });
