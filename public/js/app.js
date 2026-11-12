@@ -1,6 +1,6 @@
 // Точка входа: оболочка (шапка, нижнее меню, подвал), язык, тема, realtime, PWA.
 import { state, t, tr, h, raw, mount, $, $$, icon, GET, refreshMe, handleRoute, setChrome, currentPath, connectStream, onEvent, toast, go, observeReveal } from './core.js';
-import { setLang, setTheme } from './views.js';
+import { setLang } from './views.js';
 import './admin.js';
 
 const chrome = () => {
@@ -20,7 +20,6 @@ const chrome = () => {
     <div class="top-act">
       <button type="button" class="btn btn-sm btn-blue top-new" id="topNew">${icon('plus', 'ic-sm')}${tr('Разместить заявку', 'New report')}</button>
       <button class="icon-btn lang-btn" id="langBtn" aria-label="${tr('Язык: русский. Переключить на английский (English)', 'Language: English. Switch to Russian (Русский)')}" title="${tr('Switch to English', 'Переключить на русский')}">${icon('globe', 'ic-sm')}<span>${state.lang === 'en' ? 'EN' : 'RU'}</span></button>
-      <button class="icon-btn" id="themeBtn" aria-label="${tr('Тема', 'Theme')}">${icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon')}</button>
       ${u ? h`<a class="icon-btn desk-only" href="#/chats" aria-label="${tr('Сообщения', 'Messages')}">${icon('chat')}${u.unreadChats ? h`<span class="dotbadge">${u.unreadChats}</span>` : ''}</a>
         <a class="icon-btn" href="#/notifications" aria-label="${tr('Уведомления', 'Notifications')}">${icon('bell')}${u.unread ? h`<span class="dotbadge">${u.unread > 99 ? '99+' : u.unread}</span>` : ''}</a>
         <a class="icon-btn desk-only" href="#/me" aria-label="${tr('Кабинет', 'Account')}">${icon('user')}</a>`
@@ -36,7 +35,6 @@ const chrome = () => {
     ${u ? tb(currentPath().startsWith('/admin') ? '/admin' : '/me', '#/me', 'user', t('tab.me', 'Кабинет', 'Account')) : tb('/login', '#/login', 'user', t('nav.login', 'Войти', 'Sign in'))}`);
   // шапка перерисовывается целиком — возвращаем фокус на нажатую кнопку, чтобы не терять место при работе с клавиатуры
   $('#langBtn').onclick = async () => { await setLang(state.lang === 'en' ? 'ru' : 'en', true); await handleRoute(); $('#langBtn')?.focus(); };
-  $('#themeBtn').onclick = () => { setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); chrome(); $('#themeBtn')?.focus(); };
   $('#skipBtn').onclick = () => { const v = $('#view'); v.tabIndex = -1; v.focus(); };
   $('#fab').onclick = newSheet;
   $('#topNew').onclick = newSheet;
@@ -73,8 +71,7 @@ function detectLang() {
 }
 
 async function boot() {
-  setTheme(state.theme);
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (state.theme === 'auto') { setTheme('auto'); chrome(); } });
+  try { localStorage.removeItem('mba.theme'); } catch (e) { /* хранилище недоступно */ } // тёмной темы больше нет
   // глобальные обработчики
   document.addEventListener('submit', (e) => e.preventDefault(), true);
   document.addEventListener('click', (e) => { const b = e.target.closest('[data-back]'); if (b) { e.preventDefault(); if (history.length > 1) history.back(); else go('#/'); } });

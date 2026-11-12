@@ -167,13 +167,15 @@ describe('Мобильная вёрстка (360 px) — публичные ст
     assert.ok(await page.locator('.story.has-photo .story-bg').count() >= 2, 'stories with photos');
     await page.context().close();
   });
-  it('тёмная тема включается из шапки (на телефоне — в настройках, на компьютере — в шапке)', async () => {
-    const page = await newPage({ viewport: { width: 1280, height: 800 } });
+  it('только светлая тема: нет переключателя, тёмная настройка устройства и старый выбор не действуют', async () => {
+    const page = await newPage({ viewport: { width: 1280, height: 800 }, colorScheme: 'dark' });
+    await page.context().addInitScript(() => { try { localStorage.setItem('mba.theme', 'dark'); } catch (e) { /* about:blank */ } });
     await open(page, '#/');
-    const before = await page.evaluate(() => document.documentElement.dataset.theme);
-    await page.locator('#themeBtn').click();
-    const after = await page.evaluate(() => document.documentElement.dataset.theme);
-    assert.notEqual(before, after);
+    assert.equal(await page.locator('#themeBtn').count(), 0);
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'light');
+    const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    const [r, g, b] = bg.match(/\d+/g).map(Number);
+    assert.ok(r > 200 && g > 200 && b > 200, 'светлый фон, а не тёмный: ' + bg);
     await page.context().close();
   });
 });
@@ -405,21 +407,17 @@ describe('Карта', () => {
 });
 
 describe('Доступность (axe-core: serious/critical)', { skip: !fs.existsSync(AXE_SRC) && 'axe-core не найден' }, () => {
-  for (const theme of ['light', 'dark']) {
-    it(`публичные страницы, тема ${theme}`, async () => {
-      const page = await newPage({ bypassCSP: true }); // CSP запрещает inline-скрипты, а axe внедряется именно так
-      await page.context().addInitScript((th) => { try { localStorage.setItem('mba.theme', th); } catch (e) { /* about:blank */ } }, theme);
-      for (const hash of ['#/', '#/map', '#/a/3', '#/a/1', '#/registry', '#/tariffs', '#/community', '#/login', '#/legal', '#/legal/terms']) {
-        await open(page, hash);
-        await axeCheck(page, hash + ' ' + theme);
-      }
-      assert.deepEqual(page.errors, []);
-      await page.context().close();
-    });
-  }
-  it('личный кабинет и чат (Анна), тёмная тема, английский', async () => {
+  it('публичные страницы', async () => {
+    const page = await newPage({ bypassCSP: true }); // CSP запрещает inline-скрипты, а axe внедряется именно так
+    for (const hash of ['#/', '#/map', '#/a/3', '#/a/1', '#/registry', '#/tariffs', '#/community', '#/login', '#/legal', '#/legal/terms']) {
+      await open(page, hash);
+      await axeCheck(page, hash);
+    }
+    assert.deepEqual(page.errors, []);
+    await page.context().close();
+  });
+  it('личный кабинет и чат (Анна), английский', async () => {
     const page = await newPage({ locale: 'en-US', bypassCSP: true });
-    await page.context().addInitScript(() => { try { localStorage.setItem('mba.theme', 'dark'); } catch (e) { /* about:blank */ } });
     await login(page, 'anna@example.com');
     for (const hash of ['#/me', '#/me/apps', '#/me/profile', '#/me/zone', '#/me/registry', '#/me/settings', '#/notifications', '#/chats', '#/chat/1', '#/support']) {
       await open(page, hash);

@@ -1170,7 +1170,7 @@ async function meProfile(el, u) {
         </section>
         <nav class="list reveal prof-links">
           <a href="#/me/zone">${icon('zone')}<span class="grow">${t('me.zone', 'Зона оповещений', 'Alert zone')}<small>${u.zone.enabled ? `${tr('включена', 'on')} · ${u.zone.radius} ${tr('км', 'km')}` : tr('выключена', 'off')}</small></span>${icon('chevR')}</a>
-          <a href="#/me/settings">${icon('settings')}<span class="grow">${t('me.settings', 'Настройки', 'Settings')}<small>${tr('Уведомления, язык, тема', 'Notifications, language, theme')}</small></span>${icon('chevR')}</a>
+          <a href="#/me/settings">${icon('settings')}<span class="grow">${t('me.settings', 'Настройки', 'Settings')}<small>${tr('Уведомления и язык', 'Notifications and language')}</small></span>${icon('chevR')}</a>
           <a href="#/me/family">${icon('users')}<span class="grow">${t('me.family', 'Семья', 'Family')}<small>${u.family_id ? tr('подключена', 'connected') : tr('не подключена', 'not set up')}</small></span>${icon('chevR')}</a>
           <a href="#/legal/privacy">${icon('file')}<span class="grow">${tr('Как мы храним данные', 'How we store data')}<small>${tr('Политика конфиденциальности', 'Privacy policy')}</small></span>${icon('chevR')}</a>
           <a href="/api/me/export" download id="exp">${icon('download')}<span class="grow">${tr('Скачать мои данные', 'Download my data')}<small>${tr('Профиль, заявки, платежи · JSON', 'Profile, reports, payments · JSON')}</small></span></a>
@@ -1400,9 +1400,8 @@ async function meSettings(el, u) {
   const ps = await pushStatus();
   mount(el, h`<div class="stack-lg" style="max-width:720px">
     <div class="card pad stack">
-      <h3>${t('set.lang', 'Язык и оформление', 'Language & appearance')}</h3>
+      <h3>${t('set.lang', 'Язык', 'Language')}</h3>
       <div class="seg" id="lang"><button class="${state.lang === 'ru' ? 'on' : ''}" data-v="ru">Русский</button><button class="${state.lang === 'en' ? 'on' : ''}" data-v="en">English</button></div>
-      <div class="seg" id="theme">${[['auto', 'settings', tr('Авто', 'Auto')], ['light', 'sun', tr('Светлая', 'Light')], ['dark', 'moon', tr('Тёмная', 'Dark')]].map(([v, ic, l]) => h`<button class="${state.theme === v ? 'on' : ''}" data-v="${v}">${icon(ic, 'ic-sm')}${l}</button>`)}</div>
     </div>
     <div class="card pad stack">
       <h3>${t('set.notif', 'Уведомления', 'Notifications')}</h3>
@@ -1420,7 +1419,6 @@ async function meSettings(el, u) {
     <div class="row"><button class="btn btn-ghost grow" id="logout">${icon('logout')}${t('set.logout', 'Выйти', 'Sign out')}</button><button class="btn btn-danger" id="delAcc">${icon('trash')}${t('set.delete', 'Удалить аккаунт', 'Delete account')}</button></div>
   </div>`);
   $$('#lang button', el).forEach((b) => b.onclick = async () => { await setLang(b.dataset.v, true); meSettings(el, state.user); });
-  $$('#theme button', el).forEach((b) => b.onclick = () => { setTheme(b.dataset.v); $$('#theme button', el).forEach((x) => x.classList.toggle('on', x === b)); });
   $('#pushOn', el).onchange = async (e) => {
     if (e.target.checked) { try { await enablePush(); toast(tr('Push-уведомления включены', 'Push enabled')); meSettings(el, u); } catch (er) { e.target.checked = false; toastErr(er); } }
     else { const reg = await navigator.serviceWorker.getRegistration(); const s = reg && await reg.pushManager.getSubscription(); if (s) await s.unsubscribe(); toast(tr('Push выключены на этом устройстве', 'Push disabled on this device')); }
@@ -1620,18 +1618,27 @@ route('/support/:id', (view, p) => ticketView(view, p.id, false), { auth: true }
 route('/login', async (view) => {
   if (state.user) return go(query().get('next') || '#/me');
   const next = query().get('next') || '#/me';
+  const demoEmail = state.config?.demoEmail;
+  const demoRoles = {
+    'anna@example.com': tr('Пользователь', 'User'),
+    'igor@example.com': tr('Волонтёр', 'Volunteer'),
+    'lizaalert@example.com': tr('Партнёр', 'Partner'),
+  };
   let target = '', info = null;
   const shell = (inner) => mount(view, h`<div class="wrap" style="max-width:460px;padding-top:30px"><div class="center" style="margin-bottom:24px"><img src="/assets/logo-256.png" alt="" class="logo-fx" style="width:120px;margin:0 auto 14px"></div><div class="card pad view">${inner}</div>
-    <p class="xs muted center" style="margin-top:16px">${t('login.foot', 'Регистрация доступна с 18 лет.', 'Registration is available from age 18.')}</p></div>`);
+    <p class="xs muted center" style="margin-top:16px">${demoEmail ? tr('Используйте только вымышленные данные.', 'Please use fictional data only.') : t('login.foot', 'Регистрация доступна с 18 лет.', 'Registration is available from age 18.')}</p></div>`);
   const step1 = () => {
-    shell(h`<h2>${t('login.title', 'Вход и регистрация', 'Sign in or sign up')}</h2><p class="muted" style="margin-top:8px">${t('login.sub', 'Введите e-mail или номер телефона — пришлём одноразовый код.', 'Enter your e-mail or phone — we will send a one-time code.')}</p>
-      <form class="stack" style="margin-top:20px" id="f1"><label class="field"><span>${t('f.contact', 'Телефон или e-mail', 'Phone or e-mail')}</span><input name="target" required autocomplete="username" inputmode="email" enterkeyhint="next" autocapitalize="off" spellcheck="false" placeholder="+7 900 000-00-00" value="${target}"></label>
+    const field = demoEmail
+      ? h`<label class="field"><span>${tr('Тестовый профиль', 'Demo profile')}</span><select name="target"><option value="${demoEmail}">${tr('Мой профиль в этом браузере', 'My profile in this browser')}</option>${state.config.demoLogins.map((email) => h`<option value="${email}" ${target === email ? 'selected' : ''}>${demoRoles[email]} · ${email}</option>`)}</select></label>`
+      : h`<label class="field"><span>${t('f.contact', 'Телефон или e-mail', 'Phone or e-mail')}</span><input name="target" required autocomplete="username" inputmode="email" enterkeyhint="next" autocapitalize="off" spellcheck="false" placeholder="+7 900 000-00-00" value="${target}"></label>`;
+    shell(h`<h2>${demoEmail ? tr('Вход в демоверсию', 'Demo sign-in') : t('login.title', 'Вход и регистрация', 'Sign in or sign up')}</h2><p class="muted" style="margin-top:8px">${demoEmail ? tr('Создайте свой тестовый профиль или выберите готовый. Готовыми профилями пользуются все посетители.', 'Create your own test profile or choose a sample. Sample profiles are shared by all visitors.') : t('login.sub', 'Введите e-mail или номер телефона — пришлём одноразовый код.', 'Enter your e-mail or phone — we will send a one-time code.')}</p>
+      <form class="stack" style="margin-top:20px" id="f1">${field}
       <button class="btn btn-red btn-block btn-lg">${t('login.get_code', 'Получить код', 'Get code')}</button></form>`);
-    $('#f1', view).onsubmit = (e) => { e.preventDefault(); busy(e.submitter, async () => { try { info = await POST('/auth/request', { target: e.target.target.value }); target = info.target; step2(); } catch (er) { toastErr(er); } }); };
+    $('#f1', view).onsubmit = (e) => { e.preventDefault(); busy(e.submitter, async () => { try { info = await POST('/auth/request', { target: e.target.elements.namedItem('target').value }); target = info.target; step2(); } catch (er) { toastErr(er); } }); };
   };
   const step2 = () => {
-    shell(h`<button class="back" id="bk">${icon('arrowL', 'ic-sm')}${target}</button><h2>${t('login.code', 'Введите код', 'Enter the code')}</h2>
-      <p class="muted" style="margin-top:8px">${info.type === 'email' ? t('login.code_email', 'Мы отправили 6-значный код на почту.', 'We sent a 6-digit code to your e-mail.') : t('login.code_sms', 'Мы отправили 6-значный код по SMS.', 'We sent a 6-digit code by SMS.')}</p>
+    shell(h`<button class="back" id="bk">${icon('arrowL', 'ic-sm')}${demoEmail && target === demoEmail ? tr('Мой тестовый профиль', 'My test profile') : target}</button><h2>${t('login.code', 'Введите код', 'Enter the code')}</h2>
+      <p class="muted" style="margin-top:8px">${demoEmail ? tr('Введите шесть цифр, показанных ниже.', 'Enter the six digits shown below.') : info.type === 'email' ? t('login.code_email', 'Мы отправили 6-значный код на почту.', 'We sent a 6-digit code to your e-mail.') : t('login.code_sms', 'Мы отправили 6-значный код по SMS.', 'We sent a 6-digit code by SMS.')}</p>
       ${info.devCode ? h`<div class="note note-blue small" style="margin-top:14px">${icon('spark')}<div>${t('login.dev', 'Тестовый режим (SMS/почта не подключены): код', 'Test mode (SMS/e-mail not connected): code')} <b style="font-family:var(--display);letter-spacing:.1em">${info.devCode}</b></div></div>` : ''}
       <form id="f2" style="margin-top:20px" class="stack"><div class="otp">${[0, 1, 2, 3, 4, 5].map((i) => h`<input inputmode="numeric" pattern="[0-9]*" aria-label="${tr('Цифра', 'Digit')} ${i + 1}" autocomplete="${i ? 'off' : 'one-time-code'}">`)}</div>
       ${info.isNew ? h`<div class="divider"></div><p style="font-weight:700">${t('login.new', 'Вы здесь впервые — заполните профиль', 'You are new here — complete your profile')}</p>
@@ -1780,11 +1787,5 @@ export async function setLang(lang, persist) {
   document.documentElement.lang = state.lang;
   try { state.overrides = await GET('/i18n/' + state.lang); } catch (e) { state.overrides = {}; }
   if (persist && state.user) PATCH('/me', { lang: state.lang }).catch(() => {});
-}
-export function setTheme(v) {
-  state.theme = v; safeSet('mba.theme', v);
-  const dark = v === 'dark' || (v === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-  document.querySelector('meta[name=theme-color]').content = dark ? '#1a0c12' : '#ffffff';
 }
 export { currentPath };

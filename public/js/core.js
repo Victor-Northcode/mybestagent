@@ -1,7 +1,7 @@
 // Ядро клиента: состояние, i18n, безопасный шаблонизатор, API, роутер, окна, карты, фото, realtime.
 export const state = {
   user: null, config: null, overrides: {},
-  lang: safeGet('mba.lang') || '', theme: safeGet('mba.theme') || 'auto', installPrompt: null
+  lang: safeGet('mba.lang') || '', installPrompt: null
 };
 function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 export function safeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* приватный режим */ } }
