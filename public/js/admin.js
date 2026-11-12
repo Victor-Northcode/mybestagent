@@ -39,13 +39,13 @@ async function shell(view, sec, title, fn) {
   const sum = secs.reduce((s, x) => s + n(x[3]), 0);
   const link = ([k, ic, l, c]) => h`<a href="#/admin${k ? '/' + k : ''}" class="${sec === k ? 'on' : ''}" ${sec === k ? raw('aria-current="page"') : ''}>${icon(ic)}<span class="grow">${l}</span>${n(c) ? h`<span class="cnt">${n(c)}</span>` : ''}</a>`;
   const panel = tr('Админ-панель', 'Admin panel');
-  mount(view, h`<div class="wrap"><div class="admin">
-    <aside class="me-nav admin-nav"><nav aria-label="${panel}">${secs.map(link)}</nav></aside>
+  mount(view, h`<div class="wrap staff-workspace"><div class="admin">
+    <aside class="me-nav admin-nav"><div class="account-nav-title">${panel}</div><nav aria-label="${panel}">${secs.map(link)}</nav></aside>
     <div style="min-width:0">
       <button type="button" class="me-pick" id="admPick" aria-haspopup="dialog" aria-label="${panel}: ${cur[2]}. ${tr('Все разделы', 'All sections')}${sum ? ` (${tr('ждут внимания', 'need attention')}: ${sum})` : ''}">
         <span class="me-pick-ic">${icon(cur[1])}</span><span class="grow"><small>${panel}</small><b>${cur[2]}</b></span>
         <span class="me-pick-all">${tr('Разделы', 'Sections')}${sum ? h`<span class="cnt">${sum}</span>` : icon('chevR', 'ic-sm')}</span></button>
-      <div class="row between" style="margin-bottom:18px;flex-wrap:wrap"><h1 style="font-size:clamp(24px,3.5vw,34px)">${title}</h1><div id="hact" class="row"></div></div><div id="body"></div></div>
+      <div class="staff-heading"><h1>${title}</h1><div id="hact" class="row"></div></div><div id="body"></div></div>
   </div></div>`);
   $('#admPick', view).onclick = () => {
     const s = sheet(h`${sheetHead(panel)}<nav class="me-sheet admin-sheet" aria-label="${panel}">${secs.map(link)}</nav>`);
@@ -92,11 +92,11 @@ sec('', () => tr('Статистика', 'Dashboard'), async (el, act) => {
       .map(([l, v, c], i) => h`<div class="kpi ${c} rise" style="--i:${i}"><span>${l}</span><b>${v}</b></div>`)}</div>
     <div class="grid-2" style="gap:14px">
       <div class="card pad"><h3 style="font-size:15px">${tr('Новые заявки за 30 дней', 'New reports, 30 days')}</h3><div style="margin-top:12px">${barChart(s.days, 'var(--ink)', tr('Новые заявки', 'New reports'))}</div></div>
-      <div class="card pad"><h3 style="font-size:15px">${tr('Найдено за 30 дней', 'Found, 30 days')}</h3><div style="margin-top:12px">${barChart(s.foundDays, 'var(--blue)', tr('Найдено', 'Found'))}</div></div>
+      <div class="card pad"><h3 style="font-size:15px">${tr('Найдено за 30 дней', 'Found, 30 days')}</h3><div style="margin-top:12px">${barChart(s.foundDays, 'var(--green)', tr('Найдено', 'Found'))}</div></div>
     </div>
     <div class="grid-2" style="gap:14px;align-items:start">
       <div class="card pad"><h3 style="font-size:15px;margin-bottom:12px">${tr('По категориям', 'By category')}</h3>
-        ${['people', 'animals', 'things'].map((c) => { const v = cat[c] || { lost: 0, found: 0, done: 0 }; return h`<div class="hbar"><span>${catName(c)}</span><i style="width:${((v.lost + v.found) / cmax) * 100}%"></i><span class="num">${v.lost + v.found}</span></div><div class="xs muted" style="margin:-2px 0 8px 120px">${kindName('lost')}: ${v.lost} · ${kindName('found')}: ${v.found} · ${tr('закрыто как найдено', 'resolved')}: ${v.done}</div>`; })}
+        ${['people', 'animals', 'things'].map((c) => { const v = cat[c] || { lost: 0, found: 0, done: 0 }; return h`<div class="hbar staff-category"><span><img src="/assets/brand/${c === 'animals' ? 'pets' : c}.svg" alt="">${catName(c)}</span><i style="width:${((v.lost + v.found) / cmax) * 100}%"></i><span class="num">${v.lost + v.found}</span></div><div class="xs muted" style="margin:-2px 0 8px 120px">${kindName('lost')}: ${v.lost} · ${kindName('found')}: ${v.found} · ${tr('закрыто как найдено', 'resolved')}: ${v.done}</div>`; })}
       </div>
       <div class="card pad"><h3 style="font-size:15px;margin-bottom:12px">${tr('По регионам', 'By region')}</h3>
         <div class="table-wrap" tabindex="0" style="border:0"><table class="t"><thead><tr><th>${tr('Город', 'City')}</th><th class="num">${tr('Всего', 'Total')}</th><th class="num">${tr('Активно', 'Active')}</th><th class="num">${tr('Найдено', 'Found')}</th></tr></thead>

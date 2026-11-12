@@ -16,6 +16,8 @@ if (seed()) for (const a of all("SELECT * FROM applications WHERE status = 'publ
 
 const PORT = Number(process.env.PORT || 3000);
 const DEV = process.env.NODE_ENV !== 'production'; // тестовый режим: код подтверждения показывается на экране
+const PUBLIC_DEMO = process.env.PUBLIC_DEMO === '1';
+const demoLogins = ['anna@example.com', 'igor@example.com', 'lizaalert@example.com'];
 // Показывать код входа на экране можно только при локальном запуске (или явно DEV_OTP=1 на тестовом стенде):
 // забытый NODE_ENV на публичном сервере не должен открывать вход в любой аккаунт.
 const showCode = (req) => DEV && (process.env.DEV_OTP === '1' || /^(127\.|::1$|::ffff:127\.)/.test(req.ip || ''));
@@ -69,6 +71,15 @@ function parseCookies(req) {
   (req.headers.cookie || '').split(';').forEach((p) => { const i = p.indexOf('='); if (i > 0) out[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim()); });
   return out;
 }
+function demoBrowser(req, res) {
+  let id = parseCookies(req).mba_demo || '';
+  if (!/^[a-f0-9]{48}$/.test(id)) {
+    id = crypto.randomBytes(24).toString('hex');
+    res.cookie('mba_demo', id, { httpOnly: true, secure: req.secure, sameSite: 'lax', maxAge: 90 * 864e5, path: '/' });
+  }
+  const hash = crypto.createHash('sha256').update(id).digest('hex').slice(0, 40);
+  return { email: 'guest-' + hash + '@mybest.invalid', hash };
+}
 function audit(req, action, target = '', meta = '') {
   run('INSERT INTO audit (user_id, action, target, meta, ip) VALUES (?,?,?,?,?)', N(req.user && req.user.id), action, String(target), typeof meta === 'string' ? meta : JSON.stringify(meta), req.ip || '');
 }
@@ -87,7 +98,7 @@ app.use('/api', (req, res, next) => {
   const sid = parseCookies(req).mba_sid;
   if (sid) {
     const u = get('SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?', hashToken(sid));
-    if (u && !u.blocked) req.user = u;
+    if (u && !u.blocked && (!PUBLIC_DEMO || ['user', 'volunteer', 'partner'].includes(u.role))) req.user = u;
   }
   next();
 });
@@ -110,6 +121,17 @@ function ageFrom(birth) {
   const n = new Date(); let a = n.getFullYear() - b.getFullYear();
   if (n.getMonth() < b.getMonth() || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--;
   return a;
+}
+function loginTarget(req, res) {
+  const t = normTarget(req.body.target);
+  if (!PUBLIC_DEMO) return { ...t, otpKey: t.value };
+  const browser = demoBrowser(req, res);
+  const u = t.type === 'email' && get('SELECT role, blocked FROM users WHERE email = ?', t.value);
+  if (t.type !== 'email' || (t.value !== browser.email && !(demoLogins.includes(t.value) && u)) ||
+      (u && (u.blocked || !['user', 'volunteer', 'partner'].includes(u.role)))) {
+    fail(403, 'demo_account', 'Для входа выберите один из тестовых профилей');
+  }
+  return { ...t, otpKey: t.value + ':' + browser.hash };
 }
 function meDto(u) {
   const lvl = S.levelOf(u.points);
@@ -141,25 +163,25 @@ async function deliverCode(t, subject, text, code) {
   }
 }
 app.post('/api/auth/request', h(async (req, res) => {
-  const t = normTarget(req.body.target);
+  const t = loginTarget(req, res);
   otpChannelReady(t);
-  const last = get('SELECT created_at FROM otp WHERE target = ? ORDER BY id DESC LIMIT 1', t.value);
+  const last = get('SELECT created_at FROM otp WHERE target = ? ORDER BY id DESC LIMIT 1', t.otpKey);
   if (last && Date.now() - last.created_at < 60e3) fail(429, 'otp_wait', 'Повторно код можно запросить через минуту');
   rateLimit('otpip:' + req.ip, 20, 3600e3);
-  rateLimit('otp:' + t.value, 5, 3600e3);
+  rateLimit('otp:' + t.otpKey, 5, 3600e3);
   const code = String(crypto.randomInt(100000, 1000000));
-  run('INSERT INTO otp (target, code, expires_at, created_at) VALUES (?,?,?,?)', t.value, hashCode(t.value, code), Date.now() + 10 * 60e3, Date.now());
-  await deliverCode(t, 'Код входа', `Код входа в «Мой лучший агент»: ${code}. Никому не сообщайте его.`, code);
+  run('INSERT INTO otp (target, code, expires_at, created_at) VALUES (?,?,?,?)', t.otpKey, hashCode(t.otpKey, code), Date.now() + 10 * 60e3, Date.now());
+  if (!PUBLIC_DEMO) await deliverCode(t, 'Код входа', `Код входа в «Мой лучший агент»: ${code}. Никому не сообщайте его.`, code);
   const exists = !!get(`SELECT 1 FROM users WHERE ${t.type} = ?`, t.value);
   res.json({ ok: true, type: t.type, target: t.value, isNew: !exists, devCode: showCode(req) ? code : undefined });
 }));
 
 app.post('/api/auth/verify', h((req, res) => {
-  const t = normTarget(req.body.target);
-  const o = get('SELECT * FROM otp WHERE target = ? ORDER BY id DESC LIMIT 1', t.value);
+  const t = loginTarget(req, res);
+  const o = get('SELECT * FROM otp WHERE target = ? ORDER BY id DESC LIMIT 1', t.otpKey);
   if (!o || o.expires_at < Date.now()) fail(400, 'otp_expired', 'Код устарел, запросите новый');
   if (o.attempts >= 5) fail(400, 'otp_attempts', 'Превышено число попыток, запросите новый код');
-  if (!sameHash(hashCode(t.value, str(req.body.code, 10).replace(/\D/g, '')), o.code)) { run('UPDATE otp SET attempts = attempts + 1 WHERE id = ?', o.id); rateLimit('otpbad:' + req.ip, 30, 3600e3); fail(400, 'otp_wrong', 'Неверный код'); }
+  if (!sameHash(hashCode(t.otpKey, str(req.body.code, 10).replace(/\D/g, '')), o.code)) { run('UPDATE otp SET attempts = attempts + 1 WHERE id = ?', o.id); rateLimit('otpbad:' + req.ip, 30, 3600e3); fail(400, 'otp_wrong', 'Неверный код'); }
   let u = get(`SELECT * FROM users WHERE ${t.type} = ?`, t.value);
   if (!u) {
     const name = str(req.body.name, 80), birth = str(req.body.birthdate, 10);
@@ -174,7 +196,7 @@ app.post('/api/auth/verify', h((req, res) => {
     req.user = u; audit(req, 'user.register', 'user:' + id);
   }
   if (u.blocked) fail(403, 'blocked', 'Аккаунт заблокирован. Обратитесь в поддержку.');
-  run('DELETE FROM otp WHERE target = ?', t.value);
+  run('DELETE FROM otp WHERE target = ?', t.otpKey);
   const token = crypto.randomBytes(32).toString('hex');
   run('INSERT INTO sessions (token, user_id) VALUES (?,?)', hashToken(token), u.id); // в БД — только хэш
   res.cookie('mba_sid', token, { httpOnly: true, sameSite: 'lax', secure: req.secure, maxAge: 30 * 864e5, path: '/' });
@@ -192,7 +214,9 @@ app.post('/api/auth/logout', h((req, res) => {
 app.get('/api/config', h((req, res) => {
   const dicts = {};
   for (const d of all('SELECT * FROM dicts ORDER BY type, sort, id')) (dicts[d.type] = dicts[d.type] || []).push({ id: d.id, ru: d.value_ru, en: d.value_en });
-  res.json({ vapidPublic: S.vapidPublic, dev: DEV, payments: PAY, levels: S.LEVELS, dicts, map: { provider: 'osm', center: [55.7558, 37.6173], zoom: 11 } });
+  const demo = PUBLIC_DEMO ? { demoEmail: demoBrowser(req, res).email, demoLogins } : {};
+  if (PUBLIC_DEMO) res.set('Cache-Control', 'private, no-store');
+  res.json({ ...demo, vapidPublic: S.vapidPublic, dev: DEV, payments: PAY, levels: S.LEVELS, dicts, map: { provider: 'osm', center: [55.7558, 37.6173], zoom: 11 } });
 }));
 app.get('/api/i18n/:lang', h((req, res) => {
   const out = {}; for (const r of all('SELECT key, value FROM translations WHERE lang = ?', req.params.lang)) out[r.key] = r.value;
@@ -235,6 +259,7 @@ app.patch('/api/me', needAuth, h((req, res) => {
 }));
 
 /* ---------- смена контактов для входа с подтверждением кодом ---------- */
+if (PUBLIC_DEMO) app.use('/api/me/contact', (req, res) => res.status(403).json({ error: 'demo_contact', message: 'Контакты тестового профиля закреплены за ним' }));
 app.post('/api/me/contact/request', needAuth, h(async (req, res) => {
   const t = normTarget(req.body.target), u = req.user;
   otpChannelReady(t);
@@ -292,6 +317,7 @@ app.get('/api/me/export', needAuth, h((req, res) => {
 }));
 
 app.delete('/api/me', needAuth, h((req, res) => {
+  if (PUBLIC_DEMO && demoLogins.includes(req.user.email)) fail(403, 'demo_account', 'Общий тестовый профиль используется другими посетителями');
   audit(req, 'user.delete', 'user:' + req.user.id);
   tx(() => {
     run('DELETE FROM applications WHERE user_id = ?', req.user.id);
@@ -1336,6 +1362,7 @@ const PUB = path.join(__dirname, '..', 'public');
 const SITE = String(process.env.BASE_URL || '').replace(/\/$/, '').replace(/["<>]/g, '');
 const INDEX_HTML = (() => {
   let html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
+  if (PUBLIC_DEMO || DEV) html = html.replace('</head>', '<meta name="robots" content="noindex, nofollow, noarchive">\n</head>');
   if (SITE) html = html.replace('content="/assets/icon-512.png"', `content="${SITE}/assets/icon-512.png"`)
     .replace('<meta property="og:title"', `<link rel="canonical" href="${SITE}/">\n<meta property="og:url" content="${SITE}/">\n<meta property="og:title"`);
   return html;
@@ -1357,7 +1384,7 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
   res.status(500).json({ error: 'server', message: 'Внутренняя ошибка сервера' });
 });
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, process.env.HOST || undefined, () => {
   console.log(`Мой лучший агент: http://localhost:${PORT}  (режим: ${DEV ? 'тестовый' : 'рабочий'})`);
   if (DEV) return;
   const NAMES = { base_url: 'BASE_URL (https-адрес сайта)', admin: 'администратор (ADMIN_EMAIL)', email: 'отправка e-mail (SMTP_URL)', sms: 'отправка SMS (SMSRU_API_ID)', payments: 'приём оплаты ЮKassa (YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY)', legal: 'реквизиты оператора (LEGAL_NAME, LEGAL_INN, LEGAL_OGRN, LEGAL_ADDRESS)', push: 'ключи push (VAPID_PUBLIC, VAPID_PRIVATE)', demo: 'в базе остались демо-пользователи' };

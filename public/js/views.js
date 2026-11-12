@@ -1,3 +1,4 @@
+import { searchMasthead } from './brand.js';
 // Пользовательские экраны платформы.
 import {
   state, t, tr, dict, h, raw, mount, $, $$, icon, CAT, catName, kindName, statusName, statusChip,
@@ -13,8 +14,16 @@ const media = (a, cls = '') => a.photos && a.photos.length
   ? h`<img src="${a.photos[0]}" alt="" loading="lazy">`
   : mediaPh(a.category, cls);
 
+const reportArt = { people: 'people', animals: 'pets', things: 'things' };
+const brandImage = (art, cls = '') => h`<img class="${cls}" src="/assets/brand/${art}.svg" alt="" aria-hidden="true">`;
+const sectionHead = (title, description, art, extra = '') => h`
+  <header class="hp-head">
+    <div class="hp-head-copy"><h1>${title}</h1>${description ? h`<p>${description}</p>` : ''}${extra}</div>
+    <div class="hp-head-art" aria-hidden="true">${brandImage(art)}</div>
+  </header>`;
+
 export function appCard(a, i = 0, extra = {}) {
-  return h`<a class="app-card rise ${a.emergency ? 'em' : ''}" style="--i:${i}" href="#/a/${a.id}">
+  return h`<a class="app-card hp-preview rise ${a.emergency ? 'em' : ''}" style="--i:${i}" href="#/a/${a.id}">
     <div class="media">${media(a)}
       <div class="tags">
         ${a.emergency ? h`<span class="chip chip-em">${icon('siren')}${t('card.sos', 'Экстренно', 'Urgent')}</span>` : ''}
@@ -35,7 +44,7 @@ export function appCard(a, i = 0, extra = {}) {
     </div></a>`;
 }
 export function appRow(a, right = '') {
-  return h`<a class="app-row" href="#/a/${a.id}">
+  return h`<a class="app-row hp-row" href="#/a/${a.id}">
     <div class="thumb">${a.photos && a.photos.length ? h`<img src="${a.photos[0]}" alt="" loading="lazy">` : mediaPh(a.category)}</div>
     <div class="grow"><div class="row-wrap" style="gap:6px;margin-bottom:4px">
       <span class="chip chip-${a.kind}" style="height:22px;font-size:11px">${kindName(a.kind)}</span>
@@ -58,38 +67,23 @@ const avatar = (u, cls = '') => h`<div class="ava ${cls}" style="${u.avatar ? `b
 /* =================== ГЛАВНАЯ =================== */
 route('/', async (view) => {
   mount(view, h`
+  ${searchMasthead()}
+  <div id="homeSearchMap"></div>
   <div id="emStrip"></div>
   <div class="wrap home">
-    <section class="blk hero-blk">
-      <div class="hb-top">
-        <div class="hb-text">
-          <h1 class="rise">${t('home.h1', 'Поиск пропавших людей, животных и вещей', 'Find missing people, pets and belongings')}</h1>
-          <p class="lead rise" style="--i:1">${t('home.lead3', 'Разместите заявку — мы подберём похожие и оповестим людей рядом. Контакты скрыты, связь через анонимный чат.', 'Post a report — we match similar ones and alert people nearby. Contacts stay hidden, you talk in an anonymous chat.')}</p>
-        </div>
-        <div class="hb-cta rise" style="--i:2">
-          <a class="btn btn-blue btn-lg" href="#/new/lost">${icon('plus')}${t('home.lost2', 'Сообщить о пропаже', 'Report a loss')}</a>
-          <a class="btn btn-soft btn-lg" href="#/new/found">${icon('check')}${t('home.found2', 'Я нашёл', 'I found something')}</a>
-        </div>
-      </div>
-      <form class="big-search rise" style="--i:2" id="homeSearch" role="search">
-        <label class="bs-cat"><span class="sr">${tr('Категория', 'Category')}</span><select name="category">
-          <option value="">${tr('Все категории', 'All categories')}</option>
-          <option value="people">${catName('people')}</option><option value="animals">${catName('animals')}</option><option value="things">${catName('things')}</option>
-        </select></label>
-        <label class="bs-in">${icon('search')}<span class="sr">${tr('Поиск по заявкам', 'Search reports')}</span><input name="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="${t('home.search_ph', 'Кличка, приметы, улица или район', 'Name, features, street or area')}"></label>
-        <button class="btn btn-blue">${t('home.search_btn', 'Найти', 'Search')}</button>
-      </form>
+    <section class="blk home-actions-block">
+      <div class="blk-head"><h2>${tr('Подать объявление', 'Post a report')}</h2></div>
       <div class="hero-stats rise" style="--i:3" id="heroStats">
         <div><b data-count="0">0</b><span>${t('home.st_active', 'активных заявок', 'active reports')}</span></div>
         <div><b data-count="0">0</b><span>${t('home.st_found', 'уже найдено', 'already found')}</span></div>
         <div><b data-count="0">0</b><span>${t('home.st_vol', 'волонтёров и партнёров', 'volunteers & partners')}</span></div>
       </div>
       <nav class="ctiles" aria-label="${t('home.svc', 'Что случилось?', 'What happened?')}">
-      ${[['people', 'volunteer.jpg', '#/new/lost?category=people', t('home.svc_p', 'Пропал человек', 'A person is missing'), t('home.svc_pt', 'Проверим и опубликуем', 'We check and publish')],
-        ['animals', 'dog-happy.jpg', '#/new/lost?category=animals', t('home.svc_a', 'Потерялся питомец', 'A pet is lost'), t('home.svc_at', 'Собака, кошка, птица', 'Dog, cat, bird')],
-        ['things', 'backpack.jpg', '#/new/lost?category=things', t('home.svc_t', 'Потерял вещь', 'Lost an item'), t('home.svc_tt', 'Ключи, телефон, документы', 'Keys, phone, documents')],
-        ['found', 'labrador.jpg', '#/new/found', t('home.svc_f', 'Я что-то нашёл', 'I found something'), t('home.svc_ft', 'Поможем вернуть владельцу', 'We help return it')]]
-        .map(([c, img, href, ti, tx], i) => h`<a class="ctile ctile-${c} reveal" style="--i:${i}" href="${href}"><span class="ctile-tx"><b>${ti}</b><span>${tx}</span>${c !== 'found' ? h`<span class="svc-n" data-cat="${c}"></span>` : ''}</span><img src="/assets/img/${img}" alt="" loading="lazy"></a>`)}
+      ${[['people', 'people.svg', '#/new/lost?category=people', t('home.svc_p', 'Пропал человек', 'A person is missing'), t('home.svc_pt', 'Проверим и опубликуем', 'We check and publish')],
+        ['animals', 'pets.svg', '#/new/lost?category=animals', t('home.svc_a', 'Потерялся питомец', 'A pet is lost'), t('home.svc_at', 'Собака, кошка, птица', 'Dog, cat, bird')],
+        ['things', 'things.svg', '#/new/lost?category=things', t('home.svc_t', 'Потерял вещь', 'Lost an item'), t('home.svc_tt', 'Ключи, телефон, документы', 'Keys, phone, documents')],
+        ['found', 'hound.svg', '#/new/found', t('home.svc_f', 'Я что-то нашёл', 'I found something'), t('home.svc_ft', 'Поможем вернуть владельцу', 'We help return it')]]
+        .map(([c, img, href, ti, tx], i) => h`<a class="ctile ctile-${c} reveal" style="--i:${i}" href="${href}"><span class="ctile-tx"><b>${ti}</b><span>${tx}</span>${c !== 'found' ? h`<span class="svc-n" data-cat="${c}"></span>` : ''}</span><img src="/assets/brand/${img}" alt="" loading="lazy"></a>`)}
       </nav>
       <p class="svc-note">${icon('phone', 'ic-sm')}${t('home.svc_police', 'Если пропал человек — сначала позвоните 102 или 112', 'If a person is missing, call 102 or 112 first')}</p>
     </section>
@@ -163,10 +157,15 @@ route('/', async (view) => {
       try { await POST('/leads', Object.assign(f, { kind: leadKind })); e.target.reset(); toast(t('home.inv_ok', 'Спасибо! Заявка отправлена', 'Thank you! Request sent')); } catch (er) { toastErr(er); }
     });
   };
-  $('#homeSearch', view).onsubmit = (e) => { e.preventDefault(); const q = e.target.q.value.trim(), c = e.target.category.value; const ps = new URLSearchParams(); if (q) ps.set('q', q); if (c) ps.set('category', c); go('#/map' + (ps.toString() ? '?' + ps : '')); };
+
   $('#regForm', view).onsubmit = (e) => { e.preventDefault(); go('#/registry?q=' + encodeURIComponent(e.target.q.value.trim())); };
 
+  const mapHost = $('#homeSearchMap', view);
+  const mapReady = renderSearchMap(mapHost, { embedded: true }).catch(() => {
+    if (mapHost.isConnected) mount(mapHost, h`<div class="wrap"><div class="note">${tr('Не удалось загрузить карту.', 'The map could not load.')} <a href="#/map">${tr('Попробовать ещё раз', 'Try again')}</a></div></div>`);
+  });
   const [stats, latest, stories, em] = await Promise.all([GET('/stats/public'), GET('/applications?sort=new&limit=8'), GET('/stories'), GET('/applications?emergency=1&limit=3')]).catch((e) => { toastErr(e); return [{}, { items: [] }, { items: [] }, { items: [] }]; });
+  if (!view.contains(mapHost)) return;
   const hs = $$('#heroStats b', view);
   [stats.active, stats.found, stats.volunteers].forEach((v, i) => { if (hs[i]) hs[i].dataset.count = v || 0; });
   countUp($('#heroStats', view));
@@ -187,6 +186,7 @@ route('/', async (view) => {
     <div class="story-top"><span class="story-chip">${icon(CAT[s.category].icon, 'ic-sm')}${catName(s.category)}</span><span class="story-ok">${icon('check', 'ic-sm')}${statusName('found')}</span></div>
     <div class="story-body"><h3>${state.lang === 'en' ? s.title_en : s.title_ru}</h3><p>${state.lang === 'en' ? s.text_en : s.text_ru}</p>
     ${s.city ? h`<span class="city">${icon('pin', 'ic-sm')}${state.lang === 'en' ? CITY_EN[s.city] || s.city : s.city}</span>` : ''}</div></article>`));
+  await mapReady;
 });
 
 /* =================== КАРТА И ПОИСК =================== */
@@ -204,8 +204,8 @@ const MINUS = raw('<svg class="ic" viewBox="0 0 256 256" aria-hidden="true"><pat
 const SORT_IC = raw('<svg class="ic ic-sm" viewBox="0 0 256 256" aria-hidden="true"><path d="M117.66,170.34a8,8,0,0,1,0,11.32l-32,32a8,8,0,0,1-11.32,0l-32-32a8,8,0,0,1,11.32-11.32L72,188.69V48a8,8,0,0,1,16,0V188.69l18.34-18.35A8,8,0,0,1,117.66,170.34Zm96-96-32-32a8,8,0,0,0-11.32,0l-32,32a8,8,0,0,0,11.32,11.32L168,67.31V208a8,8,0,0,0,16,0V67.31l18.34,18.35a8,8,0,0,0,11.32-11.32Z"/></svg>');
 const cssVar = (n, d) => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || d;
 
-route('/map', async (view) => {
-  const q = query();
+export async function renderSearchMap(view, { embedded = false } = {}) {
+  const q = embedded ? new URLSearchParams() : query();
   const DEF = { q: '', category: '', kind: '', status: 'active', emergency: '', from: '', to: '', radius: '', sort: '' };
   const SORTS = [['', tr('Рекомендуемые', 'Recommended')], ['new', tr('Сначала новые', 'Newest first')], ['old', tr('Сначала старые', 'Oldest first')], ['near', tr('Ближе ко мне', 'Nearest to me')], ['reward', tr('С вознаграждением', 'Highest reward')]];
   const f = { ...DEF, q: q.get('q') || '', category: q.get('category') || q.get('cat') || '', kind: q.get('kind') || '', status: q.get('status') || 'active', emergency: q.get('emergency') ? '1' : '', sort: q.get('sort') || '', center: null };
@@ -216,38 +216,42 @@ route('/map', async (view) => {
   const desk = matchMedia('(min-width: 980px)');
   const CATS = ['people', 'animals', 'things'];
 
-  mount(view, h`<div class="map-page" data-view="map">
+  const categoryArt = { people: 'people', animals: 'pets', things: 'things' };
+  const reportKind = (kind) => kind === 'lost' ? tr('Ищут', 'Missing') : tr('Нашли', 'Found');
+  const badge = (a) => h`<span class="hound-status ${a.status === 'published' ? a.kind : 'closed'}">${a.status === 'published' ? reportKind(a.kind) : statusName(a.status)}</span>`;
+  const kindControls = () => h`<div class="kind-seg" role="group" aria-label="${tr('Тип объявления', 'Report type')}">${['', 'lost', 'found'].map((k) => h`<button type="button" data-k="${k}">${k ? reportKind(k) : tr('Все', 'All')}</button>`)}</div>`;
+
+  mount(view, h`${embedded ? '' : searchMasthead()}<div class="map-page hound-map ${embedded ? 'map-embedded' : ''}" data-view="map">
+    <div class="hound-map-heading"><div><h2>${tr('Объявления на карте', 'Reports on the map')}</h2><span id="mapTotal" class="hound-count" aria-live="polite">…</span></div><a href="#/me/zone">${icon('bell', 'ic-sm')}${tr('Оповещения по району', 'Area alerts')}${icon('arrowUR', 'ic-sm')}</a></div>
     <div class="map-side">
       <div class="map-filters">
         <form class="search-box map-search" id="sform" role="search">${icon('search')}
-          <input name="q" type="search" value="${f.q}" autocomplete="off" placeholder="${t('map.ph', 'Описание, приметы, адрес', 'Description, features, address')}" enterkeyhint="search" aria-label="${tr('Поиск по заявкам', 'Search reports')}">
+          <input name="q" type="search" value="${f.q}" autocomplete="off" placeholder="${tr('Название или примета', 'Title or feature')}" enterkeyhint="search" aria-label="${tr('Поиск по объявлениям', 'Search reports')}">
           <button type="button" class="sclear" id="sclear" aria-label="${tr('Очистить', 'Clear')}" ${f.q ? '' : 'hidden'}>${icon('x')}</button>
           <button type="button" class="fbtn" id="fbtn" aria-label="${tr('Фильтры', 'Filters')}">${icon('filter')}<i class="fcount" id="fcount"></i></button>
         </form>
-        <div class="map-quick" id="quick">
-          <div class="mq-row">
-            <div class="kind-seg" role="group" aria-label="${tr('Тип заявки', 'Report type')}">${[['', tr('Все', 'All')], ['lost', kindName('lost')], ['found', kindName('found')]].map(([v, l]) => h`<button type="button" data-k="${v}">${l}</button>`)}</div>
-            <button type="button" class="chip filter-chip sos" data-em title="${tr('Только экстренные поиски', 'Emergency searches only')}">${icon('siren')}SOS</button>
-          </div>
-          <div class="cat-seg" role="group" aria-label="${tr('Категория', 'Category')}">${CATS.map((c) => h`<button type="button" class="chip filter-chip" data-c="${c}">${icon(CAT[c].icon)}<span>${catName(c)}</span></button>`)}</div>
-        </div>
+        <div class="map-quick" id="quick"><div class="cat-seg" role="group" aria-label="${tr('Категория', 'Category')}">
+          <button type="button" class="chip filter-chip" data-c="">${icon('list')}<span>${tr('Все', 'All')}</span></button>
+          ${CATS.map((c) => h`<button type="button" class="chip filter-chip" data-c="${c}"><img src="/assets/brand/${categoryArt[c]}.svg" alt=""><span>${c === 'animals' ? tr('Питомцы', 'Pets') : catName(c)}</span></button>`)}
+        </div></div>
       </div>
       <div class="map-list" id="list" aria-live="polite"></div>
     </div>
     <div class="map-box">
-      <div id="bigmap"></div>
-      <div class="map-bar" aria-hidden="true"></div>
+      <div id="bigmap" role="region" aria-label="${tr('Интерактивная карта объявлений', 'Interactive reports map')}"></div>
+      <div class="map-bar" aria-hidden="true"></div><div class="hound-map-kinds">${kindControls()}</div>
       <button type="button" class="map-area" id="areaBtn" hidden>${icon('search')}<span>${tr('Искать в этой области', 'Search this area')}</span></button>
       <div class="map-fab">
         <div class="fab-group"><button type="button" id="zin" aria-label="${tr('Приблизить', 'Zoom in')}">${icon('plus')}</button><button type="button" id="zout" aria-label="${tr('Отдалить', 'Zoom out')}">${MINUS}</button></div>
         <button type="button" class="fab-one" id="locBtn" aria-label="${tr('Рядом со мной', 'Near me')}" title="${tr('Рядом со мной', 'Near me')}">${icon('locate')}</button>
       </div>
       <div class="map-empty" id="mempty" hidden></div>
-      <div class="peek" id="peek" hidden></div>
+      <div class="hound-map-credit"><a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> · © OpenMapTiles · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a></div>
     </div>
-    <div class="map-seg" role="tablist">
-      <button type="button" role="tab" data-v="map" class="on">${icon('map')}<span>${t('map.on_map', 'Карта', 'Map')}</span></button>
-      <button type="button" role="tab" data-v="list">${icon('list')}<span>${t('map.list', 'Список', 'List')}</span><b id="tcount">·</b></button>
+    <div class="peek" id="peek" hidden></div>
+    <div class="map-seg" role="tablist" aria-label="${tr('Вид результатов', 'Results view')}">
+      <button type="button" role="tab" data-v="map" class="on" aria-selected="true">${icon('map')}<span>${tr('Карта', 'Map')}</span></button>
+      <button type="button" role="tab" data-v="list" aria-selected="false">${icon('list')}<span>${tr('Список', 'List')}</span><b id="tcount">·</b></button>
     </div>
   </div>`);
 
@@ -255,6 +259,26 @@ route('/map', async (view) => {
   const m = makeMap($('#bigmap', view), { zoom: 11 });
   const L = () => m.lib;
   if (m.zoomControl) m.zoomControl.remove();
+  // Georeferenced versions of the approved atlas, drawn from OpenStreetMap.
+  // Leaflet keeps the worldwide base layer and all report coordinates interactive.
+  const atlasPane = m.createPane('houndAtlas');
+  atlasPane.style.zIndex = '250';
+  atlasPane.style.pointerEvents = 'none';
+  const atlas = [
+    { url: '/assets/maps/moscow.webp', bounds: [[55.6890039, 37.4508945], [55.8318652, 37.8171055]], min: 12, max: 13 },
+    { url: '/assets/maps/sokolniki.webp', bounds: [[55.7742322, 37.6510277], [55.8053158, 37.7063137]], min: 14, max: 15 }
+  ].map(({ url, bounds, min, max }) => ({
+    bounds: L().latLngBounds(bounds), min, max, layer: L().imageOverlay(url, bounds, { pane: 'houndAtlas', interactive: false })
+  }));
+  function updateAtlas() {
+    for (const a of atlas) {
+      const visible = m.getZoom() >= a.min && m.getZoom() <= a.max && a.bounds.contains(m.getBounds());
+      if (visible && !m.hasLayer(a.layer)) a.layer.addTo(m);
+      if (!visible && m.hasLayer(a.layer)) m.removeLayer(a.layer);
+    }
+  }
+  m.on('move zoomend resize', updateAtlas);
+  updateAtlas();
   const zones = L().layerGroup().addTo(m); // круги SOS-зон и радиуса поиска — не кластеризуются
   let group = L().layerGroup().addTo(m), clustered = false;
   let items = [], markers = new Map(), sel = null, area = null, meMarker = null, reqId = 0, deb = 0, auto = false, autoT = 0, hover = null;
@@ -270,7 +294,7 @@ route('/map', async (view) => {
   const hasFilters = () => !!(f.q || f.category || f.kind || f.emergency || f.from || f.to || f.radius || f.status !== 'active');
   // Если известна геопозиция и сортировка не выбрана явно — показываем ближайшие первыми
   const curSort = () => f.sort || (f.center ? 'near' : '');
-  const extraCount = () => [f.from, f.to, f.radius, f.status !== 'active'].filter(Boolean).length;
+  const extraCount = () => [f.from, f.to, f.radius, f.emergency, f.status !== 'active', !desk.matches && f.kind].filter(Boolean).length;
 
   // Кластер: число в центре, кольцо — доля «потеряно» (красный) / «найдено» (синий) / закрытые (серый)
   const clusterIcon = (c) => {
@@ -283,17 +307,29 @@ route('/map', async (view) => {
   };
   loadCluster().then((ok) => {
     if (!ok || !page.isConnected) return;
-    const g = L().markerClusterGroup({ maxClusterRadius: 46, showCoverageOnHover: false, spiderfyOnMaxZoom: true, disableClusteringAtZoom: 16, spiderLegPolylineOptions: { weight: 1.5, color: '#8a8f98', opacity: .6 }, iconCreateFunction: clusterIcon });
+    const g = L().markerClusterGroup({ maxClusterRadius: 28, removeOutsideVisibleBounds: false, showCoverageOnHover: false, spiderfyOnMaxZoom: true, disableClusteringAtZoom: 16, spiderLegPolylineOptions: { weight: 1.5, color: '#8a8f98', opacity: .6 }, iconCreateFunction: clusterIcon });
     g.on('clusterclick', () => { if (sel != null) select(null); });
     m.removeLayer(group); group = g.addTo(m); clustered = true; drawMarkers();
   });
+
+  function reportPin(a, selected = false) {
+    if (!selected) return pinIcon(a);
+    const title = a.title.trim().replace(/^(?:потерял(?:ся|ась|ись|ось)|пропал(?:а|и|о)?|найден(?:а|ы|о)?|потерян(?:а|ы|о)?|lost|missing|found)\s+/iu, '') || a.title;
+    const label = title[0].toLocaleUpperCase() + title.slice(1);
+    const width = Math.min(195, Math.max(86, 55 + label.length * 8));
+    return L().divIcon({
+      className: 'hound-marker-host',
+      html: String(h`<div class="pin hound-current-pin"><img src="/assets/brand/hound.svg" alt=""><span>${label}</span></div>`),
+      iconSize: [width, 34], iconAnchor: [width / 2, 45]
+    });
+  }
 
   function drawMarkers() {
     group.clearLayers(); zones.clearLayers(); markers.clear();
     const list = [];
     for (const a of items) {
-      if (a.lat == null) continue;
-      const mk = L().marker([a.lat, a.lng], { icon: pinIcon(a, sel === a.id ? 'sel' : ''), app: a, title: a.title, alt: a.title, zIndexOffset: sel === a.id ? 1000 : 0 });
+      if (a.lat == null || a.lng == null) continue;
+      const mk = L().marker([a.lat, a.lng], { icon: reportPin(a, sel === a.id), app: a, title: a.title, alt: a.title, zIndexOffset: sel === a.id ? 1000 : 0 });
       mk.on('click', () => select(a.id, { pan: true }));
       markers.set(a.id, mk); list.push(mk);
       if (a.emergency && a.status === 'published') L().circle([a.lat, a.lng], { radius: a.emergency * 1000, color: cssVar('--red', '#e0192d'), weight: 1, fillOpacity: .05, dashArray: '4 6', interactive: false }).addTo(zones);
@@ -302,12 +338,12 @@ route('/map', async (view) => {
     if (clustered) group.addLayers(list); else list.forEach((mk) => mk.addTo(group));
   }
 
-  function fitAll() {
-    const pts = items.filter((a) => a.lat != null).map((a) => [a.lat, a.lng]);
-    const pad = { paddingTopLeft: [40, 72], paddingBottomRight: [desk.matches ? 72 : 64, desk.matches ? 40 : 84], maxZoom: 15 };
+  function fitAll(immediate = false) {
+    const pts = items.filter((a) => a.lat != null && a.lng != null).map((a) => [a.lat, a.lng]);
+    const pad = { paddingTopLeft: [40, 72], paddingBottomRight: [desk.matches ? 72 : 64, desk.matches ? 40 : 84], maxZoom: 15, ...(immediate ? { animate: false } : {}) };
     programmatic(() => {
       if (f.center && f.radius) m.fitBounds(L().latLng(f.center).toBounds(f.radius * 2000), pad);
-      else if (pts.length === 1) m.setView(pts[0], 15);
+      else if (pts.length === 1) m.setView(pts[0], 15, pad);
       else if (pts.length) m.fitBounds(pts, pad);
     });
   }
@@ -315,7 +351,7 @@ route('/map', async (view) => {
   // Поднимаем выбранную метку, если её закрывает карточка или край карты
   function panIntoView(ll) {
     const p = m.latLngToContainerPoint(ll), s = m.getSize();
-    const top = 76, bottom = s.y - (peekEl.hidden ? 40 : peekEl.offsetHeight + 36), left = desk.matches && !peekEl.hidden && p.y > s.y - peekEl.offsetHeight - 36 ? 420 : 40, right = s.x - 70;
+    const top = Math.min(72, s.y / 3), bottom = Math.max(top, s.y - 50), left = 55, right = s.x - 55;
     let dx = 0, dy = 0;
     if (p.y < top) dy = p.y - top; else if (p.y > bottom) dy = p.y - bottom;
     if (p.x < left) dx = p.x - left; else if (p.x > right) dx = p.x - right;
@@ -335,65 +371,85 @@ route('/map', async (view) => {
 
   function select(id, { pan = false } = {}) {
     const prev = markers.get(sel);
-    if (prev && sel !== id) prev.setIcon(pinIcon(prev.options.app)).setZIndexOffset(0);
+    if (prev && sel !== id) prev.setIcon(reportPin(prev.options.app)).setZIndexOffset(0);
     sel = id;
     $$('.mrow.sel', listEl).forEach((r) => r.classList.remove('sel'));
-    const mk = markers.get(id);
-    if (!mk) { sel = null; closePeek(); return; }
-    mk.setIcon(pinIcon(mk.options.app, 'sel')).setZIndexOffset(1000);
+    const item = items.find((a) => a.id === id);
+    if (!item) { sel = null; closePeek(); return; }
     const row = $(`.mrow[data-id="${id}"]`, listEl);
-    if (row) { row.classList.add('sel'); if (desk.matches) row.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
-    showPeek(mk.options.app);
-    if (pan) requestAnimationFrame(() => panIntoView(mk.getLatLng()));
+    if (row) {
+      row.classList.add('sel');
+      if (desk.matches) {
+        const rowRect = row.getBoundingClientRect(), listRect = listEl.getBoundingClientRect();
+        if (rowRect.top < listRect.top) listEl.scrollTop += rowRect.top - listRect.top;
+        else if (rowRect.bottom > listRect.bottom) listEl.scrollTop += rowRect.bottom - listRect.bottom;
+      }
+    }
+    showPeek(item);
+    const mk = markers.get(id);
+    if (!mk) return;
+    mk.setIcon(reportPin(item, true)).setZIndexOffset(1000);
+    if (pan) {
+      requestAnimationFrame(() => {
+        if (!page.isConnected || sel !== id) return;
+        m.invalidateSize({ pan: false });
+        if (clustered && group.getVisibleParent(mk) !== mk) {
+          programmatic(() => group.zoomToShowLayer(mk, () => { if (sel === id) panIntoView(mk.getLatLng()); }));
+        } else {
+          panIntoView(mk.getLatLng());
+        }
+      });
+    }
   }
 
   function showPeek(a) {
-    mount(peekEl, h`<a class="peek-card" href="#/a/${a.id}">
-        <span class="peek-media">${media(a)}</span>
-        <span class="peek-body">
-          <span class="peek-tags">
-            ${a.status !== 'published' ? h`<span class="chip ${statusChip(a.status)}">${statusName(a.status)}</span>` : h`<span class="chip chip-${a.kind}">${kindName(a.kind)}</span>`}
-            ${a.emergency && a.status === 'published' ? h`<span class="chip chip-em">SOS</span>` : ''}
-            <span class="peek-cat">${icon(CAT[a.category].icon, 'ic-sm')}${catName(a.category)}</span>
-          </span>
-          <b class="peek-title">${a.title}</b>
-          <span class="peek-meta">${icon('pin', 'ic-sm')}<span class="ellipsis">${a.address || a.city || '—'}</span></span>
-          <span class="peek-meta"><span class="ellipsis">${[a.distance != null ? km(a.distance) : '', ago(a.created_at), a.reward ? money(a.reward) : ''].filter(Boolean).join(' · ')}</span></span>
-        </span>
-        <span class="peek-go" aria-hidden="true">${icon('arrowUR')}</span>
-      </a>
-      <button type="button" class="peek-x" aria-label="${tr('Закрыть', 'Close')}">${icon('x')}</button>`);
+    const detailUrl = '#/a/' + a.id;
+    const active = a.status === 'published' && !a.is_owner;
+    const replyLabel = a.kind === 'lost' && a.category === 'animals' ? tr('Я видел питомца', 'I have seen this pet') : writeLabel(a);
+    mount(peekEl, h`<article class="peek-card" aria-label="${a.title}">
+      <div class="hound-preview-status">${badge(a)}<span>· &nbsp;${fmtDate(a.event_date || a.created_at)}</span></div>
+      <div class="hound-preview-head">
+        <a class="peek-media" href="${detailUrl}" aria-label="${a.title}">${media(a)}</a>
+        <div class="peek-body"><a class="peek-title" href="${detailUrl}">${a.title}</a>
+          <span class="peek-meta">${icon('pin', 'ic-sm')}<span>${a.address || a.city || tr('Адрес не указан', 'Address unavailable')}</span></span>
+        </div>
+      </div>
+      ${a.features ? h`<div class="hound-clues"><b>${tr('Особые приметы', 'Distinctive features')}</b><p>${a.features}</p></div>` : ''}
+      <div class="hound-preview-actions">
+        ${active ? h`<button class="btn hound-witness" type="button" data-map-write>${replyLabel} ${icon('arrowUR', 'ic-sm')}</button>` : h`<a class="btn hound-witness" href="${detailUrl}">${tr('Открыть объявление','Open report')} ${icon('arrowUR', 'ic-sm')}</a>`}
+        <button type="button" class="btn hound-share" aria-label="${tr('Поделиться объявлением', 'Share report')}">${icon('share')}</button>
+      </div>
+      <button type="button" class="peek-x" aria-label="${tr('Закрыть', 'Close')}">${icon('x')}</button>
+    </article>`);
     $('.peek-x', peekEl).onclick = () => select(null);
-    peekEl.hidden = false; peekEl.style.transform = '';
-    peekEl.classList.remove('show', 'out'); void peekEl.offsetWidth; peekEl.classList.add('show');
+    $('.hound-share', peekEl).onclick = () => shareSheet(location.origin + location.pathname + detailUrl, a.title);
+    const witness = $('[data-map-write]', peekEl);
+    if (witness) witness.onclick = () => {
+      if (!state.user) return needLogin(detailUrl);
+      busy(witness, async () => {
+        try { const chat = await POST(`/applications/${a.id}/chat`); go('#/chat/' + chat.id); }
+        catch (e) { toastErr(e); }
+      });
+    };
+    peekEl.hidden = false;
     page.classList.add('peeking');
   }
   function closePeek() {
     page.classList.remove('peeking');
-    if (peekEl.hidden) return;
-    peekEl.classList.remove('show'); peekEl.classList.add('out');
-    setTimeout(() => { if (sel == null) { peekEl.hidden = true; peekEl.classList.remove('out'); peekEl.style.transform = ''; } }, 200);
+    peekEl.hidden = true;
   }
-  // Свайп карточки вниз закрывает её (мобильные)
-  let ty = null;
-  peekEl.addEventListener('touchstart', (e) => { ty = e.touches[0].clientY; }, { passive: true });
-  peekEl.addEventListener('touchmove', (e) => { if (ty == null) return; const d = Math.max(0, e.touches[0].clientY - ty); peekEl.style.transform = `translateY(${d}px)`; peekEl.style.opacity = String(Math.max(.4, 1 - d / 240)); }, { passive: true });
-  peekEl.addEventListener('touchend', (e) => {
-    if (ty == null) return; const d = e.changedTouches[0].clientY - ty; ty = null;
-    peekEl.style.opacity = '';
-    if (d > 60) { e.preventDefault(); select(null); } else peekEl.style.transform = '';
-  });
   m.on('click', () => { if (sel != null) select(null); });
 
   function renderList() {
     const shown = area ? items.filter((a) => a.lat != null && area.contains([a.lat, a.lng])) : items;
     $('#tcount', view).textContent = shown.length;
+    $('#mapTotal', view).textContent = shown.length;
     const cnt = `${shown.length} ${tr(plural(shown.length, 'заявка', 'заявки', 'заявок'), shown.length === 1 ? 'report' : 'reports')}`;
     const head = h`<div class="list-head"><b>${area ? `${tr('В этой области', 'In this area')}: ${cnt}` : cnt}</b>
       ${area ? h`<button type="button" class="link xs" data-area-reset>${tr('Показать все', 'Show all')}</button>` : ''}
       <label class="sort-sel">${SORT_IC}<select data-sort aria-label="${tr('Сортировка', 'Sort')}">${SORTS.map(([v, l]) => h`<option value="${v}" ${curSort() === v ? 'selected' : ''}>${l}</option>`)}</select>${icon('chevR', 'ic-sm chev')}</label></div>`;
     mount(listEl, shown.length
-      ? h`${head}${shown.map((a, i) => h`<div class="mrow rise ${a.id === sel ? 'sel' : ''}" data-id="${a.id}" style="--i:${Math.min(i, 8)}">${appRow(a)}</div>`)}`
+      ? h`${head}${shown.map((a) => h`<div class="mrow ${a.id === sel ? 'sel' : ''}" data-id="${a.id}"><a href="#/a/${a.id}" class="app-row"><span class="thumb">${media(a)}</span><span class="hound-row-text"><span class="hound-row-meta">${badge(a)}<span>· &nbsp;${fmtDate(a.event_date || a.created_at)}</span>${a.emergency && a.status === 'published' ? h`<span class="hound-em">SOS</span>` : ''}</span><strong>${a.title}</strong><span class="hound-row-address">${a.address || a.city || ''}</span>${a.distance != null ? h`<span class="hound-row-distance">${km(a.distance)}</span>` : ''}</span>${icon('chevR', 'ic-sm')}</a></div>`)}`
       : h`${head}${empty('search', t('map.empty', 'Ничего не найдено', 'Nothing found'), area ? tr('В этой области заявок нет — сдвиньте карту или покажите все.', 'No reports here — move the map or show all.') : t('map.empty_t', 'Измените фильтры или расширьте радиус.', 'Change filters or widen the radius.'), hasFilters() ? h`<button type="button" class="btn btn-ghost btn-sm" data-reset-all>${tr('Сбросить фильтры', 'Reset filters')}</button>` : '')}`);
   }
   function renderEmpty() {
@@ -406,7 +462,7 @@ route('/map', async (view) => {
   function syncControls() {
     $$('[data-k]', view).forEach((b) => { const on = f.kind === b.dataset.k; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
     $$('[data-c]', view).forEach((b) => { const on = f.category === b.dataset.c; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
-    const em = $('[data-em]', view); em.classList.toggle('on', !!f.emergency); em.setAttribute('aria-pressed', !!f.emergency);
+
     const n = extraCount(); $('#fcount', view).textContent = n || ''; $('#fbtn', view).classList.toggle('has', n > 0);
     $('#sclear', view).hidden = !input.value;
   }
@@ -416,9 +472,10 @@ route('/map', async (view) => {
     if (f.status !== 'active') p.set('status', f.status);
     if (f.sort && f.sort !== 'near') p.set('sort', f.sort);
     const hash = '#/map' + (p.toString() ? '?' + p : '');
-    if (location.hash !== hash) history.replaceState(history.state, '', hash);
+    if (!embedded && location.hash !== hash) history.replaceState(history.state, '', hash);
   }
 
+  let firstLoad = true;
   async function load({ fit = true } = {}) {
     const id = ++reqId;
     syncControls(); syncUrl();
@@ -438,7 +495,25 @@ route('/map', async (view) => {
     page.classList.remove('loading'); listEl.classList.remove('dim');
     if (sel != null && !items.some((a) => a.id === sel)) { sel = null; closePeek(); }
     drawMarkers(); renderList(); renderEmpty();
-    if (fit) fitAll();
+    const available = firstLoad ? items.filter((a) => a.lat != null && a.lng != null) : [];
+    const initial = available.find((a) => a.kind === 'lost' && a.photos?.length) || available[0];
+    if (!initial) {
+      if (fit) fitAll();
+      return;
+    }
+    firstLoad = false;
+    select(initial.id);
+    requestAnimationFrame(() => {
+      if (!page.isConnected || sel !== initial.id) return;
+      m.invalidateSize({ pan: false });
+      if (desk.matches) {
+        fitAll(true);
+      } else {
+        const zoom = m.getSize().x >= 640 ? 13 : 14;
+        programmatic(() => m.setView([initial.lat, initial.lng], zoom, { animate: false }));
+      }
+      areaBtn.hidden = true;
+    });
   }
   function resetAll() {
     Object.assign(f, DEF); input.value = '';
@@ -446,17 +521,24 @@ route('/map', async (view) => {
   }
 
   // Делегирование: быстрые фильтры, список, сброс
-  $('#quick', view).onclick = (e) => {
+  page.addEventListener('click', (e) => {
     const k = e.target.closest('[data-k]'), c = e.target.closest('[data-c]'), em = e.target.closest('[data-em]');
     if (k) { if (f.kind === k.dataset.k) return; f.kind = k.dataset.k; }
     else if (c) f.category = f.category === c.dataset.c ? '' : c.dataset.c;
     else if (em) f.emergency = f.emergency ? '' : '1';
     else return;
     load();
-  };
-  view.addEventListener('click', (e) => {
+  });
+  page.addEventListener('click', (e) => {
     if (e.target.closest('[data-reset-all]')) resetAll();
     else if (e.target.closest('[data-area-reset]')) { area = null; renderList(); }
+  });
+  listEl.addEventListener('click', (e) => {
+    const row = e.target.closest('.mrow');
+    if (!row || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    setView('map');
+    select(+row.dataset.id, { pan: true });
   });
   listEl.addEventListener('mouseover', (e) => {
     const r = e.target.closest('.mrow'); const id = r ? +r.dataset.id : null;
@@ -519,6 +601,8 @@ route('/map', async (view) => {
   $('#fbtn', view).onclick = () => {
     const s = sheet(h`${sheetHead(t('map.filters', 'Фильтры', 'Filters'))}
       <div class="stack">
+        <label class="field"><span>${tr('Тип объявления', 'Report type')}</span><select name="kind">${['', 'lost', 'found'].map((k) => h`<option value="${k}" ${k === f.kind ? 'selected' : ''}>${k ? reportKind(k) : tr('Все', 'All')}</option>`)}</select></label>
+        <label class="row map-em-filter"><input type="checkbox" name="emergency" ${f.emergency ? 'checked' : ''}>${tr('Только экстренные поиски', 'Emergency searches only')}</label>
         <label class="field"><span>${t('map.f_status', 'Статус', 'Status')}</span><select name="status">
           <option value="active" ${f.status === 'active' ? 'selected' : ''}>${t('map.f_active', 'Активные', 'Active')}</option>
           <option value="found" ${f.status === 'found' ? 'selected' : ''}>${statusName('found')}</option>
@@ -530,8 +614,9 @@ route('/map', async (view) => {
           <p class="hint">${f.center ? tr('Центр — ваше местоположение', 'Centre is your location') : tr('Потребуется доступ к геолокации', 'Location access will be requested')}</p></label>
         <div class="row"><button type="button" class="btn btn-ghost grow" data-reset>${tr('Сбросить', 'Reset')}</button><button type="button" class="btn grow" data-apply>${tr('Показать', 'Show')}</button></div>
       </div>`);
-    $('[data-reset]', s.el).onclick = () => { Object.assign(f, { from: '', to: '', radius: '', status: 'active' }); s.close(); load(); };
+    $('[data-reset]', s.el).onclick = () => { Object.assign(f, { from: '', to: '', radius: '', status: 'active', kind: '', emergency: '' }); s.close(); load(); };
     $('[data-apply]', s.el).onclick = () => {
+      f.kind = $('[name=kind]', s.el).value; f.emergency = $('[name=emergency]', s.el).checked ? '1' : '';
       f.status = $('[name=status]', s.el).value; f.from = $('[name=from]', s.el).value; f.to = $('[name=to]', s.el).value; f.radius = $('[name=radius]', s.el).value;
       if (f.from && f.to && f.from > f.to) [f.from, f.to] = [f.to, f.from];
       s.close();
@@ -539,8 +624,10 @@ route('/map', async (view) => {
     };
   };
 
-  load();
-}, { full: true });
+  await load();
+}
+
+route('/map', (view) => renderSearchMap(view), { full: true });
 
 /* =================== МАСТЕР ЗАЯВКИ =================== */
 const localDate = (dt = new Date()) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
@@ -600,7 +687,7 @@ async function wizard(view, kind, existing) {
     return true;
   }
   const catPick = (c) => h`<button type="button" class="pick ${d.category === c ? 'on' : ''}" data-cat="${c}">
-    <div class="cat-ic" style="background:${c === 'people' ? 'linear-gradient(145deg,var(--red),var(--red-2))' : c === 'animals' ? 'linear-gradient(145deg,var(--blue),var(--blue-2))' : 'linear-gradient(145deg,#2a2c33,#0e0f13)'}">${icon(CAT[c].icon)}</div>
+    <div class="hp-category-icon">${brandImage(reportArt[c])}</div>
     <div><b>${catName(c)}</b><span>${c === 'people' ? tr('Проверка модератором', 'Moderator review') : tr('Публикуется сразу', 'Published instantly')}</span></div></button>`;
 
   function draw() {
@@ -654,15 +741,24 @@ async function wizard(view, kind, existing) {
         ${!edit ? h`<p class="xs muted">${t('wiz.pub_consent', 'Нажимая «Опубликовать», вы даёте', 'By tapping Publish you give the')} <a class="doc-link" href="#/legal/publication" data-doc="publication">${t('wiz.pub_consent_l', 'согласие на распространение персональных данных', 'consent to dissemination of personal data')}</a>.</p>` : ''}
       </form>`;
     }
-    mount(view, h`<div class="wrap wizard">
-      <div class="page-head" style="padding-bottom:0">${back(edit ? `#/a/${d.id}` : '#/', tr('Отмена', 'Cancel'))}<span class="eyebrow">${title}</span></div>
-      <div class="row between xs muted" style="font-weight:700;margin-top:14px"><span>${tr('Шаг', 'Step')} ${step + 1} / ${steps.length}</span><span>${d.category ? catName(d.category) : ''}</span></div>
-      <div class="progress"><i style="width:${pct}%"></i></div>
-      <div class="view">${body}</div>
+    const stepLabels = [
+      tr('Категория', 'Category'), tr('Описание', 'Description'), tr('Фотографии', 'Photos'),
+      tr('Место', 'Location'), tr('Публикация', 'Publish'),
+    ];
+    mount(view, h`<div class="wrap hp-public wizard hp-wizard">
+      ${back(edit ? `#/a/${d.id}` : '#/', tr('Отмена', 'Cancel'))}
+      <div class="hp-wizard-layout"><header class="hp-wizard-head">
+        ${brandImage(reportArt[d.category] || 'hound', 'hp-wizard-art')}
+        <h1>${title}</h1>
+        <p>${tr('Шаг', 'Step')} ${step + 1} / ${steps.length}${d.category ? h` · ${catName(d.category)}` : ''}</p>
+        <div class="progress"><i style="width:${pct}%"></i></div>
+        <ol class="hp-step-list">${stepLabels.map((label, i) => h`<li class="${i < step ? 'done' : i === step ? 'current' : ''}" ${i === step ? raw('aria-current="step"') : ''}><span>${i < step ? icon('check', 'ic-sm') : i + 1}</span>${label}</li>`)}</ol>
+      </header>
+      <section class="hp-wizard-form"><div class="view">${body}</div>
       <div class="wiz-foot">
         ${step > (edit ? 1 : 0) ? h`<button class="btn btn-ghost" id="prev" aria-label="${tr('Назад', 'Back')}">${icon('chevL')}</button>` : ''}
         <button class="btn ${s === 'final' ? 'btn-red' : ''}" id="next">${s === 'final' ? (edit ? t('wiz.save', 'Сохранить изменения', 'Save changes') : t('wiz.publish', 'Опубликовать', 'Publish')) : s === 'photos' && !getPhotos().length ? tr('Пропустить', 'Skip') : tr('Далее', 'Next')}${s === 'final' ? '' : icon('chevR')}</button>
-      </div></div>`);
+      </div></section></div></div>`);
     if (s === 'cat') $$('[data-cat]', view).forEach((b) => b.onclick = () => { d.category = b.dataset.cat; step = 1; draw(); });
     if (s === 'photos') {
       getPhotos = photoField($('#ph', view), d.photos || [], 5);
@@ -700,7 +796,7 @@ async function wizard(view, kind, existing) {
       if (edit) { const r = await PATCH('/applications/' + d.id, body); toast(r.item.status === 'pending' ? tr('Изменения отправлены на проверку', 'Changes sent for review') : tr('Изменения сохранены', 'Changes saved')); go('#/a/' + d.id); return; }
       const r = await POST('/applications', body);
       const pending = r.item.status === 'pending';
-      mount(view, h`<div class="wrap wizard"><div class="success">
+      mount(view, h`<div class="wrap hp-public hp-receipt"><div class="success">
         <div class="big-ic ${pending ? 'wait' : ''}">${icon(pending ? 'clock' : 'check')}</div>
         <h2>${pending ? t('wiz.ok_pending', 'Заявка отправлена на проверку', 'Report sent for review') : t('wiz.ok', 'Заявка опубликована', 'Report published')}</h2>
         <p class="muted" style="margin:12px auto 0;max-width:460px">${pending ? t('wiz.ok_pending_t', 'Модератор скоро проверит — пришлём уведомление. Если пропал человек, позвоните в полицию: 102 или 112.', 'A moderator will review it soon — we’ll notify you. If a person is missing, call the police: 102 or 112.') : r.matches ? `${t('wiz.ok_matches', 'Найдено возможных совпадений', 'Possible matches found')}: ${r.matches}` : t('wiz.ok_t', 'Мы сообщим, как только появится похожая заявка.', 'We will notify you as soon as a similar report appears.')}</p>
@@ -729,26 +825,26 @@ route('/a/:id', async (view, p) => {
   }
   if (a.species) kv.push([a.category === 'animals' ? t('wiz.species', 'Вид животного', 'Species') : t('wiz.thing_type', 'Тип вещи', 'Item type'), a.species]);
   kv.push([t('wiz.date', 'Дата', 'Date'), fmtDate(a.event_date)]);
-  if (a.address || a.city) kv.push([t('a.place', 'Место', 'Place'), [a.address, a.city].filter(Boolean).join(', ')]);
   kv.push([t('a.published', 'Опубликовано', 'Published'), ago(a.created_at)]);
   kv.push([t('a.views', 'Просмотры', 'Views'), a.views]);
 
-  mount(view, h`<div class="wrap" style="padding-top:16px">
+  mount(view, h`<div class="wrap hp-public hp-report">
     ${back('back')}
     ${owner && a.status === 'pending' ? h`<div class="note note-amber" style="margin-bottom:14px">${icon('clock')}<div><b>${t('a.pending', 'Заявка на проверке', 'Under review')}</b>${t('a.pending_t', 'Видна только вам и модераторам. Сообщим, когда проверим.', 'Only you and moderators see it. We’ll notify you after review.')}</div></div>` : ''}
     ${owner && a.status === 'rejected' ? h`<div class="note note-red" style="margin-bottom:14px">${icon('alert')}<div><b>${t('a.rejected', 'Заявка отклонена', 'Report rejected')}</b>${a.reject_reason} · ${t('a.rejected_t', 'Исправьте и отправьте повторно.', 'Fix it and resubmit.')}</div></div>` : ''}
     <div class="detail">
       <div class="stack-lg d-top">
-        <div class="gallery">${a.photos.length ? h`<div class="track">${a.photos.map((u, i) => h`<img src="${u}" alt="${a.title} — ${tr('фото', 'photo')} ${i + 1}" data-zoom="${u}" tabindex="0" role="button">`)}</div>${a.photos.length > 1 ? h`<div class="dots">${a.photos.map((_, i) => h`<i class="${i ? '' : 'on'}"></i>`)}</div>` : ''}` : media(a)}</div>
-        <div>
+        <header class="hp-report-title">
           <div class="row-wrap">
             ${a.emergency ? h`<span class="chip chip-em">${icon('siren')}${t('a.em', 'Экстренный поиск', 'Emergency')} · ${a.emergency} ${tr('км', 'km')}</span>` : ''}
             <span class="chip chip-${a.kind}">${kindName(a.kind)}</span><span class="chip">${icon(CAT[a.category].icon)}${catName(a.category)}</span>
             <span class="chip ${statusChip(a.status)}">${statusName(a.status)}</span>
             ${a.promoted ? h`<span class="chip">${icon('zap')}${t('card.top', 'Топ', 'Top')}</span>` : ''}
           </div>
-          <h1 style="font-size:clamp(24px,4vw,38px);margin-top:14px">${a.title}</h1>
-        </div>
+          <h1>${a.title}</h1>
+          ${a.address || a.city ? h`<p class="hp-report-place">${icon('pin', 'ic-sm')}${[a.address, a.city].filter(Boolean).join(', ')}</p>` : ''}
+        </header>
+        <div class="gallery">${a.photos.length ? h`<div class="track">${a.photos.map((u, i) => h`<img src="${u}" alt="${a.title} — ${tr('фото', 'photo')} ${i + 1}" data-zoom="${u}" tabindex="0" role="button">`)}</div>${a.photos.length > 1 ? h`<div class="dots">${a.photos.map((_, i) => h`<i class="${i ? '' : 'on'}"></i>`)}</div>` : ''}` : media(a)}</div>
         ${a.hidden_pd ? h`<div class="note note-blue">${icon('shield')}<div><b>${t('a.hidden', 'Человек найден', 'Person found')}</b>${t('a.hidden_t', 'Личные данные скрыты. Спасибо всем, кто помогал!', 'Personal data is hidden. Thanks to everyone who helped!')}</div></div>` : ''}
         ${a.category === 'people' && a.status === 'published' ? h`<div class="police">${icon('siren', 'ic-lg')}<div class="grow"><b>${t('a.police', 'Сообщите в полицию', 'Call the police')}</b><div class="xs" style="opacity:.7">${t('a.police_t', 'Платформа не заменяет полицию', 'We don’t replace the police')}</div></div><a href="tel:102" aria-label="${tr('Позвонить 102', 'Call 102')}">102</a><a href="tel:112" aria-label="${tr('Позвонить 112', 'Call 112')}">112</a></div>` : ''}
         ${a.reward ? h`<div class="reward">${icon('gift', 'ic-lg')}<div class="grow"><div class="xs muted" style="font-weight:700">${t('a.reward', 'Вознаграждение', 'Reward')}</div><b>${money(a.reward)}</b></div><span class="xs muted" style="max-width:130px;text-align:right">${t('a.reward_t', 'Платит автор заявки', 'Paid by the author')}</span></div>` : ''}
@@ -868,7 +964,7 @@ function writeLabel(a) {
 }
 function visitorPanel(a) {
   const active = a.status === 'published';
-  return h`<div class="card pad stack">
+  return h`<div class="card pad stack hp-contact">
     ${active ? h`<button class="btn btn-red btn-lg btn-block" id="write">${icon('chat')}${a.chat_id ? t('a.open_chat', 'Открыть чат', 'Open chat') : writeLabel(a)}</button>
       <p class="xs muted center">${icon('lock', 'ic-sm')} ${t('a.anon', 'Чат анонимный — контакты скрыты', 'Anonymous chat — contacts stay hidden')}</p>` : h`<div class="status-line">${icon(a.status === 'found' ? 'check' : 'lock')}${statusName(a.status)}</div>`}
     <div class="actions-row">
@@ -917,12 +1013,17 @@ export function complain(type, id) {
 }
 
 /* =================== ЧАТЫ =================== */
+function chatReportAvatar(report) {
+  const artwork = { people: 'people', animals: 'pets', things: 'things' };
+  const image = report.photos?.[0];
+  return h`<span class="chat-ava account-chat-avatar ${image ? 'has-photo' : ''}"><img src="${image || '/assets/brand/' + (artwork[report.category] || 'hound') + '.svg'}" alt=""></span>`;
+}
 route('/chats', async (view) => {
-  mount(view, h`<div class="wrap"><div class="page-head"><h1>${t('chats.title', 'Сообщения', 'Messages')}</h1><p>${t('chats.sub', 'Анонимная переписка по заявкам. Контакты не раскрываются.', 'Anonymous conversations. Contacts stay private.')}</p></div><div id="cl"><div class="spinner"></div></div></div>`);
+  mount(view, h`<div class="wrap account-inbox"><div class="page-head inbox-heading"><h1>${t('chats.title', 'Сообщения', 'Messages')}</h1><p>${t('chats.sub', 'Анонимная переписка по заявкам. Контакты не раскрываются.', 'Anonymous conversations. Contacts stay private.')}</p></div><div id="cl"><div class="spinner"></div></div></div>`);
   const load = async () => {
     const { items } = await GET('/chats');
-    mount($('#cl', view), items.length ? h`<div class="stack">${items.map((c, i) => h`<a class="chat-item rise" style="--i:${i}" href="#/chat/${c.id}">
-      <div class="chat-ava" style="background:${c.application.kind === 'lost' ? 'var(--red)' : 'var(--blue)'};color:#fff">${icon(CAT[c.application.category].icon)}</div>
+    mount($('#cl', view), items.length ? h`<div class="conversation-list">${items.map((c, i) => h`<a class="chat-item rise ${c.unread ? 'is-unread' : ''}" style="--i:${i}" href="#/chat/${c.id}">
+      ${chatReportAvatar(c.application)}
       <div class="grow" style="min-width:0"><div class="row between"><b style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${aliasOf(c)}</b><span class="xs muted">${c.last ? ago(c.last.created_at) : ''}</span></div>
       <div class="small muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.application.title}</div>
       <div class="small" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">${c.last ? (c.last.mine ? tr('Вы: ', 'You: ') : '') + (c.last.text || (c.last.photo ? '📷 ' + tr('Фото', 'Photo') : '📍 ' + tr('Точка на карте', 'Location'))) : h`<span class="muted">${tr('Нет сообщений', 'No messages')}</span>`}</div></div>
@@ -936,18 +1037,18 @@ route('/chats', async (view) => {
 route('/chat/:id', async (view, p) => {
   let { chat, messages } = await GET('/chats/' + p.id);
   refreshMe().catch(() => {});
-  mount(view, h`<div class="chat-page">
+  mount(view, h`<div class="chat-page account-conversation">
     <div class="chat-head">
       <a class="icon-btn" href="#/chats" aria-label="${tr('Назад', 'Back')}">${icon('chevL')}</a>
-      <div class="chat-ava" style="background:${chat.application.kind === 'lost' ? 'var(--red)' : 'var(--blue)'};color:#fff">${icon(CAT[chat.application.category].icon)}</div>
+      ${chatReportAvatar(chat.application)}
       <a class="grow" style="min-width:0" href="#/a/${chat.application.id}"><b style="display:block">${aliasOf(chat)}</b><div class="xs muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${chat.application.title}</div></a>
-      <button class="icon-btn" id="menu" aria-label="${tr('Меню', 'Menu')}">${icon('more')}</button>
+      <button class="icon-btn" id="menu" aria-label="${tr('Меню переписки', 'Conversation menu')}" ${chat.side === 'moderator' ? 'hidden' : ''}>${icon('more')}</button>
     </div>
     <div class="chat-warn">${icon('alert')}<div>${t('chat.fraud', 'Не платите заранее и не называйте коды из SMS. Встречайтесь в людных местах. Модераторы не просят денег в чате.', 'Don’t pay in advance or share SMS codes. Meet in public places. Moderators never ask for money in chat.')}</div></div>
     <div class="msgs" id="msgs" tabindex="0" role="log" aria-live="polite" aria-label="${t('chat.msgs', 'Сообщения', 'Messages')}"></div>
     ${chat.side === 'moderator' ? '' : chat.blocked ? h`<div class="composer"><div class="grow center small muted" style="padding:12px">${icon('ban', 'ic-sm')} ${chat.blocked_by_me ? t('chat.blocked_me', 'Вы заблокировали собеседника', 'You blocked this user') : t('chat.blocked', 'Переписка заблокирована', 'Conversation blocked')}</div></div>` : h`
     <form class="composer" id="cf">
-      <label class="icon-btn" title="${tr('Фото', 'Photo')}">${icon('image')}<input type="file" accept="image/*" hidden id="cph"></label>
+      <button class="icon-btn" type="button" id="attachChatPhoto" aria-label="${tr('Прикрепить фото', 'Attach a photo')}">${icon('image')}</button><input type="file" accept="image/*" hidden id="cph">
       <button type="button" class="icon-btn" id="cloc" title="${tr('Точка на карте', 'Location')}" aria-label="${tr('Отправить точку на карте', 'Send a location')}">${icon('pin')}</button>
       <textarea id="ct" rows="1" placeholder="${t('chat.ph', 'Сообщение', 'Message')}" maxlength="2000" enterkeyhint="send"></textarea>
       <button class="icon-btn send" aria-label="${tr('Отправить', 'Send')}">${icon('send')}</button>
@@ -979,6 +1080,7 @@ route('/chat/:id', async (view, p) => {
     ta.oninput = () => { ta.style.height = 'auto'; ta.style.height = Math.min(140, ta.scrollHeight) + 'px'; };
     ta.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey && matchMedia('(pointer: fine)').matches) { e.preventDefault(); form.requestSubmit(); } };
     form.onsubmit = (e) => { e.preventDefault(); const text = ta.value.trim(); if (!text) return; ta.value = ''; ta.style.height = ''; send({ text }); };
+    $('#attachChatPhoto', view).onclick = () => $('#cph', view).click();
     $('#cph', view).onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { toast(tr('Загружаем фото…', 'Uploading photo…'), 'info'); const url = await upload(f); send({ photo: url }); } catch (er) { toastErr(er); } e.target.value = ''; };
     $('#cloc', view).onclick = () => {
       let pt = null;
@@ -1006,9 +1108,9 @@ route('/chat/:id', async (view, p) => {
 const NIC = { match: 'match', emergency: 'siren', chat: 'chat', moderation: 'shield', status: 'check', points: 'award', payment: 'card', family: 'users', support: 'help', role: 'handshake', registry: 'gem' };
 route('/notifications', async (view) => {
   const { items } = await GET('/notifications');
-  mount(view, h`<div class="wrap" style="max-width:760px"><div class="page-head"><h1>${t('n.title', 'Уведомления', 'Notifications')}</h1></div>
-    ${items.length ? h`<div class="list">${items.map((n) => h`<a href="${n.link || '#/'}" style="${n.read ? '' : 'background:var(--surface-2)'}"><div class="t-ic" style="width:40px;height:40px;border-radius:13px;display:grid;place-items:center;flex:none;background:${n.type === 'emergency' ? 'var(--red)' : n.type === 'match' ? 'var(--blue)' : 'var(--bg-2)'};color:${['emergency', 'match'].includes(n.type) ? '#fff' : 'inherit'}">${icon(NIC[n.type] || 'bell')}</div>
-      <div class="grow" style="min-width:0"><b style="display:block">${n.title}</b><div class="small muted">${n.body}</div><div class="xs muted" style="margin-top:3px">${ago(n.created_at)}</div></div>${n.read ? '' : h`<span style="width:9px;height:9px;border-radius:50%;background:var(--red);flex:none"></span>`}</a>`)}</div>`
+  mount(view, h`<div class="wrap account-inbox"><div class="page-head inbox-heading"><h1>${t('n.title', 'Уведомления', 'Notifications')}</h1></div>
+    ${items.length ? h`<div class="list account-feed">${items.map((n) => h`<a href="${n.link || '#/'}" class="${n.read ? '' : 'is-unread'}"><div class="t-ic feed-ic n-${n.type}">${icon(NIC[n.type] || 'bell')}</div>
+      <div class="grow" style="min-width:0"><b style="display:block">${n.title}</b><div class="small muted">${n.body}</div><div class="xs muted" style="margin-top:3px">${ago(n.created_at)}</div></div>${n.read ? '' : h`<span class="account-feed-dot" aria-label="${tr('Новое', 'Unread')}"></span>`}</a>`)}</div>`
       : empty('bell', t('n.empty', 'Уведомлений пока нет', 'No notifications yet'))}</div>`);
   if (items.some((n) => !n.read)) { await POST('/notifications/read'); refreshMe(); }
 }, { auth: true });
@@ -1029,13 +1131,13 @@ async function meView(view, tab) {
   // по нажатию открывается список всех разделов (без горизонтальной прокрутки).
   const tabs = ME_TABS(), cur = tabs.find(([k]) => k === tab) || tabs[0];
   const link = ([k, ic, l]) => h`<a href="#/me${k ? '/' + k : ''}" class="${tab === k ? 'on' : ''}" ${tab === k ? raw('aria-current="page"') : ''}>${icon(ic)}<span>${l}</span></a>`;
-  mount(view, h`<div class="wrap" style="padding-top:16px"><div class="me-layout">
-    <aside class="me-nav"><nav aria-label="${tr('Разделы кабинета', 'Account sections')}">${tabs.map(link)}</nav></aside>
+  mount(view, h`<div class="wrap account-workspace"><div class="me-layout">
+    <aside class="me-nav"><div class="account-nav-title">${tr('Личный кабинет', 'My account')}</div><nav aria-label="${tr('Разделы кабинета', 'Account sections')}">${tabs.map(link)}</nav></aside>
     <div class="me-main">
       <button type="button" class="me-pick" id="mePick" aria-haspopup="dialog">
         <span class="me-pick-ic">${icon(cur[1])}</span><span class="grow"><small>${tr('Личный кабинет', 'My account')}</small><b>${cur[2]}</b></span>
         <span class="me-pick-all">${tr('Разделы', 'Sections')}${icon('chevR', 'ic-sm')}</span></button>
-      <div id="tab"></div>
+      <div id="tab" data-account-tab="${cur[0] || 'overview'}"></div>
     </div></div></div>`);
   $('#mePick', view).onclick = () => {
     const s = sheet(h`${sheetHead(tr('Личный кабинет', 'My account'))}<nav class="me-sheet">${tabs.map(link)}</nav>`);
@@ -1056,13 +1158,14 @@ async function meOverview(el, u) {
   const lp = levelProgress(u);
   const none = { items: [] };
   const [apps, chats, saved, vals, notes] = await Promise.all([GET('/my/applications'), GET('/chats'), GET('/my/saved').catch(() => none), GET('/valuables').catch(() => none), GET('/notifications').catch(() => none)]);
-  mount(el, h`<div class="profile-card rise">${avatar(u)}<div class="grow" style="min-width:0">
-      <h2 style="font-size:22px">${u.name}</h2>
+  mount(el, h`<div class="profile-card account-pass rise">${avatar(u)}<div class="grow" style="min-width:0">
+      <h1>${u.name}</h1>
       <div class="row-wrap" style="margin-top:8px"><span class="lvl">${icon('award', 'ic-sm')}${levelName(u.level)} · ${u.points}</span><span class="lvl">${ROLE(u.role)}${u.org_name ? ' · ' + u.org_name : ''}</span></div>
       <div class="lvl-bar"><i style="width:${lp.pct}%"></i></div>
       <div class="xs" style="opacity:.6;margin-top:6px">${lp.next ? `${tr(`До статуса «${levelName(lp.next)}»`, `To “${levelName(lp.next)}”`)}: ${lp.next.min - u.points} ${tr(plural(lp.next.min - u.points, 'балл', 'балла', 'баллов'), lp.next.min - u.points === 1 ? 'point' : 'points')}` : tr('Максимальный статус', 'Top status')}</div></div></div>
-    ${['moderator', 'admin'].includes(u.role) ? h`<a class="em-strip" style="margin-top:14px;background:linear-gradient(110deg,#0e0f13,#2a2c33)" href="#/admin">${icon('shield')}<div class="grow"><b>${tr('Панель администратора', 'Admin panel')}</b></div>${icon('chevR')}</a>` : ''}
-    <div class="tiles" style="margin-top:16px">
+    ${['moderator', 'admin'].includes(u.role) ? h`<a class="em-strip account-staff-link" href="#/admin">${icon('shield')}<div class="grow"><b>${tr('Панель администратора', 'Admin panel')}</b></div>${icon('chevR')}</a>` : ''}
+    <div class="account-actions"><a class="btn btn-red grow" href="#/new/lost">${icon('search')}${t('home.lost', 'Я потерял', 'I lost')}</a><a class="btn btn-blue grow" href="#/new/found">${icon('check')}${t('home.found', 'Я нашёл', 'I found')}</a></div>
+    <div class="tiles account-shortcuts">
       ${[['#/me/apps', 'file', t('me.apps', 'Мои заявки', 'My reports'), apps.items.length, apps.items.filter((a) => a.match_count).length],
         ['#/chats', 'chat', t('chats.title', 'Сообщения', 'Messages'), chats.items.length, u.unreadChats],
         ['#/me/saved', 'bookmark', t('me.saved', 'Сохранённые', 'Saved'), saved.items.length, 0],
@@ -1077,17 +1180,17 @@ async function meOverview(el, u) {
     ${notes.items.length ? h`<div class="sec-head" style="margin-top:26px"><h3>${tr('Последние события', 'Recent activity')}</h3><a class="link small" href="#/notifications">${tr('Все', 'All')}</a></div>
       <div class="list reveal">${notes.items.slice(0, 4).map((n) => h`<a href="${n.link || '#/notifications'}"><div class="t-ic feed-ic n-${n.type}">${icon(NIC[n.type] || 'bell', '', 'duo')}</div>
         <div class="grow" style="min-width:0"><b style="display:block">${n.title}</b><div class="small muted ellipsis">${n.body}</div></div><span class="xs muted" style="flex:none">${ago(n.created_at)}</span></a>`)}</div>` : ''}
-    <div class="row" style="margin-top:16px"><a class="btn btn-red grow" href="#/new/lost">${icon('plus')}${t('home.lost', 'Я потерял', 'I lost')}</a><a class="btn btn-blue grow" href="#/new/found">${icon('plus')}${t('home.found', 'Я нашёл', 'I found')}</a></div>`);
+    `);
 }
 async function meApps(el) {
   const { items } = await GET('/my/applications');
-  mount(el, h`<div class="sec-head"><h2>${t('me.apps', 'Мои заявки', 'My reports')}</h2><a class="btn btn-sm" href="#/new/lost">${icon('plus')}${tr('Новая', 'New')}</a></div>
+  mount(el, h`<div class="sec-head"><h1>${t('me.apps', 'Мои заявки', 'My reports')}</h1><a class="btn btn-sm" href="#/new/lost">${icon('plus')}${tr('Новая', 'New')}</a></div>
     ${items.length ? h`<div class="apps-list">${items.map((a) => appRow(a, a.match_count ? h`<span class="chip chip-found">${icon('match')}${a.match_count}</span>` : icon('chevR')))}</div>`
       : empty('file', t('me.apps_empty', 'У вас пока нет заявок', 'You have no reports yet'), t('me.apps_empty_t', 'Добавьте заранее карточки близких — при беде останется одно нажатие.', 'Add your loved ones in advance — in trouble it will take one tap.'), h`<a class="btn btn-sm" href="#/new/lost">${t('home.lost', 'Я потерял', 'I lost')}</a>`)}`);
 }
 async function meSaved(el) {
   const { items } = await GET('/my/saved');
-  mount(el, h`<div class="sec-head"><h2>${t('me.saved', 'Сохранённые', 'Saved')}</h2></div>${items.length ? h`<div class="apps">${items.map((a, i) => appCard(a, i))}</div>` : empty('bookmark', t('me.saved_empty', 'Здесь появятся сохранённые заявки', 'Saved reports will appear here'))}`);
+  mount(el, h`<div class="sec-head"><h1>${t('me.saved', 'Сохранённые', 'Saved')}</h1></div>${items.length ? h`<div class="apps">${items.map((a, i) => appCard(a, i))}</div>` : empty('bookmark', t('me.saved_empty', 'Здесь появятся сохранённые заявки', 'Saved reports will appear here'))}`);
 }
 /* ---------- Профиль ---------- */
 const CITIES = ['Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань', 'Нижний Новгород', 'Челябинск', 'Самара', 'Омск', 'Ростов-на-Дону', 'Уфа', 'Красноярск', 'Воронеж', 'Пермь', 'Волгоград', 'Краснодар', 'Тюмень', 'Сочи', 'Калининград', 'Владивосток'];
@@ -1120,7 +1223,7 @@ async function meProfile(el, u) {
           <label class="prof-ava-btn" title="${t('me.photo', 'Изменить фото', 'Change photo')}" aria-label="${t('me.photo', 'Изменить фото', 'Change photo')}">${icon('camera')}<input type="file" accept="image/*" hidden id="avaIn"></label>
         </div>
         <div class="prof-id">
-          <h2 id="heroName">${u.name}</h2>
+          <h1 id="heroName">${u.name}</h1>
           <div class="row-wrap" style="margin-top:8px">
             <span class="chip prof-chip">${icon('award', 'ic-sm')}${levelName(u.level)}</span>
             ${u.role !== 'user' ? h`<span class="chip prof-chip">${icon(u.role === 'partner' ? 'handshake' : 'shield', 'ic-sm')}${ROLE(u.role)}${u.org_name ? ' · ' + u.org_name : ''}</span>` : ''}
@@ -1290,7 +1393,7 @@ async function meZone(el, u) {
   const z = Object.assign({}, u.zone); if (!z.radius) z.radius = 3;
   mount(el, h`<div class="grid-2" style="gap:18px;align-items:start">
     <div class="stack">
-      <h2>${t('me.zone', 'Зона оповещений', 'Alert zone')}</h2>
+      <h1>${t('me.zone', 'Зона оповещений', 'Alert zone')}</h1>
       <p class="muted">${t('me.zone_t', 'Район, где вы готовы помочь: дом, работа, маршрут. Если рядом начнётся экстренный поиск — придёт push.', 'Where you can help: home, work, your route. If an emergency search starts nearby, you get a push.')}</p>
       <label class="card pad row between" style="cursor:pointer"><div><b>${t('me.zone_on', 'Получать экстренные оповещения', 'Receive emergency alerts')}</b><div class="xs muted">${t('me.zone_on_t', 'Push без персональных данных', 'Push without personal data')}</div></div><span class="switch"><input type="checkbox" id="zon" ${z.enabled ? 'checked' : ''}></span></label>
       <div><div class="row between small"><span>${t('wiz.radius', 'Радиус', 'Radius')}</span><b id="zrv">${z.radius} ${tr('км', 'km')}</b></div><input class="range" type="range" min="1" max="20" step="1" value="${z.radius}" id="zr" aria-label="${tr('Радиус', 'Radius')}"></div>
@@ -1310,7 +1413,7 @@ async function meZone(el, u) {
 async function meFamily(el) {
   const { family, invites } = await GET('/family');
   mount(el, h`<div style="max-width:760px" class="stack-lg">
-    <div><h2>${t('me.family', 'Семья', 'Family')}</h2><p class="muted" style="margin-top:8px">${t('me.family_t', 'Общие заявки и переписку по ним видят и ведут все члены семьи.', 'Shared reports and their chats are visible to and managed by the whole family.')}</p></div>
+    <div><h1>${t('me.family', 'Семья', 'Family')}</h1><p class="muted" style="margin-top:8px">${t('me.family_t', 'Общие заявки и переписку по ним видят и ведут все члены семьи.', 'Shared reports and their chats are visible to and managed by the whole family.')}</p></div>
     ${invites.length ? h`<div class="stack">${invites.map((i) => h`<div class="card pad row"><div class="grow"><b>${i.name}</b><div class="small muted">${tr('Приглашение от', 'Invitation from')} ${i.owner}</div></div><button class="btn btn-sm" data-acc="${i.id}">${tr('Принять', 'Accept')}</button><button class="btn btn-ghost btn-sm" data-dec="${i.id}">${tr('Отклонить', 'Decline')}</button></div>`)}</div>` : ''}
     ${family ? h`<div class="card pad stack">
         <div class="row between"><h3>${family.name}</h3>${family.is_owner ? h`<span class="chip">${tr('Вы владелец', 'Owner')}</span>` : ''}</div>
@@ -1338,7 +1441,7 @@ async function meFamily(el) {
 async function meRegistry(el) {
   const { items, limit } = await GET('/valuables');
   const ST = { ok: [tr('В порядке', 'OK'), 'chip-ok'], stolen: [tr('Украдено', 'Stolen'), 'chip-lost'], lost: [tr('Утеряно', 'Lost'), 'chip-warn'] };
-  mount(el, h`<div class="sec-head"><div><h2>${t('me.registry', 'Реестр ценностей', 'Valuables')}</h2><p>${t('me.reg_t', 'Фото, номера и приметы. При краже отметьте «украдено» — предмет появится в проверке.', 'Photos, serials and marks. If stolen, mark it — it will show up in the public check.')}</p></div>
+  mount(el, h`<div class="sec-head"><div><h1>${t('me.registry', 'Реестр ценностей', 'Valuables')}</h1><p>${t('me.reg_t', 'Фото, номера и приметы. При краже отметьте «украдено» — предмет появится в проверке.', 'Photos, serials and marks. If stolen, mark it — it will show up in the public check.')}</p></div>
     <button class="btn btn-sm" id="add">${icon('plus')}${tr('Добавить', 'Add')}</button></div>
     <div class="note small" style="margin-bottom:14px">${icon('gem')}<div>${tr('Использовано', 'Used')} ${items.length} / ${limit}. ${limit < 100 ? h`<a class="link" href="#/tariffs">${t('me.reg_up', 'Расширить до 100 предметов', 'Extend to 100 items')}</a>` : ''} · ${t('me.reg_disclaimer', 'Реестр хранит сведения со слов владельца, экспертиза подлинности не проводится.', 'Data is as stated by the owner; authenticity is not verified.')}</div></div>
     ${items.length ? h`<div class="apps">${items.map((v, i) => h`<div class="app-card reg-card rise" style="--i:${i}"><div class="media ${v.photos[0] ? '' : 'no-photo'}">${v.photos[0] ? h`<img src="${v.photos[0]}" alt="">` : mediaPh('things', '', 'gem')}<div class="tags"><span class="chip ${ST[v.status][1]}">${ST[v.status][0]}</span></div></div>
@@ -1365,7 +1468,7 @@ async function mePayments(el, u) {
   const { items } = await GET('/my/payments');
   const PS = { pending: [tr('Ожидает', 'Pending'), 'chip-warn'], succeeded: [tr('Оплачен', 'Paid'), 'chip-ok'], canceled: [tr('Отменён', 'Canceled'), ''] };
   mount(el, h`<div class="stack-lg" style="max-width:820px">
-    <div class="sec-head" style="margin:0"><h2>${t('me.payments', 'Платежи', 'Payments')}</h2><a class="btn btn-sm" href="#/tariffs">${t('tar.title', 'Тарифы', 'Plans')}</a></div>
+    <div class="sec-head" style="margin:0"><h1>${t('me.payments', 'Платежи', 'Payments')}</h1><a class="btn btn-sm" href="#/tariffs">${t('tar.title', 'Тарифы', 'Plans')}</a></div>
     ${u.subscriptions.length ? h`<div class="stack">${u.subscriptions.map((s) => h`<div class="card pad row"><div class="t-ic" style="width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--green-soft);color:var(--green)">${icon('check')}</div><div class="grow"><b>${state.lang === 'en' ? s.name_en : s.name_ru}</b><div class="small muted">${tr('до', 'until')} ${fmtDate(s.until)}</div></div>
       <label class="row small" style="cursor:pointer">${tr('Автопродление', 'Auto-renew')}<span class="switch"><input type="checkbox" data-auto="${s.id}" ${s.auto_renew ? 'checked' : ''} ${u.card ? '' : 'disabled'}></span></label></div>`)}</div>` : ''}
     <div class="card pad row">${icon('card')}<div class="grow"><b>${t('me.card', 'Привязанная карта', 'Saved card')}</b><div class="small muted">${u.card || tr('Нет. Карту можно сохранить при оплате — для автопродления.', 'None. Save a card during payment for auto-renewal.')}</div></div>${u.card ? h`<button class="btn btn-ghost btn-sm" id="unlink">${tr('Отвязать', 'Unlink')}</button>` : ''}</div>
@@ -1387,7 +1490,7 @@ async function meRewards(el, u) {
   const lp = levelProgress(u);
   mount(el, h`<div class="grid-2" style="gap:18px;align-items:start">
     <div class="stack">
-      <div class="profile-card"><div class="ava" style="background:linear-gradient(145deg,#ffb020,#e0192d)">${icon('award', 'ic-lg')}</div><div class="grow"><div class="xs" style="opacity:.7">${t('rw.status', 'Ваш статус', 'Your status')}</div><h2 style="font-size:24px">${levelName(u.level)}</h2><div class="lvl-bar"><i style="width:${lp.pct}%"></i></div><div class="xs" style="opacity:.7;margin-top:6px">${u.points} ${tr('баллов', 'points')}${u.level.discount ? ` · ${tr('скидка', 'discount')} ${u.level.discount}%` : ''}</div></div></div>
+      <div class="profile-card"><div class="ava reward-avatar">${icon('award', 'ic-lg')}</div><div class="grow"><div class="xs" style="opacity:.7">${t('rw.status', 'Ваш статус', 'Your status')}</div><h1>${levelName(u.level)}</h1><div class="lvl-bar"><i style="width:${lp.pct}%"></i></div><div class="xs" style="opacity:.7;margin-top:6px">${u.points} ${tr('баллов', 'points')}${u.level.discount ? ` · ${tr('скидка', 'discount')} ${u.level.discount}%` : ''}</div></div></div>
       <div class="list">${state.config.levels.map((l) => h`<div style="${l.code === u.level.code ? 'background:var(--surface-2)' : ''}">${icon(l.code === u.level.code ? 'check' : 'award')}<div class="grow"><b>${levelName(l)}</b><div class="xs muted">${tr('от', 'from')} ${l.min} ${tr('баллов', 'points')}</div></div>${l.code === u.level.code ? h`<span class="chip chip-ok">${tr('Ваш статус', 'Your level')}</span>` : ''}${l.discount ? h`<span class="chip">−${l.discount}% ${tr('на тарифы', 'on plans')}</span>` : ''}</div>`)}</div>
       <p class="xs muted">${t('rw.note', 'Баллы — за подтверждённую помощь и полезную информацию. На деньги не обмениваются.', 'Points are for confirmed help and useful info. They can’t be exchanged for money.')}</p>
       <a class="btn btn-ghost" href="#/community">${icon('trend')}${t('rw.rating', 'Рейтинг волонтёров', 'Volunteer rating')}</a>
@@ -1399,6 +1502,7 @@ async function meRewards(el, u) {
 async function meSettings(el, u) {
   const ps = await pushStatus();
   mount(el, h`<div class="stack-lg" style="max-width:720px">
+    <h1>${t('me.settings', 'Настройки', 'Settings')}</h1>
     <div class="card pad stack">
       <h3>${t('set.lang', 'Язык и оформление', 'Language & appearance')}</h3>
       <div class="seg" id="lang"><button class="${state.lang === 'ru' ? 'on' : ''}" data-v="ru">Русский</button><button class="${state.lang === 'en' ? 'on' : ''}" data-v="en">English</button></div>
@@ -1446,11 +1550,13 @@ export function installCard(el) {
 /* =================== РЕЕСТР: ПУБЛИЧНАЯ ПРОВЕРКА =================== */
 route('/registry', async (view) => {
   const q0 = query().get('q') || '';
-  mount(view, h`<div class="wrap" style="max-width:860px"><div class="page-head"><span class="eyebrow">${t('reg.eyebrow', 'Реестр ценностей и антиквариата', 'Valuables & antiques registry')}</span><h1 style="margin-top:12px">${t('reg.title', 'Проверка предмета перед покупкой', 'Check an item before buying')}</h1>
-    <p>${t('reg.sub', 'Серийный номер, IMEI, гравировка или название — покажем, если предмет числится украденным или утерянным.', 'Serial number, IMEI, engraving or name — we’ll show if it’s marked stolen or lost.')}</p></div>
+  mount(view, h`<div class="wrap hp-public hp-registry">
+    ${sectionHead(t('reg.title', 'Проверка предмета перед покупкой', 'Check an item before buying'),
+      t('reg.sub', 'Серийный номер, IMEI, гравировка или название — покажем, если предмет числится украденным или утерянным.', 'Serial number, IMEI, engraving or name — we’ll show if it’s marked stolen or lost.'), 'things')}
+    <div class="hp-registry-lookup">
     <form class="search-box" id="rf">${icon('search')}<input name="q" value="${q0}" placeholder="${t('home.reg_ph', 'Серийный номер или название', 'Serial number or name')}" minlength="3" required><button class="fbtn" aria-label="${tr('Проверить', 'Check')}">${icon('arrowUR')}</button></form>
     <div class="row-wrap" style="margin-top:12px"><span class="xs muted">${tr('Например:', 'Try:')}</span><button type="button" class="chip chip-btn" data-try="NB-77120934">NB-77120934</button><button type="button" class="chip chip-btn" data-try="${tr('велосипед', 'bike')}">${tr('велосипед', 'bike')}</button></div>
-    <div id="rr" style="margin-top:20px"></div>
+    <div id="rr" aria-live="polite"></div></div>
     <div class="steps3">
       ${[['gem', tr('Зарегистрируйте', 'Register'), tr('Фото, серийный номер, гравировка и особые приметы — в личном кабинете.', 'Photos, serial number, engraving and marks — in your account.')],
         ['siren', tr('Отметьте кражу', 'Mark as stolen'), tr('Одна кнопка — и предмет помечен как украденный или утерянный.', 'One tap marks the item as stolen or lost.')],
@@ -1485,9 +1591,10 @@ route('/registry', async (view) => {
 route('/tariffs', async (view) => {
   const { items, discount } = await GET('/tariffs');
   const promoteId = query().get('promote');
-  mount(view, h`<div class="wrap"><div class="page-head center" style="margin:0 auto;max-width:720px"><span class="eyebrow">${t('tar.eyebrow', 'Тарифы', 'Plans')}</span><h1 style="margin-top:12px">${t('tar.title2', 'Больше возможностей для поиска', 'More tools for searching')}</h1>
-    <p style="margin-left:auto;margin-right:auto">${t('tar.sub', 'Заявки, совпадения, оповещения и чат — бесплатно. Платно — расширенный реестр, продвижение и тариф для организаций.', 'Reports, matches, alerts and chat are free. Paid: extended registry, boosting and a plan for organisations.')}</p>
-    ${discount ? h`<span class="chip chip-ok" style="margin-top:14px">${icon('award')}${tr('Ваша скидка по статусу', 'Your status discount')}: ${discount}%</span>` : ''}</div>
+  mount(view, h`<div class="wrap hp-public hp-tariffs">
+    ${sectionHead(t('tar.title2', 'Больше возможностей для поиска', 'More tools for searching'),
+      t('tar.sub', 'Заявки, совпадения, оповещения и чат — бесплатно. Платно — расширенный реестр, продвижение и тариф для организаций.', 'Reports, matches, alerts and chat are free. Paid: extended registry, boosting and a plan for organisations.'), 'hound',
+      discount ? h`<span class="chip chip-ok">${icon('award')}${tr('Ваша скидка по статусу', 'Your status discount')}: ${discount}%</span>` : '')}
     <div class="plans">${items.map((p, i) => h`<div class="plan rise ${p.feature === 'promote' ? 'hl' : ''}" style="--i:${i}">
       <span class="chip ${p.feature === 'promote' ? 'chip-em' : ''}" style="align-self:flex-start">${icon(p.feature === 'registry' ? 'gem' : p.feature === 'promote' ? 'zap' : 'users')}${p.audience === 'partner' ? tr('Для организаций', 'For organisations') : tr('Для пользователей', 'For users')}</span>
       <h3 style="font-size:22px">${state.lang === 'en' ? p.name_en : p.name_ru}</h3>
@@ -1525,13 +1632,13 @@ route('/tariffs', async (view) => {
 
 route('/pay/:id', async (view, p) => {
   const { item } = await GET('/payments/' + p.id);
-  const done = (st) => mount(view, h`<div class="wrap"><div class="success"><div class="big-ic ${st === 'succeeded' ? '' : 'wait'}">${icon(st === 'succeeded' ? 'check' : 'x')}</div><h2>${st === 'succeeded' ? tr('Оплата прошла успешно', 'Payment successful') : tr('Платёж отменён', 'Payment canceled')}</h2>
+  const done = (st) => mount(view, h`<div class="wrap hp-public hp-receipt"><div class="success"><div class="big-ic ${st === 'succeeded' ? '' : 'wait'}">${icon(st === 'succeeded' ? 'check' : 'x')}</div><h2>${st === 'succeeded' ? tr('Оплата прошла успешно', 'Payment successful') : tr('Платёж отменён', 'Payment canceled')}</h2>
     <p class="muted" style="margin-top:10px">${st === 'succeeded' ? tr('Тариф подключён. Чек отправлен на ваш e-mail или телефон.', 'The plan is active. Receipt sent to your e-mail or phone.') : tr('Деньги не списаны.', 'No money was charged.')}</p>
     <div class="row" style="justify-content:center;margin-top:20px"><a class="btn" href="#/me/payments">${t('me.payments', 'Платежи', 'Payments')}</a>${item.feature === 'promote' && item.application_id ? h`<a class="btn btn-ghost" href="#/a/${item.application_id}">${tr('К заявке', 'To report')}</a>` : ''}</div></div></div>`);
   if (item.status !== 'pending') return done(item.status);
   if (item.provider !== 'test') {
     // Возврат со страницы ЮKassa: ждём подтверждения банка (обычно несколько секунд)
-    mount(view, h`<div class="wrap"><div class="success"><div class="big-ic wait">${icon('clock')}</div><h2>${tr('Проверяем оплату…', 'Checking the payment…')}</h2>
+    mount(view, h`<div class="wrap hp-public hp-receipt"><div class="success"><div class="big-ic wait">${icon('clock')}</div><h2>${tr('Проверяем оплату…', 'Checking the payment…')}</h2>
       <p class="muted" style="margin-top:10px">${state.lang === 'en' ? item.name_en : item.name_ru} — ${money(item.amount)}. ${tr('Страница обновится сама, как только банк подтвердит платёж.', 'This page updates as soon as the bank confirms the payment.')}</p>
       <div class="row" style="justify-content:center;margin-top:20px;flex-wrap:wrap">${item.confirmation_url ? h`<a class="btn btn-red" href="${item.confirmation_url}">${tr('Перейти к оплате', 'Go to payment')}</a>` : ''}<a class="btn btn-ghost" href="#/me/payments">${t('me.payments', 'Платежи', 'Payments')}</a></div></div></div>`);
     let tries = 0, alive = true; onLeave(() => { alive = false; });
@@ -1544,7 +1651,7 @@ route('/pay/:id', async (view, p) => {
     return;
   }
   const qr = Array.from({ length: 441 }, (_, i) => { const x = i % 21, y = Math.floor(i / 21); const f = (a, b) => x >= a && x < a + 7 && y >= b && y < b + 7; const finder = f(0, 0) || f(14, 0) || f(0, 14); if (finder) { const lx = x % 7 === x ? x : x - 14, ly = y % 7 === y ? y : y - 14; const xx = x >= 14 ? x - 14 : x, yy = y >= 14 ? y - 14 : y; return (xx === 0 || xx === 6 || yy === 0 || yy === 6 || (xx >= 2 && xx <= 4 && yy >= 2 && yy <= 4)) ? '' : 'w'; } return ((x * 7 + y * 13 + item.id * 3 + x * y) % 3) ? 'w' : ''; });
-  mount(view, h`<div class="wrap"><div class="paybox">
+  mount(view, h`<div class="wrap hp-public hp-payment"><div class="paybox">
     <div class="pay-top"><div><div class="xs" style="opacity:.6">${tr('Тестовый платёжный шлюз', 'Test payment gateway')}</div><div style="font-weight:700">${state.lang === 'en' ? item.name_en : item.name_ru}</div></div><b>${money(item.amount)}</b></div>
     <div class="pad stack">
       <div class="note note-amber small">${icon('alert')}<div>${tr('Тестовый режим — деньги не списываются. Карта для проверки: 2200 0000 0000 0004.', 'Test mode — no money is charged. Test card: 2200 0000 0000 0004.')}</div></div>
@@ -1570,8 +1677,9 @@ route('/community', async (view) => {
   const [{ items }, my] = await Promise.all([GET('/rating'), state.user ? GET('/role-requests/my') : Promise.resolve({ items: [] })]);
   const u = state.user;
   const pending = my.items.find((r) => r.status === 'pending');
-  mount(view, h`<div class="wrap"><div class="page-head"><span class="eyebrow">${t('com.eyebrow', 'Сообщество', 'Community')}</span><h1 style="margin-top:12px">${t('com.title', 'Волонтёры и партнёры', 'Volunteers & partners')}</h1>
-    <p>${t('com.sub', 'Волонтёры и организации получают SOS-оповещения по своему району и помогают искать.', 'Volunteers and organisations get SOS alerts for their area and help search.')}</p></div>
+  mount(view, h`<div class="wrap hp-public hp-community">
+    ${sectionHead(t('com.title', 'Волонтёры и партнёры', 'Volunteers & partners'),
+      t('com.sub', 'Волонтёры и организации получают SOS-оповещения по своему району и помогают искать.', 'Volunteers and organisations get SOS alerts for their area and help search.'), 'people')}
     <div class="grid-2" style="gap:18px;align-items:start">
       <div class="stack">
         ${u && ['volunteer', 'partner', 'moderator', 'admin'].includes(u.role) ? h`<div class="note note-blue">${icon('check')}<div><b>${tr('Вы', 'You are')}: ${ROLE(u.role)}</b>${t('com.active', 'Экстренные оповещения приходят по вашей зоне.', 'Emergency alerts arrive for your zone.')} <a class="link" href="#/me/zone">${t('me.zone', 'Зона оповещений', 'Alert zone')}</a></div></div>`
@@ -1599,15 +1707,17 @@ route('/community', async (view) => {
 route('/support', async (view) => {
   const { items } = await GET('/tickets');
   const ST = { open: [tr('Открыто', 'Open'), 'chip-warn'], answered: [tr('Есть ответ', 'Answered'), 'chip-ok'], closed: [tr('Закрыто', 'Closed'), ''] };
-  mount(view, h`<div class="wrap" style="max-width:820px"><div class="page-head"><h1>${t('sup.title', 'Поддержка', 'Support')}</h1><p>${t('sup.sub', 'Опишите вопрос — оператор ответит здесь, а мы пришлём уведомление.', 'Describe your issue — an operator will reply here and we will notify you.')}</p></div>
+  mount(view, h`<div class="wrap hp-public hp-support">
+    ${sectionHead(t('sup.title', 'Поддержка', 'Support'), t('sup.sub', 'Опишите вопрос — оператор ответит здесь, а мы пришлём уведомление.', 'Describe your issue — an operator will reply here and we will notify you.'), 'hound')}
+    <div class="hp-support-layout">
     <form class="card pad stack" id="tf"><label class="field"><span>${t('sup.subject', 'Тема', 'Subject')}</span><input name="subject" required maxlength="160"></label><label class="field"><span>${t('f.message', 'Сообщение', 'Message')}</span><textarea name="text" rows="4" required maxlength="4000"></textarea></label><button class="btn">${icon('send')}${tr('Отправить', 'Send')}</button></form>
-    <h3 style="margin:26px 0 12px">${t('sup.my', 'Мои обращения', 'My requests')}</h3>
-    ${items.length ? h`<div class="list">${items.map((x) => h`<a href="#/support/${x.id}">${icon('help')}<div class="grow"><b>${x.subject}</b><div class="xs muted">${ago(x.updated_at)} · ${x.msgs} ${tr('сообщ.', 'msgs')}</div></div><span class="chip ${ST[x.status][1]}">${ST[x.status][0]}</span></a>`)}</div>` : empty('help', t('sup.empty', 'Обращений пока нет', 'No requests yet'))}</div>`);
+    <section class="hp-support-history"><h2>${t('sup.my', 'Мои обращения', 'My requests')}</h2>
+    ${items.length ? h`<div class="list">${items.map((x) => h`<a href="#/support/${x.id}">${icon('help')}<div class="grow"><b>${x.subject}</b><div class="xs muted">${ago(x.updated_at)} · ${x.msgs} ${tr('сообщ.', 'msgs')}</div></div><span class="chip ${ST[x.status][1]}">${ST[x.status][0]}</span></a>`)}</div>` : empty('help', t('sup.empty', 'Обращений пока нет', 'No requests yet'))}</section></div></div>`);
   $('#tf', view).onsubmit = (e) => { e.preventDefault(); busy(e.submitter, async () => { try { const r = await POST('/tickets', formData(e.target)); go('#/support/' + r.id); } catch (er) { toastErr(er); } }); };
 }, { auth: true });
 export async function ticketView(view, id, staff) {
   const { ticket, messages, user } = await GET('/tickets/' + id);
-  mount(view, h`<div class="wrap" style="max-width:820px;padding-top:16px">${back(staff ? '#/admin/support' : '#/support')}
+  mount(view, h`<div class="wrap hp-public hp-ticket">${back(staff ? '#/admin/support' : '#/support')}
     <div class="row between" style="margin:8px 0 18px;align-items:flex-start"><div class="grow"><h2 style="overflow-wrap:anywhere">${ticket.subject}</h2>${user ? h`<div class="small muted" style="margin-top:6px">${user.name} · ${user.email || user.phone || ''}</div>` : ''}</div>${ticket.status !== 'closed' ? h`<button class="btn btn-ghost btn-sm" id="cl" style="flex:none">${tr('Закрыть', 'Close')}</button>` : h`<span class="chip">${tr('Закрыто', 'Closed')}</span>`}</div>
     <div class="msgs" style="padding:0;overflow:visible">${messages.map((m) => h`<div class="msg ${(staff ? m.staff : !m.staff) ? 'mine' : ''}">${m.staff ? h`<b class="xs" style="display:block;opacity:.7">${tr('Поддержка', 'Support')}</b>` : ''}${m.text}<time>${fmtDate(m.created_at, true)}</time></div>`)}</div>
     <form class="composer" id="mf" style="margin-top:16px;border:1px solid var(--line);border-radius:24px"><textarea name="text" rows="2" required placeholder="${t('chat.ph', 'Сообщение', 'Message')}"></textarea><button class="icon-btn send" aria-label="${tr('Отправить', 'Send')}">${icon('send')}</button></form></div>`);
@@ -1620,18 +1730,30 @@ route('/support/:id', (view, p) => ticketView(view, p.id, false), { auth: true }
 route('/login', async (view) => {
   if (state.user) return go(query().get('next') || '#/me');
   const next = query().get('next') || '#/me';
+  const demoEmail = state.config?.demoEmail;
+  const demoRoles = {
+    'anna@example.com': tr('Пользователь', 'User'),
+    'igor@example.com': tr('Волонтёр', 'Volunteer'),
+    'lizaalert@example.com': tr('Партнёр', 'Partner'),
+  };
   let target = '', info = null;
-  const shell = (inner) => mount(view, h`<div class="wrap" style="max-width:460px;padding-top:30px"><div class="center" style="margin-bottom:24px"><img src="/assets/logo-256.png" alt="" class="logo-fx" style="width:120px;margin:0 auto 14px"></div><div class="card pad view">${inner}</div>
-    <p class="xs muted center" style="margin-top:16px">${t('login.foot', 'Регистрация доступна с 18 лет.', 'Registration is available from age 18.')}</p></div>`);
+  const shell = (inner) => mount(view, h`<div class="wrap hp-public hp-login">
+    <div class="hp-login-art" aria-hidden="true"><img src="/assets/brand/hound-run.webp" alt=""></div>
+    <section class="hp-login-form">${inner}
+      <p class="hp-login-note">${demoEmail ? tr('Используйте только вымышленные данные.', 'Please use fictional data only.') : t('login.foot', 'Регистрация доступна с 18 лет.', 'Registration is available from age 18.')}</p>
+    </section></div>`);
   const step1 = () => {
-    shell(h`<h2>${t('login.title', 'Вход и регистрация', 'Sign in or sign up')}</h2><p class="muted" style="margin-top:8px">${t('login.sub', 'Введите e-mail или номер телефона — пришлём одноразовый код.', 'Enter your e-mail or phone — we will send a one-time code.')}</p>
-      <form class="stack" style="margin-top:20px" id="f1"><label class="field"><span>${t('f.contact', 'Телефон или e-mail', 'Phone or e-mail')}</span><input name="target" required autocomplete="username" inputmode="email" enterkeyhint="next" autocapitalize="off" spellcheck="false" placeholder="+7 900 000-00-00" value="${target}"></label>
+    const field = demoEmail
+      ? h`<label class="field"><span>${tr('Тестовый профиль', 'Demo profile')}</span><select name="target"><option value="${demoEmail}">${tr('Мой профиль в этом браузере', 'My profile in this browser')}</option>${state.config.demoLogins.map((email) => h`<option value="${email}" ${target === email ? 'selected' : ''}>${demoRoles[email]} · ${email}</option>`)}</select></label>`
+      : h`<label class="field"><span>${t('f.contact', 'Телефон или e-mail', 'Phone or e-mail')}</span><input name="target" required autocomplete="username" inputmode="email" enterkeyhint="next" autocapitalize="off" spellcheck="false" placeholder="+7 900 000-00-00" value="${target}"></label>`;
+    shell(h`<h1>${demoEmail ? tr('Вход в демоверсию', 'Demo sign-in') : t('login.title', 'Вход и регистрация', 'Sign in or sign up')}</h1><p class="muted" style="margin-top:8px">${demoEmail ? tr('Создайте свой тестовый профиль или выберите готовый. Готовыми профилями пользуются все посетители.', 'Create your own test profile or choose a sample. Sample profiles are shared by all visitors.') : t('login.sub', 'Введите e-mail или номер телефона — пришлём одноразовый код.', 'Enter your e-mail or phone — we will send a one-time code.')}</p>
+      <form class="stack" style="margin-top:20px" id="f1">${field}
       <button class="btn btn-red btn-block btn-lg">${t('login.get_code', 'Получить код', 'Get code')}</button></form>`);
-    $('#f1', view).onsubmit = (e) => { e.preventDefault(); busy(e.submitter, async () => { try { info = await POST('/auth/request', { target: e.target.target.value }); target = info.target; step2(); } catch (er) { toastErr(er); } }); };
+    $('#f1', view).onsubmit = (e) => { e.preventDefault(); busy(e.submitter, async () => { try { info = await POST('/auth/request', { target: e.target.elements.namedItem('target').value }); target = info.target; step2(); } catch (er) { toastErr(er); } }); };
   };
   const step2 = () => {
-    shell(h`<button class="back" id="bk">${icon('arrowL', 'ic-sm')}${target}</button><h2>${t('login.code', 'Введите код', 'Enter the code')}</h2>
-      <p class="muted" style="margin-top:8px">${info.type === 'email' ? t('login.code_email', 'Мы отправили 6-значный код на почту.', 'We sent a 6-digit code to your e-mail.') : t('login.code_sms', 'Мы отправили 6-значный код по SMS.', 'We sent a 6-digit code by SMS.')}</p>
+    shell(h`<button class="back" id="bk">${icon('arrowL', 'ic-sm')}${demoEmail && target === demoEmail ? tr('Мой тестовый профиль', 'My test profile') : target}</button><h1>${t('login.code', 'Введите код', 'Enter the code')}</h1>
+      <p class="muted" style="margin-top:8px">${demoEmail ? tr('Введите шесть цифр, показанных ниже.', 'Enter the six digits shown below.') : info.type === 'email' ? t('login.code_email', 'Мы отправили 6-значный код на почту.', 'We sent a 6-digit code to your e-mail.') : t('login.code_sms', 'Мы отправили 6-значный код по SMS.', 'We sent a 6-digit code by SMS.')}</p>
       ${info.devCode ? h`<div class="note note-blue small" style="margin-top:14px">${icon('spark')}<div>${t('login.dev', 'Тестовый режим (SMS/почта не подключены): код', 'Test mode (SMS/e-mail not connected): code')} <b style="font-family:var(--display);letter-spacing:.1em">${info.devCode}</b></div></div>` : ''}
       <form id="f2" style="margin-top:20px" class="stack"><div class="otp">${[0, 1, 2, 3, 4, 5].map((i) => h`<input inputmode="numeric" pattern="[0-9]*" aria-label="${tr('Цифра', 'Digit')} ${i + 1}" autocomplete="${i ? 'off' : 'one-time-code'}">`)}</div>
       ${info.isNew ? h`<div class="divider"></div><p style="font-weight:700">${t('login.new', 'Вы здесь впервые — заполните профиль', 'You are new here — complete your profile')}</p>
@@ -1727,8 +1849,9 @@ document.addEventListener('click', (e) => {
 });
 
 route('/legal', (view) => {
-  mount(view, h`<div class="wrap legal-wrap"><div class="page-head">${back('back')}<h1>${t('legal.all', 'Документы и согласия', 'Legal documents')}</h1>
-    <p>${tr('Правила платформы и согласия по 152-ФЗ. Читайте онлайн или скачайте PDF.', 'Platform rules and personal-data consents. Read online or download a PDF.')}</p></div>
+  mount(view, h`<div class="wrap hp-public legal-wrap hp-legal-index">${back('back')}
+    ${sectionHead(t('legal.all', 'Документы и согласия', 'Legal documents'),
+      tr('Правила платформы и согласия по 152-ФЗ. Читайте онлайн или скачайте PDF.', 'Platform rules and personal-data consents. Read online or download a PDF.'), 'hound')}
     <div class="legal-index">${LEGAL_IDS.map((id) => h`<div class="card legal-card">
       <a class="legal-card-main" href="#/legal/${id}"><span class="legal-ic">${icon(LEGAL_IC[id], '', 'duo')}</span><span class="grow" style="min-width:0"><b>${legalTitle(id)}</b><span class="small muted" data-lead="${id}"></span></span>${icon('chevR', 'ic-sm')}</a>
       <a class="legal-dl" href="${legalPdf(id)}" download>${icon('download', 'ic-sm')}${tr('Скачать PDF', 'Download PDF')}</a></div>`)}</div>
@@ -1741,7 +1864,7 @@ route('/legal/:doc', async (view, p) => {
   const d = await loadLegal(id);
   const toc = d.sections.map((s, i) => [s, i]).filter(([s]) => s.h);
   const wide = matchMedia('(min-width: 980px)').matches;
-  mount(view, h`<div class="wrap legal-wrap">
+  mount(view, h`<div class="wrap hp-public legal-wrap hp-legal-reader">
     <div class="page-head">${back('back')}
       <nav class="hscroll legal-tabs" aria-label="${tr('Документы', 'Documents')}">${LEGAL_IDS.map((x) => h`<a class="chip chip-btn ${x === id ? 'chip-dark' : ''}" href="#/legal/${x}" ${x === id ? raw('aria-current="page"') : ''}>${icon(LEGAL_IC[x], 'ic-sm')}${legalShort(x)}</a>`)}</nav>
       <h1>${d.title}</h1><p>${d.lead}</p>
@@ -1771,7 +1894,11 @@ route('/legal/:doc', async (view, p) => {
 });
 
 /* =================== 404 =================== */
-route('/404', (view) => mount(view, h`<div class="wrap"><div class="success"><div class="big-ic wait">${icon('search')}</div><h2>${tr('Страница не найдена', 'Page not found')}</h2><a class="btn" style="margin-top:20px" href="#/">${tr('На главную', 'Home')}</a></div></div>`), { notFound: true });
+route('/404', (view) => mount(view, h`<div class="wrap hp-public hp-missing">
+  <img src="/assets/brand/hound-run.webp" alt="">
+  <div><span class="hp-code">404</span><h1>${tr('Страница не найдена', 'Page not found')}</h1>
+    <div class="row-wrap"><a class="btn" href="#/map">${icon('map')}${tr('Открыть карту', 'Open map')}</a><a class="btn btn-ghost" href="#/">${tr('На главную', 'Home')}</a></div>
+  </div></div>`), { notFound: true });
 
 /* =================== язык и тема =================== */
 export async function setLang(lang, persist) {
@@ -1785,6 +1912,6 @@ export function setTheme(v) {
   state.theme = v; safeSet('mba.theme', v);
   const dark = v === 'dark' || (v === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-  document.querySelector('meta[name=theme-color]').content = dark ? '#1a0c12' : '#ffffff';
+  document.querySelector('meta[name=theme-color]').content = dark ? '#1c1a2b' : '#fffbf3';
 }
 export { currentPath };

@@ -3,35 +3,36 @@ import { state, t, tr, h, raw, mount, $, $$, icon, GET, refreshMe, handleRoute, 
 import { setLang, setTheme } from './views.js';
 import './admin.js';
 
+const wordmark = () => h`<img src="/assets/brand/hound.svg" width="56" height="40" alt=""><span><b class="hound-name-start">${tr('Мой лучший', 'My Best')}</b> ${tr('агент', 'Agent')}</span>`;
+
 const chrome = () => {
   const u = state.user, p = currentPath();
   const on = (pre) => (pre === '/' ? p === '/' : p.startsWith(pre)) ? 'on' : '';
   mount($('#top'), h`<div class="wrap top-in">
     <button type="button" class="skip-link" id="skipBtn">${tr('К содержимому', 'Skip to content')}</button>
-    <a class="brand" href="#/" aria-label="${tr('Мой лучший агент — на главную', 'My Best Agent — home')}"><img src="/assets/logo-256.png" alt=""><span>${tr('Мой лучший агент', 'My Best Agent')}<small>${tr('поиск людей, животных и вещей', 'people, pets & things finder')}</small></span></a>
+    <a class="brand" href="#/" aria-label="${tr('Мой лучший агент — на главную', 'My Best Agent — home')}">${wordmark()}</a>
     <nav class="nav">
-      <a href="#/map" class="${on('/map')}">${t('nav.map', 'Карта и поиск', 'Map & search')}</a>
-      <a href="#/new/lost" class="nav-new ${on('/new/lost')}">${t('nav.lost', 'Потерял', 'Lost')}</a>
-      <a href="#/new/found" class="nav-new ${on('/new/found')}">${t('nav.found', 'Нашёл', 'Found')}</a>
-      <a href="#/registry" class="${on('/registry')}">${t('nav.registry', 'Реестр', 'Registry')}</a>
+      <a href="#/map" class="${p === '/' ? 'on' : on('/map')}">${tr('Карта поиска', 'Search map')}</a>
+      <a href="#/registry" class="${on('/registry')}">${tr('Реестр ценностей', 'Valuables registry')}</a>
       <a href="#/community" class="${on('/community')}">${t('nav.community', 'Волонтёры', 'Volunteers')}</a>
       ${u && ['moderator', 'admin'].includes(u.role) ? h`<a href="#/admin" class="${on('/admin')}">${t('nav.admin', 'Админ', 'Admin')}</a>` : ''}
     </nav>
     <div class="top-act">
-      <button type="button" class="btn btn-sm btn-blue top-new" id="topNew">${icon('plus', 'ic-sm')}${tr('Разместить заявку', 'New report')}</button>
+      <button type="button" class="btn btn-sm btn-blue top-new" id="fab">${icon('plus', 'ic-sm')}${tr('Разместить', 'New report')}</button>
       <button class="icon-btn lang-btn" id="langBtn" aria-label="${tr('Язык: русский. Переключить на английский (English)', 'Language: English. Switch to Russian (Русский)')}" title="${tr('Switch to English', 'Переключить на русский')}">${icon('globe', 'ic-sm')}<span>${state.lang === 'en' ? 'EN' : 'RU'}</span></button>
       <button class="icon-btn" id="themeBtn" aria-label="${tr('Тема', 'Theme')}">${icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon')}</button>
       ${u ? h`<a class="icon-btn desk-only" href="#/chats" aria-label="${tr('Сообщения', 'Messages')}">${icon('chat')}${u.unreadChats ? h`<span class="dotbadge">${u.unreadChats}</span>` : ''}</a>
         <a class="icon-btn" href="#/notifications" aria-label="${tr('Уведомления', 'Notifications')}">${icon('bell')}${u.unread ? h`<span class="dotbadge">${u.unread > 99 ? '99+' : u.unread}</span>` : ''}</a>
         <a class="icon-btn desk-only" href="#/me" aria-label="${tr('Кабинет', 'Account')}">${icon('user')}</a>`
       : h`<a class="btn btn-sm" href="#/login">${t('nav.login', 'Войти', 'Sign in')}</a>`}
+      <button type="button" class="icon-btn hound-menu-btn" id="houndMenu" aria-label="${tr('Открыть меню', 'Open menu')}" aria-haspopup="dialog">${icon('list')}</button>
     </div></div>`);
   const tb = (pre, href, ic, label, extra = '') => { const a = on(pre); return h`<a class="tab ${a}" href="${href}" ${a ? raw('aria-current="page"') : ''}>${icon(ic, '', a ? 'fill' : '')}<span>${label}</span>${extra}</a>`; };
   $('#tabbar').setAttribute('aria-label', tr('Основная навигация', 'Main navigation'));
   mount($('#tabbar'), h`
     ${tb('/', '#/', 'home', t('tab.home', 'Главная', 'Home'))}
     ${tb('/map', '#/map', 'map', t('tab.map', 'Карта', 'Map'))}
-    <button class="tab tab-fab" id="fab" aria-label="${tr('Новая заявка', 'New report')}"><span class="fab">${icon('plus')}</span></button>
+    <button class="tab tab-fab" id="tabFab" aria-label="${tr('Новая заявка', 'New report')}"><span class="fab">${icon('plus')}</span></button>
     ${tb('/chat', '#/chats', 'chat', t('tab.chats', 'Чаты', 'Chats'), u && u.unreadChats ? h`<span class="dotbadge">${u.unreadChats}</span>` : '')}
     ${u ? tb(currentPath().startsWith('/admin') ? '/admin' : '/me', '#/me', 'user', t('tab.me', 'Кабинет', 'Account')) : tb('/login', '#/login', 'user', t('nav.login', 'Войти', 'Sign in'))}`);
   // шапка перерисовывается целиком — возвращаем фокус на нажатую кнопку, чтобы не терять место при работе с клавиатуры
@@ -39,7 +40,8 @@ const chrome = () => {
   $('#themeBtn').onclick = () => { setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); chrome(); $('#themeBtn')?.focus(); };
   $('#skipBtn').onclick = () => { const v = $('#view'); v.tabIndex = -1; v.focus(); };
   $('#fab').onclick = newSheet;
-  $('#topNew').onclick = newSheet;
+  $('#tabFab').onclick = newSheet;
+  $('#houndMenu').onclick = navigationSheet;
   const hideFoot = ['map', 'chat', 'admin', 'pay', 'new', 'edit'].includes(document.body.dataset.route);
   $('#foot').classList.toggle('hide', hideFoot);
   if (!hideFoot) footer();
@@ -47,7 +49,7 @@ const chrome = () => {
 };
 function footer() {
   mount($('#foot'), h`<div class="wrap"><div class="footer-grid">
-    <div><a class="brand" href="#/"><img src="/assets/logo-256.png" alt=""><span>${tr('Мой лучший агент', 'My Best Agent')}</span></a><p style="margin-top:12px;max-width:340px">${t('foot.about', 'Поиск людей, животных и вещей. Не заменяет полицию: 102, 112.', 'Finding people, pets and things. Does not replace the police: 102, 112.')}</p></div>
+    <div><a class="brand" href="#/">${wordmark()}</a><p style="margin-top:12px;max-width:340px">${t('foot.about', 'Поиск людей, животных и вещей. Не заменяет полицию: 102, 112.', 'Finding people, pets and things. Does not replace the police: 102, 112.')}</p></div>
     <div><h5>${tr('Платформа', 'Platform')}</h5><a href="#/map">${t('nav.map', 'Карта и поиск', 'Map & search')}</a><a href="#/new/lost">${t('nav.lost', 'Потерял', 'Lost')}</a><a href="#/new/found">${t('nav.found', 'Нашёл', 'Found')}</a><a href="#/registry">${t('nav.registry', 'Реестр', 'Registry')}</a><a href="#/tariffs">${t('tar.title', 'Тарифы', 'Plans')}</a></div>
     <div><h5>${tr('Сообщество', 'Community')}</h5><a href="#/community">${t('nav.community', 'Волонтёры', 'Volunteers')}</a><a href="#/community#rating">${t('home.rating', 'Рейтинг', 'Rating')}</a><a href="#/" data-partner>${t('home.inv', 'Стать партнёром или инвестором', 'Become a partner or investor')}</a><a href="#/support">${t('sup.title', 'Поддержка', 'Support')}</a></div>
     <div><h5>${tr('Документы', 'Legal')}</h5><a href="#/legal/terms">${t('legal.terms', 'Пользовательское соглашение', 'Terms of use')}</a><a href="#/legal/privacy">${t('legal.privacy', 'Политика конфиденциальности', 'Privacy policy')}</a><a href="#/legal/consent">${t('legal.consent', 'Согласие на обработку персональных данных', 'Personal data consent')}</a><a href="#/legal/publication">${t('legal.publication', 'Согласие на распространение персональных данных', 'Consent to data dissemination')}</a><a href="#/legal">${tr('Все документы в PDF', 'All documents (PDF)')}</a></div>
@@ -55,12 +57,36 @@ function footer() {
   const pl = $('[data-partner]', $('#foot')); if (pl) pl.onclick = (e) => { e.preventDefault(); go('#/'); setTimeout(() => { const el = document.getElementById('partner'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 400); };
 }
 import { sheet, sheetHead } from './core.js';
+function navigationSheet() {
+  const menu = [
+    ['#/', 'home', tr('Главная', 'Home')],
+    ['#/map', 'map', tr('Карта поиска', 'Search map')],
+    ['#/registry', 'gem', tr('Реестр ценностей', 'Valuables registry')],
+    ['#/community', 'users', tr('Волонтёрам', 'Volunteers')],
+    ['#/chats', 'chat', tr('Сообщения', 'Messages')],
+    ['#/notifications', 'bell', tr('Оповещения', 'Notifications')],
+    [state.user ? '#/me' : '#/login', 'user', state.user ? tr('Мой кабинет', 'My account') : tr('Войти', 'Sign in')],
+    ['#/tariffs', 'card', tr('Тарифы', 'Plans')],
+    ['#/support', 'help', tr('Поддержка', 'Support')],
+    ['#/legal', 'file', tr('Документы', 'Documents')]
+  ];
+  if (['admin', 'moderator'].includes(state.user?.role)) menu.push(['#/admin', 'shield', tr('Управление', 'Administration')]);
+  const panel = sheet(h`${sheetHead(tr('Меню', 'Menu'))}
+    <nav class="hound-menu-links">${menu.map(([url, glyph, text]) => h`<a href="${url}">${icon(glyph)}${text}${icon('chevR', 'ic-sm')}</a>`)}</nav>
+    <button type="button" class="btn btn-soft btn-block" data-theme-toggle>${icon('moon')}${tr('Сменить тему', 'Switch theme')}</button>`);
+  $$('a', panel.el).forEach(link => link.addEventListener('click', () => panel.close()));
+  $('[data-theme-toggle]', panel.el).onclick = () => {
+    setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+    panel.close();
+    chrome();
+  };
+}
 function newSheet() {
   const s = sheet(h`${sheetHead(t('fab.title', 'Новая заявка', 'New report'))}
     <div class="stack">
       <a class="pick" href="#/new/lost" style="flex-direction:row;align-items:center"><div class="cat-ic" style="background:var(--btn)">${icon('search')}</div><div><b>${t('home.lost', 'Я потерял', 'I lost')}</b><span>${t('home.lost_sub', 'человека, питомца, вещь', 'a person, pet, item')}</span></div></a>
       <a class="pick" href="#/new/found" style="flex-direction:row;align-items:center"><div class="cat-ic" style="background:var(--green)">${icon('heart')}</div><div><b>${t('home.found', 'Я нашёл', 'I found')}</b><span>${t('home.found_sub', 'сообщить о находке', 'report a find')}</span></div></a>
-      <a class="pick" href="#/me/registry" style="flex-direction:row;align-items:center"><div class="cat-ic" style="background:linear-gradient(145deg,#2a2c33,#0e0f13)">${icon('gem')}</div><div><b>${t('me.registry', 'Реестр ценностей', 'Valuables')}</b><span>${tr('зарегистрировать ценную вещь', 'register a valuable item')}</span></div></a>
+      <a class="pick" href="#/me/registry" style="flex-direction:row;align-items:center"><div class="cat-ic" style="background:var(--hound-ink)">${icon('gem')}</div><div><b>${t('me.registry', 'Реестр ценностей', 'Valuables')}</b><span>${tr('зарегистрировать ценную вещь', 'register a valuable item')}</span></div></a>
     </div>`);
   $$('a', s.el).forEach((a) => a.addEventListener('click', () => s.close()));
 }
