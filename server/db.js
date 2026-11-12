@@ -103,7 +103,8 @@ CREATE TABLE IF NOT EXISTS applications (
   title TEXT NOT NULL, description TEXT DEFAULT '', features TEXT DEFAULT '',
   person_name TEXT DEFAULT '', person_age INTEGER, relation TEXT DEFAULT '', is_minor INTEGER DEFAULT 0,
   last_seen TEXT DEFAULT '', species TEXT DEFAULT '',
-  event_date TEXT, lat REAL, lng REAL, address TEXT DEFAULT '', city TEXT DEFAULT '',
+  details TEXT NOT NULL DEFAULT '{}',
+  event_date TEXT, event_time TEXT DEFAULT '', lat REAL, lng REAL, address TEXT DEFAULT '', city TEXT DEFAULT '',
   contact TEXT DEFAULT '', reward INTEGER DEFAULT 0,
   photos TEXT NOT NULL DEFAULT '[]',
   emergency_radius REAL, emergency_status TEXT NOT NULL DEFAULT 'none',
@@ -233,6 +234,18 @@ if (ver < 2) {
     if (!cols.includes('error')) db.exec("ALTER TABLE outbox ADD COLUMN error TEXT NOT NULL DEFAULT ''");
     if (!db.prepare('PRAGMA table_info(payments)').all().some((c) => c.name === 'confirmation_url')) db.exec('ALTER TABLE payments ADD COLUMN confirmation_url TEXT');
     db.exec('PRAGMA user_version = 2;');
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+}
+
+if (ver < 3) {
+  // v3: единые параметры заявки (приметы человека, место: ориентир, транспорт, фото места) и время события
+  db.exec('BEGIN');
+  try {
+    const cols = db.prepare('PRAGMA table_info(applications)').all().map((c) => c.name);
+    if (!cols.includes('details')) db.exec("ALTER TABLE applications ADD COLUMN details TEXT NOT NULL DEFAULT '{}'");
+    if (!cols.includes('event_time')) db.exec("ALTER TABLE applications ADD COLUMN event_time TEXT DEFAULT ''");
+    db.exec('PRAGMA user_version = 3;');
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
 }

@@ -128,11 +128,20 @@ function words(s) {
 const SPECIES = [['dog', /соба|пес|пёс|щен|шпиц|лабрад|овчар|терьер|хаски|такс|dog|puppy/], ['cat', /кот|кош|котен|котён|cat|kitten/],
   ['bird', /птиц|попуг|корелл|голуб|bird|parrot/], ['rodent', /хомя|крыс|морск.*свин|шинш|rodent|hamster/]];
 function speciesOf(a) { const txt = [a.species, a.title].join(' ').toLowerCase(); const m = SPECIES.find(([, re]) => re.test(txt)); return m ? m[0] : null; }
+const detailsOf = (a) => { try { return JSON.parse(a.details || '{}'); } catch (e) { return {}; } };
+// Одежда, обувь и ориентир — тоже приметы для сравнения
+const detailWords = (d) => [d.clothes_top, d.clothes_bottom, d.headwear, d.shoes, d.landmark].filter(Boolean).join(' ');
 function matchScore(a, b) {
   if (a.category !== b.category || a.kind === b.kind) return 0;
   if (a.category === 'animals') { const sa = speciesOf(a), sb = speciesOf(b); if (sa && sb && sa !== sb) return 0; }
-  const wa = words([a.title, a.features, a.description, a.species].join(' '));
-  const wb = words([b.title, b.features, b.description, b.species].join(' '));
+  const da = detailsOf(a), db = detailsOf(b);
+  if (a.category === 'people') {
+    // разный пол или заметно разный возраст (у найденного возраст примерный) — не тот человек
+    if (da.sex && db.sex && da.sex !== db.sex) return 0;
+    if (a.person_age != null && b.person_age != null && Math.abs(a.person_age - b.person_age) > 15) return 0;
+  }
+  const wa = words([a.title, a.features, a.description, a.species, detailWords(da)].join(' '));
+  const wb = words([b.title, b.features, b.description, b.species, detailWords(db)].join(' '));
   const generic = /^(соба|пес|кот|кош|птиц|живот|вещ|предм|человек|мужчин|женщин|dog|cat)/; // слова-виды не считаются приметой
   let hit = 0; for (const w of wa) if (wb.has(w) && !generic.test(w)) hit++;
   if (!hit) return 0; // без общих примет совпадением не считаем — только место и дата недостаточно

@@ -77,7 +77,7 @@ const appBody = (o = {}) => Object.assign({
 }, o);
 const peopleBody = (o = {}) => appBody(Object.assign({
   category: 'people', title: 'Пропал человек', person_name: 'Иван Тестов', person_age: 40, last_seen: 'У метро',
-  relation: 'relative', confirm_rights: true
+  relation: 'relative', confirm_rights: true, details: { sex: 'male' }
 }, o));
 
 // Пользователи (кука-хранилище на каждого)
@@ -542,6 +542,78 @@ describe('Заявки', () => {
     assert.equal((await igor.del('/api/applications/' + st.annaThing.id)).status, 404);
     const check = await anon().get('/api/applications/' + st.annaThing.id);
     assert.equal(check.body.item.title, 'Потеряна сумка с фото (обновлено)');
+  });
+
+  it('единые параметры заявки о человеке: приметы, время, место, транспорт, фото места', async () => {
+    const up = await max.post('/api/upload', { data: PNG });
+    const base = { title: 'Пропала мама', person_name: 'Нина Петрова', person_age: 74, last_seen: '' };
+    // пол обязателен для заявки о пропаже человека
+    const noSex = await max.post('/api/applications', peopleBody(Object.assign({}, base, { details: { transport: 'bus' } })));
+    assert.equal(noSex.status, 400); assert.equal(noSex.body.error, 'sex_required');
+    // без адреса, ориентира и транспорта не понятно, где искать
+    const noPlace = await max.post('/api/applications', peopleBody(Object.assign({}, base, { address: '', city: '', details: { sex: 'female' } })));
+    assert.equal(noPlace.status, 400); assert.equal(noPlace.body.error, 'last_seen_required');
+    const badH = await max.post('/api/applications', peopleBody(Object.assign({}, base, { details: { sex: 'female', height: 900 } })));
+    assert.equal(badH.status, 400); assert.equal(badH.body.error, 'bad_height');
+    const badT = await max.post('/api/applications', peopleBody(Object.assign({}, base, { event_time: '25:70', details: { sex: 'female' } })));
+    assert.equal(badT.status, 400); assert.equal(badT.body.error, 'bad_time');
+
+    const details = {
+      sex: 'female', height: '158', weight: 60, build: 'full', skin: 'light', hair_color: 'gray', hair_length: 'short', eye_color: 'green',
+      nationality: 'русская', language: 'русский', clothes_top: 'бордовое пальто', clothes_bottom: 'серая юбка', headwear: 'берет', shoes: 'чёрные сапоги',
+      health: ['dementia', 'deaf', 'cancer'], health_note: 'не помнит адрес', disability: 'g2',
+      landmark: 'Рижский вокзал', transport: 'bus', transport_route: '№ 24', place_photo: up.body.url,
+      hair_style: 'хвост', build_x: 1 // лишние ключи отбрасываются
+    };
+    const c = await max.post('/api/applications', peopleBody(Object.assign({}, base, { address: '', city: 'Москва', event_time: '14:30', details })));
+    assert.equal(c.status, 200, JSON.stringify(c.body));
+    const own = c.body.item;
+    assert.equal(own.event_time, '14:30');
+    assert.equal(own.details.height, 158, 'рост — число');
+    assert.deepEqual(own.details.health, ['deaf', 'dementia'], 'только допустимые состояния');
+    assert.equal(own.details.hair_style, undefined); assert.equal(own.details.build_x, undefined);
+    assert.equal(own.details.place_photo, up.body.url);
+    assert.equal(own.last_seen, 'Рижский вокзал, автобус № 24, Москва', 'последнее местонахождение собрано из шага «Место»');
+
+    // неизвестные значения справочников не сохраняются
+    const odd = await max.patch('/api/applications/' + own.id, peopleBody(Object.assign({}, base, { city: 'Москва', details: Object.assign({}, details, { eye_color: 'purple', transport: 'teleport' }) })));
+    assert.equal(odd.status, 200);
+    assert.equal(odd.body.item.details.eye_color, undefined);
+    assert.equal(odd.body.item.details.transport, undefined);
+    assert.equal(odd.body.item.details.transport_route, undefined, 'маршрут без транспорта не хранится');
+    assert.equal((await max.patch('/api/applications/' + own.id, peopleBody(Object.assign({}, base, { city: 'Москва', event_time: '14:30', details })))).status, 200);
+
+    assert.equal((await mod.post(`/api/admin/applications/${own.id}/moderate`, { action: 'approve' })).status, 200);
+    const pub = (await anon().get('/api/applications/' + own.id)).body.item;
+    assert.equal(pub.details.clothes_top, 'бордовое пальто');
+    assert.equal(pub.details.transport, 'bus');
+    // поиск находит заявку по одежде и ориентиру
+    for (const q of ['бордовое', 'Рижский']) {
+      const found = (await anon().get('/api/applications?q=' + encodeURIComponent(q))).body.items.map((a) => a.id);
+      assert.ok(found.includes(own.id), q);
+    }
+    // у вещей и животных место события тоже структурное, а приметы человека не принимаются
+    const thing = await anna.post('/api/applications', appBody({ title: 'Забыт зонт', event_time: '08:05', details: { landmark: 'станция «Сокол»', transport: 'metro', transport_route: 'Замоскворецкая линия', sex: 'male', height: 180 } }));
+    assert.equal(thing.status, 200);
+    assert.deepEqual(thing.body.item.details, { landmark: 'станция «Сокол»', transport: 'metro', transport_route: 'Замоскворецкая линия' });
+    // найден — приметы, состояние и фото места скрыты
+    assert.equal((await max.post(`/api/applications/${own.id}/status`, { status: 'found' })).status, 200);
+    const hidden = (await anon().get('/api/applications/' + own.id)).body.item;
+    assert.deepEqual(hidden.details, {});
+    const after = (await anon().get('/api/applications?q=' + encodeURIComponent('бордовое'))).body.items.map((a) => a.id);
+    assert.ok(!after.includes(own.id), 'по скрытым приметам найденного человека не ищем');
+    await anna.del('/api/applications/' + thing.body.item.id);
+  });
+
+  it('подбор совпадений по людям: разный пол или далёкий возраст — не совпадение', async () => {
+    process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'mba-match-')); // своя пустая база, не рабочая
+    const { matchScore } = require('../server/services.js');
+    const P = { category: 'people', lat: 55.7, lng: 37.5, event_date: '2026-11-10', title: 'человек', features: 'бордовое пальто берет', description: '' };
+    const lost = Object.assign({}, P, { kind: 'lost', person_age: 70, details: JSON.stringify({ sex: 'female', clothes_top: 'бордовое пальто' }) });
+    const found = Object.assign({}, P, { kind: 'found', person_age: 75, details: JSON.stringify({ sex: 'female' }) });
+    assert.ok(matchScore(lost, found) >= 50);
+    assert.equal(matchScore(lost, Object.assign({}, found, { details: JSON.stringify({ sex: 'male' }) })), 0);
+    assert.equal(matchScore(lost, Object.assign({}, found, { person_age: 30 })), 0);
   });
 
   it('«найдено» для заявки о человеке скрывает персональные данные в публичной карточке', async () => {

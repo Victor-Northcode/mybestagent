@@ -63,7 +63,7 @@ const RU = {
         'Заявка может содержать описание, приметы, до 5 фотографий, место на карте и дату. Контакт для связи не публикуется: его видят только модераторы, связь с автором — через анонимный чат.',
         'Заявки категорий «Животные» и «Вещи» публикуются сразу и проверяются модератором по жалобам. Заявки категории «Люди» публикуются только после проверки модератором.',
         'Заявку о пропаже человека может подать только его родственник или законный представитель; заявку о несовершеннолетнем — только законный представитель. Подавая заявку, Пользователь подтверждает это право.',
-        'В заявке запрещено указывать сведения о состоянии здоровья и диагнозах, реквизиты документов, полный домашний адрес и иные сведения, не нужные для поиска. Модератор вправе удалить такие сведения или отклонить заявку.',
+        'В заявке о человеке можно по желанию отметить особенности, которые помогают узнать его и правильно повести себя при встрече: нарушения слуха или зрения, деменцию, контузию, инвалидность, язык общения, национальность. Подробные диагнозы, медицинские документы, реквизиты документов, полный домашний адрес и иные сведения, не нужные для поиска, указывать запрещено. Модератор вправе удалить такие сведения или отклонить заявку.',
         'После отметки «найдено» персональные данные в заявке о человеке скрываются из публичного доступа.',
         'Человек, о котором подана заявка, или его законный представитель вправе потребовать её удаления по ссылке «Это заявка обо мне — запросить удаление» на странице заявки.',
         'Пользователь может редактировать, закрывать и удалять свои заявки. Повторная проверка заявки о человеке выполняется после её изменения.'
@@ -151,8 +151,8 @@ const RU = {
         'Ответы на запросы уполномоченных органов — исполнение требований закона.'
       ]],
       ['Сведения о здоровье и специальные категории данных', [
-        'Оператор не собирает намеренно сведения о состоянии здоровья, национальности, религиозных и политических взглядах. В заявках запрещено указывать диагнозы и подобные сведения.',
-        'Если такие сведения всё же попали в заявку, модератор удаляет их или отклоняет заявку.'
+        'В заявке о пропавшем или найденном человеке автор может по желанию указать особенности здоровья (нарушения слуха или зрения, деменцию, контузию, инвалидность), язык общения и национальность — только в объёме, нужном, чтобы узнать человека и оказать ему помощь. Основание — защита жизни и здоровья человека, когда получить его согласие невозможно (п. 3 ч. 2 ст. 10 152-ФЗ). После отметки «найден» эти сведения скрываются вместе с остальными личными данными.',
+        'Оператор не собирает сведения о религиозных и политических взглядах. Подробные диагнозы и медицинские документы в заявках не публикуются: если они попали в заявку, модератор удаляет их или отклоняет заявку.'
       ]],
       ['Что видят другие пользователи', [
         'Публично доступны опубликованные заявки (без контакта автора), их фотографии и примерное место на карте.',
@@ -289,7 +289,7 @@ const EN = {
         'A report may contain a description, distinctive features, up to 5 photos, a map location and a date. The contact is not published: only moderators see it; people reach the author via the anonymous chat.',
         'Animals and Things reports are published immediately and reviewed on complaint. People reports are published only after moderator review.',
         'Only a relative or legal representative may report a missing person; only a legal representative may report a minor. By filing, the User confirms this right.',
-        'Reports must not contain health information or diagnoses, document details, a full home address or other information not needed for the search. Moderators may remove such information or reject the report.',
+        'A report about a person may optionally note features that help recognise them and act right when meeting them: hearing or vision impairment, dementia, concussion, disability, language, nationality. Detailed diagnoses, medical records, document details, a full home address or other information not needed for the search are not allowed. Moderators may remove such information or reject the report.',
         'Once marked as found, personal data in a People report is hidden from public view.',
         'The person a report is about, or their legal representative, may request its removal via the "This report is about me" link on the report page.',
         'Users may edit, close and delete their reports. An edited People report is reviewed again.'
@@ -377,8 +377,8 @@ const EN = {
         'Responding to lawful requests from authorities — legal obligation.'
       ]],
       ['Health data and special categories', [
-        'The Operator does not intentionally collect health, ethnic, religious or political data. Reports must not contain diagnoses or similar details.',
-        'If such data appears in a report, a moderator removes it or rejects the report.'
+        'In a report about a missing or found person, the author may optionally state health features (hearing or vision impairment, dementia, concussion, disability), language and nationality — only as far as needed to recognise and help the person. Legal basis: protecting the person\'s life and health when their consent cannot be obtained (Art. 10(2)(3) of 152-FZ). Once the person is found, this is hidden together with other personal data.',
+        'The Operator does not collect religious or political data. Detailed diagnoses and medical records are not published: if they appear in a report, a moderator removes them or rejects the report.'
       ]],
       ['What other users see', [
         'Published reports (without the author\'s contact), their photos and approximate map location are public.',

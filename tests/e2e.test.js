@@ -394,6 +394,62 @@ describe('Мастер заявки', () => {
     assert.match(await page.locator('.field.has-err .ferr').innerText(), /возраст/i);
     await page.context().close();
   });
+  it('заявка о пропавшем человеке: единые приметы, место с транспортом и фото места', async () => {
+    const page = await newPage();
+    await login(page, 'max@example.com');
+    await open(page, '#/new/lost');
+    await page.locator('[data-cat="people"]').click();
+    assert.match(await page.locator('.wizard').innerText(), /Шаг 2 \/ 6/, 'у заявки о человеке отдельный шаг «Приметы»');
+    assert.equal(await page.locator('[name=last_seen]').count(), 0, 'место — на шаге «Место», а не строкой в описании');
+    await page.locator('input[name=person_name]').fill('Нина Петрова');
+    await page.locator('input[name=person_age]').fill('74');
+    await page.locator('select[name=relation]').selectOption('relative');
+    await page.locator('#next').click();
+    await page.waitForSelector('.field.has-err .ferr');
+    assert.match(await page.locator('.field.has-err .ferr').innerText(), /пол/i);
+    await page.locator('select[name=sex]').selectOption('female');
+    await page.locator('#next').click();
+    // «Приметы»: внешность, одежда, здоровье
+    await page.waitForSelector('input[name=height]');
+    for (const n of ['build', 'skin', 'hair_color', 'hair_length', 'eye_color', 'disability']) assert.equal(await page.locator(`select[name=${n}]`).count(), 1, n);
+    await page.locator('input[name=height]').fill('158');
+    await page.locator('select[name=hair_color]').selectOption('gray');
+    await page.locator('input[name=clothes_top]').fill('Бордовое пальто');
+    await page.locator('input[name=shoes]').fill('Чёрные сапоги');
+    await page.locator('input[name=h_dementia]').check();
+    await page.locator('input[name=language]').fill('Русский');
+    await page.locator('#next').click();
+    await page.locator('#next').click(); // фото человека — пропустить
+    // «Место»: время, ориентир, транспорт, фото места
+    await page.waitForSelector('.map-host.leaflet-container');
+    assert.match(await page.locator('.wizard h2').innerText(), /видели последний раз/);
+    const box = await page.locator('.map-host').boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.locator('.pin.pick-pin').waitFor();
+    assert.ok(await page.locator('#routeBox').evaluate((e) => e.classList.contains('hide')), 'маршрут скрыт, пока не выбран транспорт');
+    await page.locator('select[name=transport]').selectOption('bus');
+    assert.equal(await page.locator('#routeL').innerText(), 'Номер маршрута');
+    await page.locator('input[name=transport_route]').fill('№ 24');
+    await page.locator('input[name=landmark]').fill('Рижский вокзал');
+    await page.locator('input[name=event_time]').fill('14:30');
+    await page.locator('#pph input[type=file]').setInputFiles(path.join(__dirname, '..', 'public', 'assets', 'demo', 'keys.jpg'));
+    await page.waitForSelector('#pph .ph-item img');
+    assert.equal(await page.locator('#pph .ph-add').count(), 0, 'фото места — одно');
+    await page.locator('#next').click();
+    await page.locator('input[name=confirm_rights]').check();
+    await page.locator('#next').click(); // отправить на проверку
+    await page.waitForSelector('.success h2');
+    const href = await page.locator('.success a[href^="#/a/"]').first().getAttribute('href');
+    await open(page, href);
+    await page.waitForSelector('#looks');
+    const looks = await page.locator('#looks').innerText();
+    for (const s of ['158', 'Седые', 'Бордовое пальто', 'Чёрные сапоги', 'Деменция', 'Русский']) assert.ok(looks.includes(s), s);
+    const kv = await page.locator('.detail .kv:not(#looks)').innerText();
+    for (const s of ['Женский', '14:30', 'Рижский вокзал', 'Автобус, № 24']) assert.ok(kv.includes(s), s);
+    assert.equal(await page.locator('img.place-photo').count(), 1, 'фото места показано');
+    assert.deepEqual(page.errors, []);
+    await page.context().close();
+  });
 });
 
 // Доступность: axe-core (лежит в tests/vendor, сеть не нужна). Падаем только на серьёзных и критических нарушениях.

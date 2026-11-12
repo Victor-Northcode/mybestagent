@@ -544,19 +544,49 @@ route('/map', async (view) => {
 }, { full: true });
 
 /* =================== МАСТЕР ЗАЯВКИ =================== */
+// Единые параметры заявки: приметы человека и место события. Значения совпадают со списками на сервере (server/index.js).
+const OPT = {
+  sex: { male: ['Мужской', 'Male'], female: ['Женский', 'Female'] },
+  build: { thin: ['Худощавое', 'Slim'], normal: ['Среднее', 'Medium'], full: ['Полное', 'Heavy'] },
+  hair_color: { blond: ['Светлые', 'Blond'], light_brown: ['Русые', 'Light brown'], brown: ['Каштановые', 'Brown'], black: ['Тёмные, чёрные', 'Dark, black'], red: ['Рыжие', 'Red'], gray: ['Седые', 'Grey'], other: ['Другой цвет', 'Other colour'] },
+  hair_length: { none: ['Нет волос, бритая голова', 'Bald, shaved'], short: ['Короткие', 'Short'], medium: ['Средние', 'Medium'], long: ['Длинные', 'Long'] },
+  eye_color: { blue: ['Голубые, синие', 'Blue'], gray: ['Серые', 'Grey'], green: ['Зелёные', 'Green'], brown: ['Карие', 'Brown'], other: ['Другой', 'Other'] },
+  skin: { light: ['Светлая', 'Light'], olive: ['Смуглая', 'Olive'], dark: ['Тёмная', 'Dark'] },
+  disability: { none: ['Нет', 'None'], g1: ['I группа', 'Group I'], g2: ['II группа', 'Group II'], g3: ['III группа', 'Group III'], child: ['Ребёнок-инвалид', 'Disabled child'] },
+  health: { deaf: ['Не слышит или плохо слышит', 'Deaf or hard of hearing'], blind: ['Не видит или плохо видит', 'Blind or low vision'], dementia: ['Деменция: может не помнить имя и адрес', 'Dementia: may not remember name or address'], concussion: ['Контузия', 'Concussion'], other: ['Другое', 'Other'] },
+  transport: { bus: ['Автобус', 'Bus'], metro: ['Метро', 'Metro'], train: ['Поезд, электричка', 'Train'], plane: ['Самолёт', 'Plane'], other: ['Другой транспорт', 'Other transport'] }
+};
+const ROUTE = {
+  bus: [['Номер маршрута', 'Route number'], ['№ 15, остановка «Парк»', 'No. 15, “Park” stop']],
+  metro: [['Станция, линия', 'Station, line'], ['Станция «Пушкинская»', 'Pushkinskaya station']],
+  train: [['Номер поезда, вагон', 'Train number, car'], ['№ 102, вагон 5', 'No. 102, car 5']],
+  plane: [['Рейс', 'Flight'], ['SU 1234', 'SU 1234']],
+  other: [['Какой транспорт', 'What transport'], ['Трамвай № 3, такси', 'Tram No. 3, taxi']]
+};
+const DETAIL_KEYS = ['sex', 'height', 'weight', 'build', 'skin', 'hair_color', 'hair_length', 'eye_color', 'nationality', 'clothes_top', 'clothes_bottom', 'headwear', 'shoes',
+  'language', 'health_note', 'disability', 'landmark', 'transport', 'transport_route', 'place_photo'];
+export const optName = (k, v) => { const o = OPT[k] && OPT[k][v]; return o ? tr(o[0], o[1]) : v; };
+const optSelect = (name, cur) => h`<select name="${name}"><option value="">—</option>${Object.keys(OPT[name]).map((v) => h`<option value="${v}" ${cur === v ? 'selected' : ''}>${optName(name, v)}</option>`)}</select>`;
+const fld = (label, control) => h`<label class="field"><span>${label}</span>${control}</label>`;
+const txt = (d, name, max, ph = '') => h`<input name="${name}" value="${d[name] ?? ''}" maxlength="${max}" placeholder="${ph}" autocomplete="off">`;
 const localDate = (dt = new Date()) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 async function wizard(view, kind, existing) {
   const edit = !!existing;
   const d = existing ? Object.assign({}, existing) : { kind, category: query().get('category') || '', photos: [], event_date: localDate(), contact: state.user.phone || state.user.email || '', emergency_radius: 3, emergency_on: false };
   kind = d.kind;
-  const steps = ['cat', 'details', 'photos', 'place', 'final'];
+  if (existing && existing.details) { Object.assign(d, existing.details); for (const x of existing.details.health || []) d['h_' + x] = true; }
+  // у заявки о человеке отдельный шаг «Приметы»
+  const stepsFor = () => d.category === 'people' ? ['cat', 'details', 'looks', 'photos', 'place', 'final'] : ['cat', 'details', 'photos', 'place', 'final'];
+  let steps = stepsFor();
   let step = edit ? 1 : (d.category ? 1 : 0);
   let getPhotos = () => d.photos;
+  let getPlacePhoto = () => (d.place_photo ? [d.place_photo] : []);
   const isLost = kind === 'lost';
   const title = edit ? t('wiz.edit', 'Редактирование заявки', 'Edit report') : isLost ? t('wiz.lost', 'Сообщить о пропаже', 'Report a loss') : t('wiz.found', 'Сообщить о находке', 'Report a find');
 
   function saveStep() {
     if (steps[step] === 'photos') d.photos = getPhotos();
+    if (steps[step] === 'place') d.place_photo = getPlacePhoto()[0] || '';
     const form = $('#wform', view);
     if (form) Object.assign(d, formData(form));
     return true;
@@ -585,8 +615,8 @@ async function wizard(view, kind, existing) {
       if (d.category === 'people' && isLost) {
         if (!d.person_name) return err(t('wiz.e_fio', 'Укажите ФИО', 'Enter full name'), 'person_name');
         if (d.person_age === '' || d.person_age == null) return err(t('wiz.e_age', 'Укажите возраст', 'Enter age'), 'person_age');
+        if (!d.sex) return err(t('wiz.e_sex', 'Укажите пол', 'Select sex'), 'sex');
         if (!d.relation) return err(t('wiz.e_rel', 'Укажите, кем вы приходитесь человеку', 'Specify your relation'), 'relation');
-        if (!d.last_seen) return err(t('wiz.e_last', 'Укажите последнее местонахождение', 'Enter last known location'), 'last_seen');
         if (+d.person_age < 18 && d.relation !== 'legal_rep') return err(t('wiz.e_minor', 'Заявку о несовершеннолетнем подаёт только законный представитель', 'Only a legal guardian can report a minor'), 'relation');
         if (!d.title) d.title = `${tr('Пропал человек', 'Missing person')}: ${d.person_name}, ${d.person_age} ${tr(plural(+d.person_age, 'год', 'года', 'лет'), 'y.o.')}`;
       }
@@ -594,6 +624,9 @@ async function wizard(view, kind, existing) {
     }
     if (s === 'place' && (d.lat == null || d.lat === '')) return err(t('wiz.e_place', 'Отметьте место на карте', 'Mark the place on the map'), '#picker');
     if (s === 'place' && !d.event_date) return err(tr('Укажите дату', 'Enter the date'), 'event_date');
+    if (s === 'place' && d.category === 'people' && isLost && !d.address && !d.landmark && !d.transport) return err(t('wiz.e_where', 'Укажите адрес, место или транспорт', 'Enter an address, place or transport'), 'address');
+    if (s === 'looks' && d.height !== '' && d.height != null && (+d.height < 40 || +d.height > 250)) return err(tr('Рост — от 40 до 250 см', 'Height: 40–250 cm'), 'height');
+    if (s === 'looks' && d.weight !== '' && d.weight != null && (+d.weight < 2 || +d.weight > 300)) return err(tr('Вес — от 2 до 300 кг', 'Weight: 2–300 kg'), 'weight');
     if (s === 'final') {
       if (!d.contact) return err(t('wiz.e_contact', 'Укажите контакт для связи', 'Enter a contact'), 'contact');
       if (d.category === 'people' && isLost && !d.confirm_rights) return err(t('wiz.e_rights', 'Подтвердите право подачи заявки', 'Confirm your right to file'), 'confirm_rights');
@@ -615,30 +648,75 @@ async function wizard(view, kind, existing) {
         ${c === 'people' && isLost ? h`
           <div class="note note-red">${icon('shield')}<div><b>${t('wiz.p_note', 'Заявка о человеке проходит проверку', 'Reports about people are reviewed')}</b>${t('wiz.p_note_t', 'Подаёт родственник или законный представитель (о ребёнке — только представитель). Обязательно позвоните в полицию: 102 или 112.', 'Filed by a relative or legal guardian (for a minor — guardian only). Be sure to call the police: 102 or 112.')}</div></div>
           <label class="field"><span>${t('wiz.fio', 'ФИО', 'Full name')} <em>*</em></span><input name="person_name" value="${d.person_name || ''}" maxlength="120" autocomplete="off"></label>
-          <div class="grid-2"><label class="field"><span>${t('wiz.age', 'Возраст', 'Age')} <em>*</em></span><input name="person_age" type="number" min="0" max="120" inputmode="numeric" value="${d.person_age ?? ''}"></label>
-          <label class="field"><span>${t('wiz.relation', 'Кем вы приходитесь', 'Your relation')} <em>*</em></span><select name="relation"><option value="">—</option><option value="relative" ${d.relation === 'relative' ? 'selected' : ''}>${t('wiz.rel_rel', 'Родственник', 'Relative')}</option><option value="legal_rep" ${d.relation === 'legal_rep' ? 'selected' : ''}>${t('wiz.rel_legal', 'Законный представитель', 'Legal representative')}</option></select></label></div>
+          <div class="grid-pair"><label class="field"><span>${t('wiz.age', 'Возраст', 'Age')} <em>*</em></span><input name="person_age" type="number" min="0" max="120" inputmode="numeric" value="${d.person_age ?? ''}"></label>
+          <label class="field"><span>${t('wiz.sex', 'Пол', 'Sex')} <em>*</em></span>${optSelect('sex', d.sex)}</label></div>
+          <label class="field"><span>${t('wiz.relation', 'Кем вы приходитесь', 'Your relation')} <em>*</em></span><select name="relation"><option value="">—</option><option value="relative" ${d.relation === 'relative' ? 'selected' : ''}>${t('wiz.rel_rel', 'Родственник', 'Relative')}</option><option value="legal_rep" ${d.relation === 'legal_rep' ? 'selected' : ''}>${t('wiz.rel_legal', 'Законный представитель', 'Legal representative')}</option></select></label>
           <div id="minorNote"></div>
-          <label class="field"><span>${t('wiz.last_seen', 'Последнее местонахождение', 'Last known location')} <em>*</em></span><input name="last_seen" value="${d.last_seen || ''}" maxlength="300" placeholder="${tr('Например: вышел из дома на ул. Ленина, 5 в 9:00', 'E.g. left home at 9:00')}"></label>
-          <label class="field"><span>${t('wiz.features', 'Приметы', 'Distinctive features')}</span><textarea name="features" rows="3" maxlength="1000" placeholder="${tr('Рост, телосложение, одежда, особенности поведения', 'Height, build, clothing, behaviour')}">${d.features || ''}</textarea></label>
           <label class="field"><span>${t('wiz.title_opt', 'Заголовок (необязательно)', 'Title (optional)')}</span><input name="title" value="${d.title || ''}" maxlength="140"><p class="hint">${tr('Если не заполнить — сформируется автоматически', 'Generated automatically if empty')}</p></label>`
         : h`
           ${c === 'people' ? h`<div class="note note-blue">${icon('shield')}<div>${t('wiz.pf_note', 'Без документов и домашнего адреса. Укажите, где человек сейчас: полиция, больница, остановка. Заявку проверит модератор.', 'No documents or home address. Say where the person is now: police, hospital, bus stop. A moderator will review it.')}</div></div>
-            <label class="field"><span>${t('wiz.approx_age', 'Примерный возраст', 'Approximate age')}</span><input name="person_age" type="number" min="0" max="120" inputmode="numeric" value="${d.person_age ?? ''}"></label>` : ''}
+            <div class="grid-pair"><label class="field"><span>${t('wiz.approx_age', 'Примерный возраст', 'Approximate age')}</span><input name="person_age" type="number" min="0" max="120" inputmode="numeric" value="${d.person_age ?? ''}"></label>
+            <label class="field"><span>${t('wiz.sex', 'Пол', 'Sex')}</span>${optSelect('sex', d.sex)}</label></div>` : ''}
           ${c !== 'people' ? h`<label class="field"><span>${c === 'animals' ? t('wiz.species', 'Вид животного', 'Species') : t('wiz.thing_type', 'Тип вещи', 'Item type')}</span><select name="species"><option value="">—</option>${dict(c === 'animals' ? 'species' : 'thing_type').map((v) => h`<option ${d.species === v ? 'selected' : ''}>${v}</option>`)}</select></label>` : ''}
           <label class="field"><span>${c === 'animals' ? (isLost ? t('wiz.t_pet', 'Кличка и коротко', 'Name and short description') : t('wiz.t_pet_f', 'Коротко: кого нашли', 'Short: what you found')) : c === 'things' ? t('wiz.t_thing', 'Что за вещь', 'What item') : t('wiz.t_person_f', 'Коротко: кого нашли', 'Short: who you found')} <em>*</em></span><input name="title" value="${d.title || ''}" maxlength="140" placeholder="${c === 'animals' ? tr('Рыжий кот Барсик', 'Ginger cat Barsik') : c === 'things' ? tr('Чёрный рюкзак с ноутбуком', 'Black backpack with laptop') : tr('Пожилой мужчина без документов', 'Elderly man without documents')}"></label>
-          <label class="field"><span>${t('wiz.features', 'Приметы', 'Distinctive features')}</span><textarea name="features" rows="3" maxlength="1000" placeholder="${c === 'animals' ? tr('Порода, окрас, ошейник, чип, клеймо', 'Breed, colour, collar, chip') : c === 'things' ? tr('Цвет, марка, серийный номер, брелоки', 'Colour, brand, serial number') : tr('Внешность, одежда', 'Appearance, clothing')}">${d.features || ''}</textarea></label>`}
+          ${c !== 'people' ? h`<label class="field"><span>${t('wiz.features', 'Приметы', 'Distinctive features')}</span><textarea name="features" rows="3" maxlength="1000" placeholder="${c === 'animals' ? tr('Порода, окрас, ошейник, чип, клеймо', 'Breed, colour, collar, chip') : tr('Цвет, марка, серийный номер, брелоки', 'Colour, brand, serial number')}">${d.features || ''}</textarea></label>` : ''}`}
         <label class="field"><span>${t('wiz.desc', 'Подробное описание', 'Full description')}</span><textarea name="description" rows="4" maxlength="4000">${d.description || ''}</textarea></label>
       </form>`;
     }
+    if (s === 'looks') body = h`<h2>${t('wiz.looks', 'Приметы', 'Appearance')}</h2><p class="muted" style="margin-top:8px">${t('wiz.looks_t', 'Заполните то, что знаете: по этим приметам человека узнают на улице и подберут похожие заявки.', 'Fill in what you know: people use these details to recognise the person, and we use them to match reports.')}</p>
+      <form id="wform" class="stack" style="margin-top:18px">
+        <h3 class="wiz-sub">${t('wiz.g_body', 'Внешность', 'Looks')}</h3>
+        <div class="grid-pair">
+          ${fld(t('wiz.height', 'Рост, см', 'Height, cm'), h`<input name="height" type="number" min="40" max="250" inputmode="numeric" value="${d.height ?? ''}">`)}
+          ${fld(t('wiz.weight', 'Вес, кг', 'Weight, kg'), h`<input name="weight" type="number" min="2" max="300" inputmode="numeric" value="${d.weight ?? ''}">`)}
+          ${fld(t('wiz.build', 'Телосложение', 'Build'), optSelect('build', d.build))}
+          ${fld(t('wiz.skin', 'Цвет кожи', 'Skin tone'), optSelect('skin', d.skin))}
+          ${fld(t('wiz.hair_color', 'Цвет волос', 'Hair colour'), optSelect('hair_color', d.hair_color))}
+          ${fld(t('wiz.hair_length', 'Длина волос', 'Hair length'), optSelect('hair_length', d.hair_length))}
+          ${fld(t('wiz.eye_color', 'Цвет глаз', 'Eye colour'), optSelect('eye_color', d.eye_color))}
+          ${fld(t('wiz.nationality', 'Национальность', 'Nationality'), txt(d, 'nationality', 60))}
+        </div>
+        <h3 class="wiz-sub">${t('wiz.g_clothes', 'Одежда и обувь', 'Clothes and shoes')}</h3>
+        <div class="grid-2">
+          ${fld(t('wiz.clothes_top', 'Верх', 'Top'), txt(d, 'clothes_top', 150, tr('Синяя куртка, серый свитер', 'Blue jacket, grey sweater')))}
+          ${fld(t('wiz.clothes_bottom', 'Низ', 'Bottom'), txt(d, 'clothes_bottom', 150, tr('Чёрные брюки', 'Black trousers')))}
+          ${fld(t('wiz.headwear', 'Головной убор', 'Headwear'), txt(d, 'headwear', 100, tr('Вязаная шапка', 'Knitted hat')))}
+          ${fld(t('wiz.shoes', 'Обувь', 'Shoes'), txt(d, 'shoes', 100, tr('Коричневые ботинки', 'Brown boots')))}
+        </div>
+        <label class="field"><span>${t('wiz.marks', 'Особые приметы', 'Distinguishing marks')}</span><textarea name="features" rows="3" maxlength="1000" placeholder="${tr('Шрамы, татуировки, родинки, очки, украшения, походка, что было с собой', 'Scars, tattoos, moles, glasses, jewellery, gait, what they carried')}">${d.features || ''}</textarea></label>
+        <h3 class="wiz-sub">${t('wiz.g_health', 'Здоровье и общение', 'Health and communication')}</h3>
+        <div class="note note-blue">${icon('shield')}<div>${t('wiz.health_note', 'Только то, что поможет узнать человека и правильно себя вести при встрече. Диагнозы и данные медицинских документов не указывайте. Когда человек найдётся, эти сведения скроем.', 'Only what helps recognise the person and act right when you meet. No diagnoses or medical records. Once found, this is hidden.')}</div></div>
+        <fieldset class="chk-grid"><legend>${t('wiz.health', 'Состояние', 'Condition')}</legend>${Object.keys(OPT.health).map((x) => h`<label class="check"><input type="checkbox" name="h_${x}" ${d['h_' + x] ? 'checked' : ''}> <span>${optName('health', x)}</span></label>`)}</fieldset>
+        ${fld(t('wiz.health_more', 'Что важно знать при встрече', 'What to know when you meet'), txt(d, 'health_note', 200, tr('Не откликается на имя, нужен приём лекарств', 'Doesn’t respond to name, needs medication')))}
+        <div class="grid-pair">
+          ${fld(t('wiz.disability', 'Инвалидность', 'Disability'), optSelect('disability', d.disability))}
+          ${fld(t('wiz.language', 'Язык общения', 'Language'), txt(d, 'language', 80, tr('Русский', 'Russian')))}
+        </div>
+      </form>`;
     if (s === 'photos') body = h`<h2>${t('wiz.photos', 'Фотографии', 'Photos')}</h2><p class="muted" style="margin-top:8px">${t('wiz.photos_t', 'До 5 фото. Чёткие снимки повышают шанс совпадения.', 'Up to 5 photos. Clear shots improve matching.')}</p><div id="ph" style="margin-top:18px"></div>`;
-    if (s === 'place') body = h`<h2>${isLost ? t('wiz.where_lost', 'Где и когда потеряли?', 'Where and when was it lost?') : t('wiz.where_found', 'Где и когда нашли?', 'Where and when was it found?')}</h2>
+    if (s === 'place') {
+      const lastSeen = d.category === 'people' && isLost;
+      const rl = ROUTE[d.transport] || ROUTE.other;
+      body = h`<h2>${lastSeen ? t('wiz.where_seen', 'Где и когда видели последний раз?', 'Where and when were they last seen?') : isLost ? t('wiz.where_lost', 'Где и когда потеряли?', 'Where and when was it lost?') : t('wiz.where_found', 'Где и когда нашли?', 'Where and when was it found?')}</h2>
       <form id="wform" class="stack" style="margin-top:18px">
         <div class="picker" id="picker"></div>
         <p class="xs muted">${icon('lock', 'ic-sm')} ${t('wiz.geo_note', 'Геолокация определяется только по вашему нажатию и с вашего согласия.', 'Location is used only when you tap the button and allow it.')}</p>
-        <div class="grid-2"><label class="field"><span>${t('wiz.address', 'Адрес или ориентир', 'Address or landmark')}</span><input name="address" value="${d.address || ''}" maxlength="200" placeholder="${tr('Тверская ул., у метро', 'Near the metro station')}"></label>
-        <label class="field"><span>${t('wiz.city', 'Город', 'City')}</span><input name="city" value="${d.city || state.user.city || ''}" maxlength="80"></label></div>
-        <label class="field"><span>${t('wiz.date', 'Дата', 'Date')} <em>*</em></span><input type="date" name="event_date" value="${d.event_date || ''}" max="${localDate()}"></label>
+        <div class="grid-pair">
+          ${fld(t('wiz.date_req', 'Дата *', 'Date *'), h`<input type="date" name="event_date" value="${d.event_date || ''}" max="${localDate()}">`)}
+          ${fld(t('wiz.time', 'Время', 'Time'), h`<input type="time" name="event_time" value="${d.event_time || ''}">`)}
+        </div>
+        <div class="grid-2">
+          ${fld(t('wiz.city', 'Город', 'City'), h`<input name="city" value="${d.city || state.user.city || ''}" maxlength="80">`)}
+          ${fld(t('wiz.address2', 'Адрес', 'Address'), h`<input name="address" value="${d.address || ''}" maxlength="200" placeholder="${tr('Тверская ул., 7', '7 Tverskaya St')}">`)}
+        </div>
+        ${fld(t('wiz.landmark', 'Место или ориентир', 'Place or landmark'), txt(d, 'landmark', 150, tr('Парк Горького, вокзал, ТЦ «Европейский»', 'Gorky Park, railway station, a mall')))}
+        <div class="grid-2">
+          ${fld(t('wiz.transport', 'Общественный транспорт', 'Public transport'), h`<select name="transport"><option value="">${tr('Не в транспорте', 'Not in transport')}</option>${Object.keys(OPT.transport).map((v) => h`<option value="${v}" ${d.transport === v ? 'selected' : ''}>${optName('transport', v)}</option>`)}</select>`)}
+          <label class="field ${d.transport ? '' : 'hide'}" id="routeBox"><span id="routeL">${tr(...rl[0])}</span><input name="transport_route" value="${d.transport_route || ''}" maxlength="100" placeholder="${tr(...rl[1])}" autocomplete="off"></label>
+        </div>
+        <div class="field"><span>${t('wiz.place_photo', 'Фото места (необязательно)', 'Photo of the place (optional)')}</span><div id="pph"></div><p class="hint">${t('wiz.place_photo_t', 'Подъезд, остановка, вход в парк — так место быстрее узнают.', 'An entrance, a bus stop, a park gate — helps people recognise the place.')}</p></div>
       </form>`;
+    }
     if (s === 'final') {
       const canEm = isLost && d.category !== 'things' && !edit;
       body = h`<h2>${t('wiz.final', 'Связь и публикация', 'Contact & publishing')}</h2><form id="wform" class="stack" style="margin-top:18px">
@@ -664,11 +742,21 @@ async function wizard(view, kind, existing) {
         ${step > (edit ? 1 : 0) ? h`<button class="btn btn-ghost" id="prev" aria-label="${tr('Назад', 'Back')}">${icon('chevL')}</button>` : ''}
         <button class="btn ${s === 'final' ? 'btn-red' : ''}" id="next">${s === 'final' ? (edit ? t('wiz.save', 'Сохранить изменения', 'Save changes') : t('wiz.publish', 'Опубликовать', 'Publish')) : s === 'photos' && !getPhotos().length ? tr('Пропустить', 'Skip') : tr('Далее', 'Next')}${s === 'final' ? '' : icon('chevR')}</button>
       </div></div>`);
-    if (s === 'cat') $$('[data-cat]', view).forEach((b) => b.onclick = () => { d.category = b.dataset.cat; step = 1; draw(); });
+    if (s === 'cat') $$('[data-cat]', view).forEach((b) => b.onclick = () => { d.category = b.dataset.cat; steps = stepsFor(); step = 1; draw(); });
     if (s === 'photos') {
       getPhotos = photoField($('#ph', view), d.photos || [], 5);
       // обновлять подпись кнопки при изменении
       new MutationObserver(() => { const n = $('#next', view); if (n) n.firstChild.textContent = getPhotos().length ? tr('Далее', 'Next') : tr('Пропустить', 'Skip'); }).observe($('#ph', view), { childList: true, subtree: true });
+    }
+    if (s === 'place') {
+      getPlacePhoto = photoField($('#pph', view), d.place_photo ? [d.place_photo] : [], 1);
+      const tsel = $('[name=transport]', view);
+      tsel.onchange = () => {
+        const rl = ROUTE[tsel.value] || ROUTE.other;
+        $('#routeBox', view).classList.toggle('hide', !tsel.value);
+        $('#routeL', view).textContent = tr(...rl[0]);
+        $('[name=transport_route]', view).placeholder = tr(...rl[1]);
+      };
     }
     if (s === 'place') { const pk = mapPicker($('#picker', view), d.lat != null && d.lat !== '' ? { lat: +d.lat, lng: +d.lng } : null, (p) => { d.lat = p.lat; d.lng = p.lng; const pe = $('#picker', view); if (pe && pe.classList.contains('has-err')) { pe.classList.remove('has-err'); const fe = $('#ferr-picker', view); if (fe) fe.remove(); } }, { kind, category: d.category }); onLeave(() => pk.map.remove()); }
     if (s === 'details' && d.category === 'people' && isLost) {
@@ -693,8 +781,9 @@ async function wizard(view, kind, existing) {
   async function submit() {
     const body = {
       kind: d.kind, category: d.category, title: d.title, description: d.description, features: d.features, species: d.species,
-      person_name: d.person_name, person_age: d.person_age, last_seen: d.last_seen, relation: d.relation, confirm_rights: !!d.confirm_rights,
-      event_date: d.event_date, lat: d.lat, lng: d.lng, address: d.address, city: d.city, contact: d.contact, reward: d.reward,
+      person_name: d.person_name, person_age: d.person_age, relation: d.relation, confirm_rights: !!d.confirm_rights,
+      details: Object.assign(Object.fromEntries(DETAIL_KEYS.map((k) => [k, d[k] ?? ''])), { health: Object.keys(OPT.health).filter((x) => d['h_' + x]) }),
+      event_date: d.event_date, event_time: d.event_time || '', lat: d.lat, lng: d.lng, address: d.address, city: d.city, contact: d.contact, reward: d.reward,
       photos: d.photos || [], family: !!d.family, emergency_radius: d.emergency_on ? +d.emergency_radius : null
     };
     try {
@@ -724,15 +813,37 @@ route('/a/:id', async (view, p) => {
   // ссылка «Поделиться» — чистый адрес: мессенджеры и поисковики получают превью с фото и описанием заявки
   const url = location.origin + '/a/' + a.id;
   document.title = `${a.title} — ${kindName(a.kind)} — ${tr('Мой лучший агент', 'My Best Agent')}`;
-  const kv = [];
+  const kv = [], dt = a.details || {};
+  const structuredPlace = dt.landmark || dt.transport;
   if (a.category === 'people' && !a.hidden_pd) {
     if (a.person_name) kv.push([t('wiz.fio', 'ФИО', 'Full name'), a.person_name]);
+    if (dt.sex) kv.push([t('wiz.sex', 'Пол', 'Sex'), optName('sex', dt.sex)]);
     if (a.person_age != null) kv.push([t('wiz.age', 'Возраст', 'Age'), a.person_age]);
-    if (a.last_seen) kv.push([t('wiz.last_seen', 'Последнее местонахождение', 'Last known location'), a.last_seen]);
+    if (a.last_seen && !structuredPlace && !a.address) kv.push([t('wiz.last_seen', 'Последнее местонахождение', 'Last known location'), a.last_seen]);
   }
   if (a.species) kv.push([a.category === 'animals' ? t('wiz.species', 'Вид животного', 'Species') : t('wiz.thing_type', 'Тип вещи', 'Item type'), a.species]);
-  kv.push([t('wiz.date', 'Дата', 'Date'), fmtDate(a.event_date)]);
+  kv.push([t('wiz.date', 'Дата', 'Date'), fmtDate(a.event_date) + (a.event_time ? ', ' + a.event_time : '')]);
   if (a.address || a.city) kv.push([t('a.place', 'Место', 'Place'), [a.address, a.city].filter(Boolean).join(', ')]);
+  if (dt.landmark) kv.push([t('wiz.landmark', 'Место или ориентир', 'Place or landmark'), dt.landmark]);
+  if (dt.transport) kv.push([t('wiz.transport_s', 'Транспорт', 'Transport'), [optName('transport', dt.transport), dt.transport_route].filter(Boolean).join(', ')]);
+  // приметы человека — единый набор параметров
+  const looks = [];
+  if (a.category === 'people') {
+    const add = (k, label, v) => { if (v != null && v !== '') looks.push([label, v]); };
+    add('height', t('wiz.height', 'Рост, см', 'Height, cm'), dt.height);
+    add('weight', t('wiz.weight', 'Вес, кг', 'Weight, kg'), dt.weight);
+    for (const [k, label] of [['build', t('wiz.build', 'Телосложение', 'Build')], ['skin', t('wiz.skin', 'Цвет кожи', 'Skin tone')], ['hair_color', t('wiz.hair_color', 'Цвет волос', 'Hair colour')],
+      ['hair_length', t('wiz.hair_length', 'Длина волос', 'Hair length')], ['eye_color', t('wiz.eye_color', 'Цвет глаз', 'Eye colour')]]) if (dt[k]) add(k, label, optName(k, dt[k]));
+    add('nationality', t('wiz.nationality', 'Национальность', 'Nationality'), dt.nationality);
+    add('clothes_top', t('wiz.clothes_top', 'Верх', 'Top'), dt.clothes_top);
+    add('clothes_bottom', t('wiz.clothes_bottom', 'Низ', 'Bottom'), dt.clothes_bottom);
+    add('headwear', t('wiz.headwear', 'Головной убор', 'Headwear'), dt.headwear);
+    add('shoes', t('wiz.shoes', 'Обувь', 'Shoes'), dt.shoes);
+    add('language', t('wiz.language', 'Язык общения', 'Language'), dt.language);
+    if (dt.health && dt.health.length) add('health', t('wiz.health', 'Состояние', 'Condition'), dt.health.map((x) => optName('health', x)).join(', '));
+    add('health_note', t('wiz.health_more', 'Что важно знать при встрече', 'What to know when you meet'), dt.health_note);
+    if (dt.disability) add('disability', t('wiz.disability', 'Инвалидность', 'Disability'), optName('disability', dt.disability));
+  }
   kv.push([t('a.published', 'Опубликовано', 'Published'), ago(a.created_at)]);
   kv.push([t('a.views', 'Просмотры', 'Views'), a.views]);
 
@@ -757,10 +868,12 @@ route('/a/:id', async (view, p) => {
         ${a.reward ? h`<div class="reward">${icon('gift', 'ic-lg')}<div class="grow"><div class="xs muted" style="font-weight:700">${t('a.reward', 'Вознаграждение', 'Reward')}</div><b>${money(a.reward)}</b></div><span class="xs muted" style="max-width:130px;text-align:right">${t('a.reward_t', 'Платит автор заявки', 'Paid by the author')}</span></div>` : ''}
       </div>
       <div class="stack-lg d-rest">
-        ${a.features ? h`<div><h3 style="font-size:15px;margin-bottom:8px">${t('wiz.features', 'Приметы', 'Distinctive features')}</h3><p>${a.features}</p></div>` : ''}
+        ${a.features ? h`<div><h3 style="font-size:15px;margin-bottom:8px">${a.category === 'people' ? t('wiz.marks', 'Особые приметы', 'Distinguishing marks') : t('wiz.features', 'Приметы', 'Distinctive features')}</h3><p>${a.features}</p></div>` : ''}
         ${a.description ? h`<div><h3 style="font-size:15px;margin-bottom:8px">${t('a.desc', 'Описание', 'Description')}</h3><p style="white-space:pre-wrap">${a.description}</p></div>` : ''}
         <div class="card pad"><dl class="kv">${kv.map(([k, v]) => h`<div><dt>${k}</dt><dd>${v}</dd></div>`)}</dl></div>
+        ${looks.length ? h`<div><h3 style="font-size:15px;margin-bottom:8px">${t('wiz.looks', 'Приметы', 'Appearance')}</h3><div class="card pad"><dl class="kv" id="looks">${looks.map(([k, v]) => h`<div><dt>${k}</dt><dd>${v}</dd></div>`)}</dl></div></div>` : ''}
         ${a.lat != null ? h`<div class="mini-map" id="mm"></div>` : ''}
+        ${dt.place_photo ? h`<div><h3 style="font-size:15px;margin-bottom:8px">${t('a.place_photo', 'Фото места', 'Photo of the place')}</h3><img class="place-photo" src="${dt.place_photo}" alt="${t('a.place_photo', 'Фото места', 'Photo of the place')}" data-zoom="${dt.place_photo}" tabindex="0" role="button" loading="lazy"></div>` : ''}
         ${owner && a.matches ? h`<div><div class="sec-head" style="margin-bottom:12px"><h3>${t('a.matches', 'Возможные совпадения', 'Possible matches')}</h3><span class="chip">${a.matches.length}</span></div>
           ${a.matches.length ? h`<div class="apps">${a.matches.map((m, i) => appCard(m, i, { score: m.score }))}</div>` : empty('match', t('a.no_matches', 'Совпадений пока нет', 'No matches yet'), t('a.no_matches_t', 'Сообщим, как только появится похожая.', 'We’ll notify you when one appears.'))}</div>` : ''}
       </div>

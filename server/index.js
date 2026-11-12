@@ -307,7 +307,8 @@ app.get('/api/me/export', needAuth, h((req, res) => {
     exported_at: new Date().toISOString(),
     profile: { name: u.name, email: u.email, phone: u.phone, birthdate: u.birthdate, city: u.city, role: u.role, lang: u.lang, points: u.points, registered_at: u.created_at, consent_at: u.consent_at,
       alert_zone: u.zone_enabled ? { lat: u.zone_lat, lng: u.zone_lng, radius_km: u.zone_radius } : null },
-    applications: all('SELECT id, kind, category, status, title, description, features, person_name, person_age, species, event_date, address, city, reward, created_at FROM applications WHERE user_id = ?', u.id),
+    applications: all('SELECT id, kind, category, status, title, description, features, person_name, person_age, details, species, event_date, event_time, address, city, reward, created_at FROM applications WHERE user_id = ?', u.id)
+      .map((a) => Object.assign(a, { details: JSON.parse(a.details || '{}') })),
     valuables: all('SELECT id, title, description, serials, marks, status, created_at FROM valuables WHERE user_id = ?', u.id),
     messages_sent: all('SELECT chat_id, text, created_at FROM messages WHERE sender_id = ? ORDER BY id', u.id),
     payments: all('SELECT p.id, t.name_ru tariff, p.amount, p.method, p.status, p.created_at, p.paid_at FROM payments p JOIN tariffs t ON t.id = p.tariff_id WHERE p.user_id = ?', u.id),
@@ -402,13 +403,15 @@ function appDto(a, viewer, extra = {}) {
   const owner = canEdit(a, viewer);
   const hidePd = a.category === 'people' && (a.status === 'found' || a.status === 'closed') && !isMod(viewer);
   const photos = JSON.parse(a.photos || '[]');
+  let details = {}; try { details = JSON.parse(a.details || '{}'); } catch (e) { /* пустые параметры */ }
   const author = get('SELECT role, points FROM users WHERE id = ?', a.user_id) || { role: 'user', points: 0 };
   const o = {
     id: a.id, kind: a.kind, category: a.category, status: a.status, title: a.title,
     description: hidePd ? '' : a.description, features: hidePd ? '' : a.features,
     person_name: hidePd ? '' : a.person_name, person_age: hidePd ? null : a.person_age, last_seen: hidePd ? '' : a.last_seen,
     species: a.species, relation: owner ? a.relation : undefined, is_minor: !!a.is_minor,
-    event_date: a.event_date, lat: hidePd ? null : a.lat, lng: hidePd ? null : a.lng, address: hidePd ? (a.city || '') : a.address, city: a.city,
+    details: hidePd ? {} : details,
+    event_date: a.event_date, event_time: a.event_time || '', lat: hidePd ? null : a.lat, lng: hidePd ? null : a.lng, address: hidePd ? (a.city || '') : a.address, city: a.city,
     reward: a.reward, photos: hidePd ? [] : photos, hidden_pd: hidePd,
     emergency: a.emergency_status === 'active' ? a.emergency_radius : null, emergency_status: owner ? a.emergency_status : undefined,
     emergency_radius: owner ? a.emergency_radius : undefined,
@@ -419,6 +422,43 @@ function appDto(a, viewer, extra = {}) {
     contact: owner ? a.contact : undefined, reject_reason: owner ? a.reject_reason : undefined, family_shared: !!a.family_id
   };
   return Object.assign(o, extra);
+}
+// Единые параметры заявки. Место события — для всех категорий; приметы — для заявок о людях (пропал и найден).
+// Сведения о здоровье, национальности и инвалидности необязательны и нужны только чтобы узнать человека и помочь ему
+// (п. 3 ч. 2 ст. 10 152-ФЗ); после отметки «найден» скрываются вместе с остальными личными данными.
+const PHOTO_RE = /^\/uploads\/[a-f0-9]{32}\.(jpg|png|webp)$/;
+const PERSON_OPTS = {
+  sex: ['male', 'female'], build: ['thin', 'normal', 'full'],
+  hair_color: ['blond', 'light_brown', 'brown', 'black', 'red', 'gray', 'other'],
+  hair_length: ['none', 'short', 'medium', 'long'],
+  eye_color: ['blue', 'gray', 'green', 'brown', 'other'],
+  skin: ['light', 'olive', 'dark'],
+  disability: ['none', 'g1', 'g2', 'g3', 'child']
+};
+const PERSON_TEXT = { nationality: 60, language: 80, clothes_top: 150, clothes_bottom: 150, headwear: 100, shoes: 100, health_note: 200 };
+const HEALTH = ['deaf', 'blind', 'dementia', 'concussion', 'other'];
+const TRANSPORT = { bus: 'автобус', metro: 'метро', train: 'поезд', plane: 'самолёт', other: 'транспорт' };
+function readDetails(b, category) {
+  const src = b.details && typeof b.details === 'object' && !Array.isArray(b.details) ? b.details : {};
+  const d = {};
+  const text = (k, max) => { const v = str(src[k], max); if (v) d[k] = v; };
+  const int = (k, lo, hi, code, msg) => {
+    if (src[k] === '' || src[k] == null) return;
+    const v = num(src[k]); if (v == null || v < lo || v > hi) fail(400, code, msg);
+    d[k] = Math.round(v);
+  };
+  text('landmark', 150);
+  if (Object.hasOwn(TRANSPORT, src.transport)) { d.transport = src.transport; text('transport_route', 100); }
+  if (typeof src.place_photo === 'string' && PHOTO_RE.test(src.place_photo)) d.place_photo = src.place_photo;
+  if (category === 'people') {
+    for (const [k, list] of Object.entries(PERSON_OPTS)) if (list.includes(src[k])) d[k] = src[k];
+    int('height', 40, 250, 'bad_height', 'Рост — от 40 до 250 см');
+    int('weight', 2, 300, 'bad_weight', 'Вес — от 2 до 300 кг');
+    for (const [k, max] of Object.entries(PERSON_TEXT)) text(k, max);
+    const health = Array.isArray(src.health) ? HEALTH.filter((x) => src.health.includes(x)) : [];
+    if (health.length) d.health = health;
+  }
+  return d;
 }
 function readApp(b, isNew, existing) {
   const o = {};
@@ -433,20 +473,28 @@ function readApp(b, isNew, existing) {
   o.event_date = str(b.event_date, 16) || new Date().toISOString().slice(0, 10);
   if (isNaN(new Date(o.event_date))) fail(400, 'bad_date', 'Некорректная дата');
   if (new Date(o.event_date) > new Date(Date.now() + 864e5)) fail(400, 'future_date', 'Дата не может быть в будущем');
+  o.event_time = str(b.event_time, 5);
+  if (o.event_time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(o.event_time)) fail(400, 'bad_time', 'Некорректное время');
   o.lat = num(b.lat); o.lng = num(b.lng);
   if (o.lat == null || o.lng == null || Math.abs(o.lat) > 90 || Math.abs(o.lng) > 180) fail(400, 'place_required', 'Отметьте место на карте');
   o.address = str(b.address, 200); o.city = str(b.city, 80);
   o.contact = str(b.contact, 120); if (!o.contact) fail(400, 'contact_required', 'Укажите контакт для связи');
   o.reward = Math.max(0, Math.min(10000000, Math.round(num(b.reward) || 0)));
-  const photos = Array.isArray(b.photos) ? b.photos.filter((p) => typeof p === 'string' && /^\/uploads\/[a-f0-9]{32}\.(jpg|png|webp)$/.test(p)) : [];
+  const photos = Array.isArray(b.photos) ? b.photos.filter((p) => typeof p === 'string' && PHOTO_RE.test(p)) : [];
   if (photos.length > 5) fail(400, 'photos_max', 'Не более 5 фото');
   o.photos = JSON.stringify(photos);
+  const details = readDetails(b, category);
+  o.details = JSON.stringify(details);
   if (category === 'people') {
-    o.person_name = str(b.person_name, 120); o.person_age = num(b.person_age); o.last_seen = str(b.last_seen, 300);
+    o.person_name = str(b.person_name, 120); o.person_age = num(b.person_age);
+    // «Где видели последний раз»: ориентир, транспорт и адрес из шага «Место»
+    const route = details.transport ? [TRANSPORT[details.transport], details.transport_route].filter(Boolean).join(' ') : '';
+    o.last_seen = str(b.last_seen, 300) || str([details.landmark, route, o.address, o.city].filter(Boolean).join(', '), 300);
     if (kind === 'lost') {
       if (!o.person_name) fail(400, 'fio_required', 'Укажите ФИО');
       if (o.person_age == null || o.person_age < 0 || o.person_age > 120) fail(400, 'age_required', 'Укажите возраст');
-      if (!o.last_seen) fail(400, 'last_seen_required', 'Укажите последнее местонахождение');
+      if (!details.sex) fail(400, 'sex_required', 'Укажите пол');
+      if (!o.last_seen) fail(400, 'last_seen_required', 'Укажите адрес, ориентир или транспорт, где человека видели последний раз');
       o.relation = ['relative', 'legal_rep'].includes(b.relation) ? b.relation : fail(400, 'relation_required', 'Укажите, кем вы приходитесь человеку');
       o.is_minor = o.person_age < 18 ? 1 : 0;
       if (o.is_minor && o.relation !== 'legal_rep') fail(400, 'minor_legal_rep', 'Заявку о несовершеннолетнем подаёт только законный представитель');
@@ -468,7 +516,7 @@ app.get('/api/applications', h((req, res) => {
   if (q.q) {
     const terms = str(q.q, 100).toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6);
     // у найденных людей описание, приметы и адрес скрыты — по ним и не ищем, иначе поиск выдаёт скрытое
-    for (const t of terms) { where.push("(lower(a.title) LIKE ? OR lower(a.species) LIKE ? OR (NOT (a.category = 'people' AND a.status IN ('found','closed')) AND (lower(a.description) LIKE ? OR lower(a.features) LIKE ? OR lower(a.address) LIKE ?)))"); const l = '%' + t + '%'; p.push(l, l, l, l, l); }
+    for (const t of terms) { where.push("(lower(a.title) LIKE ? OR lower(a.species) LIKE ? OR (NOT (a.category = 'people' AND a.status IN ('found','closed')) AND (lower(a.description) LIKE ? OR lower(a.features) LIKE ? OR lower(a.address) LIKE ? OR lower(a.details) LIKE ?)))"); const l = '%' + t + '%'; p.push(l, l, l, l, l, l); }
   }
   // Порядок: по умолчанию «рекомендуемые» (экстренные и поднятые в топ — выше), либо строго по дате / вознаграждению
   const ORDER = { new: 'a.created_at DESC, a.id DESC', old: 'a.created_at ASC, a.id ASC', reward: 'a.reward DESC, a.created_at DESC' }[q.sort];

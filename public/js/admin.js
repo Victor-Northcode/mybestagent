@@ -3,7 +3,7 @@ import {
   state, tr, h, raw, mount, $, $$, icon, CAT, catName, kindName, statusName, statusChip, fmtDate, ago, money,
   GET, POST, PATCH, DEL, mediaPh, route, go, toast, toastErr, sheet, sheetHead, confirmBox, makeMap, pinIcon, onLeave, formData, busy, esc
 } from './core.js';
-import { ticketView } from './views.js';
+import { ticketView, optName } from './views.js';
 
 const isAdmin = () => state.user && state.user.role === 'admin';
 const SECTIONS = () => [
@@ -108,6 +108,12 @@ sec('', () => tr('Статистика', 'Dashboard'), async (el, act) => {
 });
 
 /* ---------- модерация ---------- */
+// Здоровье, инвалидность и национальность в заявке о человеке модератор проверяет отдельно: только то, что нужно для поиска, без диагнозов
+function sensitive(d) {
+  if (!d) return '';
+  const parts = [...(d.health || []).map((x) => optName('health', x)), d.health_note, d.disability ? tr('инвалидность', 'disability') + ': ' + optName('disability', d.disability) : '', d.nationality].filter(Boolean);
+  return parts.length ? h`<div class="small"><b>${tr('Особые сведения — проверьте', 'Sensitive details — check')}:</b> ${parts.join('; ')}</div>` : '';
+}
 function modCard(a, actions) {
   return h`<div class="mod-card rise">
     <div class="thumb">${thumb(a)}</div>
@@ -117,6 +123,7 @@ function modCard(a, actions) {
       ${a.person_name ? h`<div class="small"><b>${tr('ФИО', 'Name')}:</b> ${a.person_name}${a.person_age != null ? `, ${a.person_age}` : ''} · <b>${tr('Заявитель', 'Filed by')}:</b> ${a.relation === 'legal_rep' ? tr('законный представитель', 'legal representative') : a.relation === 'relative' ? tr('родственник', 'relative') : '—'}</div>` : ''}
       ${a.last_seen ? h`<div class="small"><b>${tr('Последнее местонахождение', 'Last seen')}:</b> ${a.last_seen}</div>` : ''}
       ${a.features ? h`<div class="small muted">${a.features}</div>` : ''}
+      ${sensitive(a.details)}
       <div class="xs muted">${a.address || a.city} · ${fmtDate(a.event_date)} · ${tr('автор', 'author')}: ${a.author_name} (${a.author_contact}) · ${tr('контакт', 'contact')}: ${a.contact}</div>
     </div>
     <div class="acts">${actions}</div></div>`;
