@@ -3,7 +3,8 @@ import {
   state, t, tr, dict, h, raw, mount, $, $$, icon, CAT, catName, kindName, statusName, statusChip,
   fmtDate, ago, timeOf, km, money, plural, GET, POST, PATCH, DEL, refreshMe, route, onLeave, go, query, currentPath,
   toast, toastErr, sheet, sheetHead, confirmBox, lightbox, photoField, upload, makeMap, pinIcon, mapPicker, mapFull, getPosition,
-  onEvent, connectStream, mediaPh, enablePush, pushStatus, isIOS, isStandalone, shareSheet, countUp, formData, busy, observeReveal, safeSet, esc
+  onEvent, connectStream, mediaPh, enablePush, pushStatus, isIOS, isStandalone, shareSheet, countUp, formData, busy, observeReveal, safeSet, esc,
+  emergencyPhones
 } from './core.js';
 
 /* =================== общие компоненты =================== */
@@ -58,7 +59,6 @@ const avatar = (u, cls = '') => h`<div class="ava ${cls}" style="${u.avatar ? `b
 /* =================== ГЛАВНАЯ =================== */
 route('/', async (view) => {
   mount(view, h`
-  <div id="emStrip"></div>
   <div class="wrap home">
     <section class="blk hero-blk">
       <div class="hb-top">
@@ -91,7 +91,7 @@ route('/', async (view) => {
         ['found', 'labrador.jpg', '#/new/found', t('home.svc_f', 'Я что-то нашёл', 'I found something'), t('home.svc_ft', 'Поможем вернуть владельцу', 'We help return it')]]
         .map(([c, img, href, ti, tx], i) => h`<a class="ctile ctile-${c} reveal" style="--i:${i}" href="${href}"><span class="ctile-tx"><b>${ti}</b><span>${tx}</span>${c !== 'found' ? h`<span class="svc-n" data-cat="${c}"></span>` : ''}</span><img src="/assets/img/${img}" alt="" loading="lazy"></a>`)}
       </nav>
-      <p class="svc-note">${icon('phone', 'ic-sm')}${t('home.svc_police', 'Если пропал человек — сначала позвоните 102 или 112', 'If a person is missing, call 102 or 112 first')}</p>
+      ${emergencyPhones()}
     </section>
 
     <section class="blk">
@@ -166,7 +166,7 @@ route('/', async (view) => {
   $('#homeSearch', view).onsubmit = (e) => { e.preventDefault(); const q = e.target.q.value.trim(), c = e.target.category.value; const ps = new URLSearchParams(); if (q) ps.set('q', q); if (c) ps.set('category', c); go('#/map' + (ps.toString() ? '?' + ps : '')); };
   $('#regForm', view).onsubmit = (e) => { e.preventDefault(); go('#/registry?q=' + encodeURIComponent(e.target.q.value.trim())); };
 
-  const [stats, latest, stories, em] = await Promise.all([GET('/stats/public'), GET('/applications?sort=new&limit=8'), GET('/stories'), GET('/applications?emergency=1&limit=3')]).catch((e) => { toastErr(e); return [{}, { items: [] }, { items: [] }, { items: [] }]; });
+  const [stats, latest, stories] = await Promise.all([GET('/stats/public'), GET('/applications?sort=new&limit=8'), GET('/stories')]).catch((e) => { toastErr(e); return [{}, { items: [] }, { items: [] }]; });
   const hs = $$('#heroStats b', view);
   [stats.active, stats.found, stats.volunteers].forEach((v, i) => { if (hs[i]) hs[i].dataset.count = v || 0; });
   countUp($('#heroStats', view));
@@ -175,7 +175,6 @@ route('/', async (view) => {
     const box = $(`.ctile [data-cat=${c}]`, view); // счётчики в плитках категорий
     if (box) mount(box, h`<span><b>${s.lost}</b> ${tr('ищут', 'missing')}</span><span><b>${s.found}</b> ${tr('найдено', 'found')}</span>`);
   }
-  if (em.items.length) mount($('#emStrip', view), h`<div class="wrap" style="padding-top:12px"><a class="em-strip rise" href="${em.items.length === 1 ? '#/a/' + em.items[0].id : '#/map?emergency=1'}"><span class="pulse"></span><div class="grow"><b>${t('home.em', 'Экстренный поиск', 'Emergency search')}</b> · ${em.items.length === 1 ? em.items[0].title : em.items.length + ' ' + tr('активных', 'active')}</div>${icon('chevR')}</a></div>`);
   // Последние заявки: строго по времени публикации, компактная сетка (2 колонки на телефоне, 4 — на компьютере)
   mount($('#latest', view), latest.items.length ? h`<div class="apps apps-latest">${latest.items.map((a, i) => appCard(a, i))}</div>` : empty('inbox', tr('Пока нет заявок', 'No reports yet'),
     h`<p class="muted small" style="margin-top:6px">${tr('Потеряли или нашли человека, питомца или вещь — разместите первую заявку.', 'Lost or found a person, a pet or an item? Post the first report.')}</p>`,

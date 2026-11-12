@@ -522,6 +522,26 @@ describe('Админ-панель', () => {
 });
 
 describe('Навигация и права доступа', () => {
+  it('телефоны экстренных служб: на главной одной строкой, в подвале и в окне «Новая заявка»; баннера «Экстренный поиск» нет', async () => {
+    const TELS = ['tel:112', 'tel:102', 'tel:103', 'tel:101', 'tel:88007005452'];
+    for (const vp of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+      const page = await newPage({ viewport: vp });
+      await open(page, '#/');
+      assert.equal(await page.locator('.em-strip').count(), 0, 'баннера «Экстренный поиск» нет');
+      const ph = page.locator('.hero-blk .sos-phones a.sos-ph');
+      assert.deepEqual(await ph.evaluateAll((as) => as.map((a) => a.getAttribute('href'))), TELS);
+      const tops = await ph.evaluateAll((as) => [...new Set(as.map((a) => Math.round(a.getBoundingClientRect().top)))]);
+      assert.equal(tops.length, 1, 'номера в одну строку, места почти не занимают');
+      assert.ok(await page.locator('.hero-blk .sos-phones').evaluate((e) => e.getBoundingClientRect().height) <= 48);
+      assert.deepEqual(await page.locator('#foot .sos-phones a.sos-ph').evaluateAll((as) => as.map((a) => a.getAttribute('href'))), TELS);
+      await noOverflow(page, 'главная ' + vp.width);
+      await page.locator(vp.width > 900 ? '#topNew' : '#fab').click();
+      await page.waitForSelector('.sheet .sos-phones');
+      assert.equal(await page.locator('.sheet .sos-phones a.sos-ph').count(), 5);
+      assert.deepEqual(page.errors, []);
+      await page.context().close();
+    }
+  });
   it('быстрый уход с карты (во время анимации и загрузки меток) не даёт ошибок', async () => {
     const page = await newPage({ viewport: { width: 1366, height: 860 } });
     await open(page, '#/');

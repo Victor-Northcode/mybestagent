@@ -426,3 +426,20 @@ export async function busy(btn, fn) {
   btn.classList.add('loading'); btn.disabled = true;
   try { return await fn(); } finally { btn.classList.remove('loading'); btn.disabled = false; }
 }
+
+/* ---------- телефоны экстренных служб: компактная строка, номера нажимаются (tel:) ---------- */
+export const EMERGENCY_PHONES = [
+  ['112', '112', 'Единый номер', 'Emergency'],
+  ['102', '102', 'Полиция', 'Police'],
+  ['103', '103', 'Скорая', 'Ambulance'],
+  ['101', '101', 'МЧС', 'Fire & rescue'],
+  ['88007005452', '8 800 700-54-52', '«ЛизаАлерт»', 'LizaAlert']
+];
+// variant: '' — строка с подписями (главная, окно «Новая заявка»); 'mini' — только номера (подвал)
+export function emergencyPhones(variant = '') {
+  const label = tr('Экстренные службы', 'Emergency services');
+  return h`<div class="sos-phones ${variant}" role="group" aria-label="${label}">
+    <span class="sos-lbl">${icon('phone', 'ic-sm')}${label}</span>
+    ${EMERGENCY_PHONES.map(([tel, num, ru, en]) => h`<a class="sos-ph" href="tel:${tel}" aria-label="${tr(ru, en)}: ${num}"><b>${num}</b>${variant === 'mini' && tel !== '88007005452' ? '' : h`<span>${tr(ru, en)}</span>`}</a>`)}
+  </div>`;
+}

@@ -1397,8 +1397,25 @@ a.link:hover, .link:hover { text-decoration: underline; text-underline-offset: 3
   .ctile img { width: 54%; right: -6px; bottom: -6px; border-radius: 14px; }
   .svc-n { display: none; }
 }
-.svc-note { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 15px; color: var(--muted); }
-.svc-note .ic { color: var(--red); }
+/* Телефоны экстренных служб: одна компактная строка; на телефоне листается вбок, номера нажимаются */
+.sos-phones { display: flex; align-items: center; gap: 8px; margin-top: 16px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.sos-phones::-webkit-scrollbar { display: none; }
+.sos-lbl { display: inline-flex; align-items: center; gap: 6px; flex: none; font-size: 14px; font-weight: 600; color: var(--muted); margin-right: 2px; }
+.sos-lbl .ic { color: var(--red); }
+.sos-ph { display: inline-flex; align-items: baseline; gap: 6px; flex: none; min-height: 36px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 14px; line-height: 1.2; text-decoration: none; white-space: nowrap; transition: border-color .15s, background .15s; }
+.sos-ph b { font-weight: 800; font-variant-numeric: tabular-nums; }
+.sos-ph span { color: var(--muted); }
+.sos-ph:hover { border-color: var(--red); background: var(--red-soft); }
+.sos-ph:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+@media (max-width: 760px) { .hero-blk .sos-phones { margin-left: -16px; margin-right: -16px; padding: 0 16px; } }
+/* в окне «Новая заявка» — под выбором, с подписью сверху */
+.sos-phones.sheet { flex-wrap: wrap; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); overflow: visible; }
+.sos-phones.sheet .sos-lbl { flex-basis: 100%; }
+/* в подвале — только номера, мелко */
+.footer .sos-phones.mini { flex-wrap: wrap; overflow: visible; gap: 6px; margin-top: 14px; }
+.footer .sos-phones.mini .sos-lbl { flex-basis: 100%; font-size: 13px; }
+.footer .sos-phones.mini .sos-ph { display: inline-flex; padding: 5px 10px; min-height: 32px; font-size: 13px; }
+.footer .sos-phones.mini .sos-ph:hover { color: var(--ink); }
 
 /* ---------- карточки заявок: фото и текст без рамок ---------- */
 .app-card { background: transparent; border: 0; border-radius: 0; box-shadow: none; overflow: visible; transition: none; }
@@ -1699,3 +1716,7 @@ body.map-open { overflow: hidden; }
 }
 /* главная, телефон: заголовок в узкой карточке ленты — до трёх строк */
 @media (max-width: 520px) { .apps-latest .app-card h3 { -webkit-line-clamp: 3; } }
+@media (pointer: coarse) { .sos-ph, .footer .sos-phones.mini .sos-ph { min-height: 40px; align-items: center; } }
+.footer-grid > * { min-width: 0; }
+.footer .sos-phones.mini .sos-ph { white-space: normal; }
+@media (max-width: 759px) { .footer-grid > :first-child { grid-column: 1 / -1; } }

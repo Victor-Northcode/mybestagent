@@ -1,5 +1,5 @@
 // Точка входа: оболочка (шапка, нижнее меню, подвал), язык, тема, realtime, PWA.
-import { state, t, tr, h, raw, mount, $, $$, icon, GET, refreshMe, handleRoute, setChrome, currentPath, connectStream, onEvent, toast, go, observeReveal } from './core.js';
+import { state, t, tr, h, raw, mount, $, $$, icon, GET, refreshMe, handleRoute, setChrome, currentPath, connectStream, onEvent, toast, go, observeReveal, emergencyPhones } from './core.js';
 import { setLang } from './views.js';
 import './admin.js';
 
@@ -45,7 +45,7 @@ const chrome = () => {
 };
 function footer() {
   mount($('#foot'), h`<div class="wrap"><div class="footer-grid">
-    <div><a class="brand" href="#/"><img src="/assets/logo-256.png" alt=""><span>${tr('Мой лучший агент', 'My Best Agent')}</span></a><p style="margin-top:12px;max-width:340px">${t('foot.about', 'Поиск людей, животных и вещей. Не заменяет полицию: 102, 112.', 'Finding people, pets and things. Does not replace the police: 102, 112.')}</p></div>
+    <div><a class="brand" href="#/"><img src="/assets/logo-256.png" alt=""><span>${tr('Мой лучший агент', 'My Best Agent')}</span></a><p style="margin-top:12px;max-width:340px">${t('foot.about2', 'Поиск людей, животных и вещей. Платформа не заменяет полицию и экстренные службы.', 'Finding people, pets and things. The platform does not replace the police or emergency services.')}</p>${emergencyPhones('mini')}</div>
     <div><h5>${tr('Платформа', 'Platform')}</h5><a href="#/map">${t('nav.map', 'Карта и поиск', 'Map & search')}</a><a href="#/new/lost">${t('nav.lost', 'Потерял', 'Lost')}</a><a href="#/new/found">${t('nav.found', 'Нашёл', 'Found')}</a><a href="#/registry">${t('nav.registry', 'Реестр', 'Registry')}</a><a href="#/tariffs">${t('tar.title', 'Тарифы', 'Plans')}</a></div>
     <div><h5>${tr('Сообщество', 'Community')}</h5><a href="#/community">${t('nav.community', 'Волонтёры', 'Volunteers')}</a><a href="#/community#rating">${t('home.rating', 'Рейтинг', 'Rating')}</a><a href="#/" data-partner>${t('home.inv', 'Стать партнёром или инвестором', 'Become a partner or investor')}</a><a href="#/support">${t('sup.title', 'Поддержка', 'Support')}</a></div>
     <div><h5>${tr('Документы', 'Legal')}</h5><a href="#/legal/terms">${t('legal.terms', 'Пользовательское соглашение', 'Terms of use')}</a><a href="#/legal/privacy">${t('legal.privacy', 'Политика конфиденциальности', 'Privacy policy')}</a><a href="#/legal/consent">${t('legal.consent', 'Согласие на обработку персональных данных', 'Personal data consent')}</a><a href="#/legal/publication">${t('legal.publication', 'Согласие на распространение персональных данных', 'Consent to data dissemination')}</a><a href="#/legal">${tr('Все документы в PDF', 'All documents (PDF)')}</a></div>
@@ -59,7 +59,8 @@ function newSheet() {
       <a class="pick" href="#/new/lost" style="flex-direction:row;align-items:center"><div class="cat-ic" style="background:var(--btn)">${icon('search')}</div><div><b>${t('home.lost', 'Я потерял', 'I lost')}</b><span>${t('home.lost_sub', 'человека, питомца, вещь', 'a person, pet, item')}</span></div></a>
       <a class="pick" href="#/new/found" style="flex-direction:row;align-items:center"><div class="cat-ic" style="background:var(--green)">${icon('heart')}</div><div><b>${t('home.found', 'Я нашёл', 'I found')}</b><span>${t('home.found_sub', 'сообщить о находке', 'report a find')}</span></div></a>
       <a class="pick" href="#/me/registry" style="flex-direction:row;align-items:center"><div class="cat-ic" style="background:linear-gradient(145deg,#2a2c33,#0e0f13)">${icon('gem')}</div><div><b>${t('me.registry', 'Реестр ценностей', 'Valuables')}</b><span>${tr('зарегистрировать ценную вещь', 'register a valuable item')}</span></div></a>
-    </div>`);
+    </div>
+    ${emergencyPhones('sheet')}`);
   $$('a', s.el).forEach((a) => a.addEventListener('click', () => s.close()));
 }
 
