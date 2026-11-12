@@ -12,7 +12,7 @@ const DOC_IDS = ['terms', 'privacy', 'consent', 'publication'];
 /* ---------- реквизиты оператора ---------- */
 // Реквизиты фонда-оператора. Любое поле можно заменить в админке → «Переводы» (ключ legal.op.<поле>) или переменной LEGAL_<ПОЛЕ>.
 const OP_FIELDS = ['name', 'inn', 'kpp', 'ogrn', 'address', 'account', 'bank', 'bik', 'corr', 'email'];
-const OP_COMMON = { inn: '6685217330', kpp: '668501001', ogrn: '1246600008434', account: '40703810005000000829', bik: '046577975', corr: '30101810500000000975', email: 'support@mybestagent.ru' };
+const OP_COMMON = { inn: '6685217330', kpp: '668501001', ogrn: '1246600008434', account: '40703810005000000829', bik: '046577975', corr: '30101810500000000975', email: 'support@my-bestagent.ru' };
 const OP_DEFAULTS = {
   ru: { ...OP_COMMON, name: '', address: '', bank: 'Уральский филиал ПАО «Банк ПСБ», г.\u00a0Екатеринбург' },
   en: { ...OP_COMMON, name: '', address: '', bank: 'Ural branch of PSB Bank PJSC, Yekaterinburg' }
@@ -28,7 +28,7 @@ function operator(lang, ov) {
   // ИНН, КПП, ОГРН, счета, адрес и e-mail от языка не зависят: если заданы только по-русски, берём их и для английской версии
   const ru = lang === 'en' ? overrides('ru') : {};
   const pick = (k) => (ov['legal.op.' + k] || (!OP_LOCALIZED.includes(k) ? ru['legal.op.' + k] : '') || process.env['LEGAL_' + k.toUpperCase()] || d[k] || '').trim();
-  const op = { site: (process.env.BASE_URL || 'https://mybestagent.ru').replace(/\/$/, '') };
+  const op = { site: (process.env.BASE_URL || 'https://my-bestagent.ru').replace(/\/$/, '') };
   for (const k of OP_FIELDS) op[k] = pick(k);
   return op;
 }
