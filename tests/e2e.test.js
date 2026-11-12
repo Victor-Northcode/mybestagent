@@ -505,6 +505,19 @@ describe('Админ-панель', () => {
 });
 
 describe('Навигация и права доступа', () => {
+  it('быстрый уход с карты (во время анимации и загрузки меток) не даёт ошибок', async () => {
+    const page = await newPage({ viewport: { width: 1366, height: 860 } });
+    await open(page, '#/');
+    for (const wait of [0, 60, 150, 300, 450, 600]) {
+      await page.goto(BASE + '/#/map');
+      await page.waitForTimeout(wait);
+      await page.goto(BASE + '/#/registry');
+      await page.waitForTimeout(400);
+    }
+    await page.waitForTimeout(800);
+    assert.deepEqual(page.errors, []);
+    await page.context().close();
+  });
   it('«Рейтинг» в подвале ведёт к рейтингу волонтёров; адрес со слешем на конце открывается', async () => {
     const page = await newPage({ viewport: { width: 1280, height: 800 } });
     await open(page, '#/');

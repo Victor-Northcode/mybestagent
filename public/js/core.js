@@ -142,7 +142,12 @@ export async function handleRoute() {
     const ae = document.activeElement;
     if (id > 1 && id === rendering && (!ae || ae === document.body || !ae.isConnected)) { view.tabIndex = -1; view.focus({ preventScroll: true }); }
   };
-  if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches && view.childElementCount) document.startViewTransition(run);
+  if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches && view.childElementCount) {
+    // При быстрых переходах браузер прерывает предыдущую анимацию (ready/finished отклоняются) — это не ошибка.
+    // Ошибки самой отрисовки страницы по-прежнему видны: их сообщает updateCallbackDone.
+    const vt = document.startViewTransition(run);
+    vt.ready.catch(() => {}); vt.finished.catch(() => {});
+  }
   else await run();
 }
 
@@ -279,14 +284,26 @@ export function photoField(el, initial = [], max = 5) {
 export function tiles() {
   return window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
 }
+// Leaflet 1.9.4 завершает анимацию зума по таймеру — если карту уже убрали (ушли со страницы), он падал с ошибкой
+function guardLeaflet(L) {
+  const P = L.Map.prototype;
+  if (P._mbaGuarded) return;
+  P._mbaGuarded = true;
+  // внутренние таймеры анимации и смена вида после удаления карты — ничего не делаем
+  for (const fn of ['_onZoomTransitionEnd', '_onPanTransitionEnd', '_catchTransitionEnd', 'setView', 'fitBounds', 'flyTo', 'panTo', 'panBy', 'setZoom', 'invalidateSize']) {
+    const orig = P[fn];
+    if (typeof orig === 'function') P[fn] = function (...args) { return this._mapPane ? orig.apply(this, args) : this; };
+  }
+}
 // Карта: m.lib — её библиотека (метки, круги, группы)
 export function makeMap(el, { center, zoom = 12, interactive = true } = {}) {
+  guardLeaflet(window.L);
   const c = center || state.config?.map?.center || [55.7558, 37.6173];
   const m = window.L.map(el, { zoomControl: interactive, attributionControl: false, dragging: interactive, scrollWheelZoom: interactive, doubleClickZoom: interactive, touchZoom: interactive, keyboard: interactive, tap: interactive }).setView(c, zoom);
   m.lib = window.L;
   // на самой карте подписей нет; источник картографических данных указан в подвале сайта
   tiles().addTo(m);
-  setTimeout(() => m.invalidateSize(), 60);
+  setTimeout(() => { if (m._mapPane) m.invalidateSize(); }, 60);
   return m;
 }
 export function pinIcon(a, extra = '') {

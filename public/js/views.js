@@ -282,7 +282,7 @@ route('/map', async (view) => {
     return L().divIcon({ className: '', html: `<div class="mcl ${ch.some((a) => a.emergency && a.status === 'published') ? 'em' : ''}" style="--s:${s}px;--a:${pa}%;--b:${pb}%"><b>${n}</b></div>`, iconSize: [s, s] });
   };
   loadCluster().then((ok) => {
-    if (!ok || !page.isConnected) return;
+    if (!ok || !page.isConnected || !m._mapPane) return;
     const g = L().markerClusterGroup({ maxClusterRadius: 46, showCoverageOnHover: false, spiderfyOnMaxZoom: true, disableClusteringAtZoom: 16, spiderLegPolylineOptions: { weight: 1.5, color: '#8a8f98', opacity: .6 }, iconCreateFunction: clusterIcon });
     g.on('clusterclick', () => { if (sel != null) select(null); });
     m.removeLayer(group); group = g.addTo(m); clustered = true; drawMarkers();
@@ -433,7 +433,7 @@ route('/map', async (view) => {
     if (curSort()) p.set('sort', curSort());
     let res = [];
     try { res = (await GET('/applications?' + p)).items || []; } catch (e) { if (id === reqId) toastErr(e); }
-    if (id !== reqId || !page.isConnected) return;
+    if (id !== reqId || !page.isConnected || !m._mapPane) return; // ушли со страницы, карта уже убрана
     items = res;
     page.classList.remove('loading'); listEl.classList.remove('dim');
     if (sel != null && !items.some((a) => a.id === sel)) { sel = null; closePeek(); }
