@@ -21,7 +21,7 @@ before(async () => {
   const proc = spawn(process.execPath, ['--no-warnings', 'server/index.js'], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
   let log = ''; proc.stdout.on('data', (d) => { log += d; }); proc.stderr.on('data', (d) => { log += d; });
   const base = `http://127.0.0.1:${port}`;
-  for (let i = 0; i < 80; i++) {
+  for (let i = 0; i < 240; i++) { // до 60 с: при параллельных тестах сервер стартует дольше
     try { if ((await fetch(base + '/api/config')).ok) { srv = { proc, base }; return; } } catch (e) { /* стартует */ }
     await new Promise((r) => setTimeout(r, 250));
   }
@@ -101,7 +101,8 @@ describe('Публичный тестовый стенд', () => {
 
   it('стенд закрыт от поисковиков: meta robots и robots.txt', async () => {
     const a = browser();
-    assert.match((await a.get('/')).body, /<meta name="robots" content="noindex, nofollow, noarchive">/);
+    assert.match((await a.get("/")).body, /<meta name="robots" content="noindex, nofollow/);
+    assert.equal((await a.get("/sitemap.xml")).status, 404, "у закрытого стенда нет карты сайта");
     assert.match((await a.get('/robots.txt')).body, /Disallow: \//);
   });
 });

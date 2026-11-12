@@ -92,6 +92,7 @@ describe('Рабочий режим: чистая база и честные о�
     assert.equal((await c.get('/api/tariffs')).body.items.length, 3);
     const cfg = (await c.get('/api/config')).body;
     assert.equal(cfg.dev, false);
+    assert.deepEqual(cfg.login, { email: false, phone: true }, 'подключены только SMS — вход по телефону');
     assert.equal(cfg.payments, 'yookassa');
     assert.ok(cfg.dicts.species.length > 0);
     const { DatabaseSync } = require('node:sqlite');
@@ -102,14 +103,16 @@ describe('Рабочий режим: чистая база и честные о�
   });
   it('главная: абсолютные ссылки для превью; robots.txt открывает сайт поисковикам', async () => {
     const html = await (await fetch(S1.base + '/')).text();
-    assert.match(html, /og:image" content="https:\/\/mybestagent\.test\/assets\/icon-512\.png"/);
+    assert.match(html, /og:image" content="https:\/\/mybestagent\.test\/assets\/og-image\.jpg"/);
     assert.match(html, /rel="canonical" href="https:\/\/mybestagent\.test\/"/);
     const robots = await (await fetch(S1.base + '/robots.txt')).text();
     assert.match(robots, /Allow: \//); assert.match(robots, /Disallow: \/api\//);
   });
   it('без провайдеров вход и оплата честно недоступны (без тестовых обходов)', async () => {
     const c = client(S2.base);
-    assert.equal((await c.get('/api/config')).body.payments, 'none');
+    const cfg = (await c.get('/api/config')).body;
+    assert.equal(cfg.payments, 'none');
+    assert.deepEqual(cfg.login, { email: false, phone: false }, 'страница входа сразу покажет, что вход пока недоступен');
     const e = await c.post('/api/auth/request', { target: 'user@mail.test' });
     assert.equal(e.status, 503); assert.equal(e.body.error, 'channel_unavailable'); assert.equal(e.body.devCode, undefined);
     assert.equal((await c.post('/api/auth/request', { target: '+7 999 111-22-33' })).status, 503);

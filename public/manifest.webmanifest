@@ -1,25 +1,75 @@
 {
-  "name": "Мой лучший агент — поиск людей, животных и вещей",
+  "name": "Мой лучший агент — поиск пропавших людей, животных и вещей",
   "short_name": "Мой агент",
-  "description": "Потерял, нашёл, карта, автоматические совпадения, экстренные оповещения и анонимный чат.",
+  "description": "Потерял или нашёл человека, питомца или вещь: заявка за 2 минуты, карта, автоподбор совпадений, оповещения волонтёров рядом, анонимный чат и экстренный поиск по району.",
   "lang": "ru",
   "id": "/",
   "start_url": "/#/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait",
-  "background_color": "#f6f5f2",
-  "theme_color": "#f6f5f2",
-  "categories": ["social", "utilities", "lifestyle"],
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "categories": [
+    "social",
+    "utilities",
+    "lifestyle"
+  ],
   "icons": [
-    { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ],
   "shortcuts": [
-    { "name": "Я потерял", "url": "/#/new/lost", "icons": [{ "src": "/assets/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Я нашёл", "url": "/#/new/found", "icons": [{ "src": "/assets/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Карта", "url": "/#/map", "icons": [{ "src": "/assets/icon-192.png", "sizes": "192x192" }] }
-  ]
+    {
+      "name": "Я потерял",
+      "url": "/#/new/lost",
+      "icons": [
+        {
+          "src": "/assets/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Я нашёл",
+      "url": "/#/new/found",
+      "icons": [
+        {
+          "src": "/assets/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Карта",
+      "url": "/#/map",
+      "icons": [
+        {
+          "src": "/assets/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "dir": "ltr"
 }

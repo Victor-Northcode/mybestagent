@@ -177,7 +177,9 @@ route('/', async (view) => {
   }
   if (em.items.length) mount($('#emStrip', view), h`<div class="wrap" style="padding-top:12px"><a class="em-strip rise" href="${em.items.length === 1 ? '#/a/' + em.items[0].id : '#/map?emergency=1'}"><span class="pulse"></span><div class="grow"><b>${t('home.em', 'Экстренный поиск', 'Emergency search')}</b> · ${em.items.length === 1 ? em.items[0].title : em.items.length + ' ' + tr('активных', 'active')}</div>${icon('chevR')}</a></div>`);
   // Последние заявки: строго по времени публикации, компактная сетка (2 колонки на телефоне, 4 — на компьютере)
-  mount($('#latest', view), latest.items.length ? h`<div class="apps apps-latest">${latest.items.map((a, i) => appCard(a, i))}</div>` : empty('inbox', tr('Пока нет заявок', 'No reports yet')));
+  mount($('#latest', view), latest.items.length ? h`<div class="apps apps-latest">${latest.items.map((a, i) => appCard(a, i))}</div>` : empty('inbox', tr('Пока нет заявок', 'No reports yet'),
+    h`<p class="muted small" style="margin-top:6px">${tr('Потеряли или нашли человека, питомца или вещь — разместите первую заявку.', 'Lost or found a person, a pet or an item? Post the first report.')}</p>`,
+    h`<div class="row-wrap" style="justify-content:center;gap:10px"><a class="btn btn-red" href="#/new/lost">${icon('plus', 'ic-sm')}${tr('Сообщить о пропаже', 'Report a loss')}</a><a class="btn btn-ghost" href="#/new/found">${icon('check', 'ic-sm')}${tr('Я нашёл', 'I found')}</a></div>`));
   // Истории: первая — крупная, остальные — аккуратные карточки; без горизонтальной прокрутки
   const CITY_EN = { 'Москва': 'Moscow', 'Санкт-Петербург': 'Saint Petersburg', 'Казань': 'Kazan', 'Новосибирск': 'Novosibirsk', 'Екатеринбург': 'Yekaterinburg' };
   const storyEl = $('#stories', view);
@@ -720,7 +722,9 @@ route('/a/:id', async (view, p) => {
   mount(view, h`<div class="wrap" style="padding-top:20px"><div class="sk" style="height:360px"></div></div>`);
   const { item: a } = await GET('/applications/' + p.id);
   const owner = a.is_owner;
-  const url = location.origin + '/#/a/' + a.id;
+  // ссылка «Поделиться» — чистый адрес: мессенджеры и поисковики получают превью с фото и описанием заявки
+  const url = location.origin + '/a/' + a.id;
+  document.title = `${a.title} — ${kindName(a.kind)} — ${tr('Мой лучший агент', 'My Best Agent')}`;
   const kv = [];
   if (a.category === 'people' && !a.hidden_pd) {
     if (a.person_name) kv.push([t('wiz.fio', 'ФИО', 'Full name'), a.person_name]);
@@ -1627,11 +1631,24 @@ route('/login', async (view) => {
   let target = '', info = null;
   const shell = (inner) => mount(view, h`<div class="wrap" style="max-width:460px;padding-top:30px"><div class="center" style="margin-bottom:24px"><img src="/assets/logo-256.png" alt="" class="logo-fx" style="width:120px;margin:0 auto 14px"></div><div class="card pad view">${inner}</div>
     <p class="xs muted center" style="margin-top:16px">${demoEmail ? tr('Используйте только вымышленные данные.', 'Please use fictional data only.') : t('login.foot', 'Регистрация доступна с 18 лет.', 'Registration is available from age 18.')}</p></div>`);
+  const via = state.config?.login || { email: true, phone: true };
   const step1 = () => {
+    if (!demoEmail && !via.email && !via.phone) {
+      // рабочий режим, а почта и SMS ещё не подключены — честно говорим об этом вместо формы, которая не сработает
+      shell(h`<h2>${t('login.title', 'Вход и регистрация', 'Sign in or sign up')}</h2>
+        <div class="note note-blue" style="margin-top:14px">${icon('clock')}<div>${tr('Вход и регистрация откроются совсем скоро. А пока можно смотреть заявки на карте, проверить вещь в реестре ценностей и прочитать документы платформы.', 'Sign-in and sign-up will open very soon. Meanwhile you can browse reports on the map, check an item in the valuables registry and read the platform documents.')}</div></div>
+        <div class="stack" style="margin-top:20px"><a class="btn btn-red btn-block btn-lg" href="#/map">${icon('map')}${tr('Открыть карту поиска', 'Open the search map')}</a><a class="btn btn-ghost btn-block" href="#/">${tr('На главную', 'Home')}</a></div>`);
+      return;
+    }
+    const only = via.email && !via.phone ? 'email' : via.phone && !via.email ? 'phone' : '';
     const field = demoEmail
       ? h`<label class="field"><span>${tr('Тестовый профиль', 'Demo profile')}</span><select name="target"><option value="${demoEmail}">${tr('Мой профиль в этом браузере', 'My profile in this browser')}</option>${state.config.demoLogins.map((email) => h`<option value="${email}" ${target === email ? 'selected' : ''}>${demoRoles[email]} · ${email}</option>`)}</select></label>`
-      : h`<label class="field"><span>${t('f.contact', 'Телефон или e-mail', 'Phone or e-mail')}</span><input name="target" required autocomplete="username" inputmode="email" enterkeyhint="next" autocapitalize="off" spellcheck="false" placeholder="+7 900 000-00-00" value="${target}"></label>`;
-    shell(h`<h2>${demoEmail ? tr('Вход в демоверсию', 'Demo sign-in') : t('login.title', 'Вход и регистрация', 'Sign in or sign up')}</h2><p class="muted" style="margin-top:8px">${demoEmail ? tr('Создайте свой тестовый профиль или выберите готовый. Готовыми профилями пользуются все посетители.', 'Create your own test profile or choose a sample. Sample profiles are shared by all visitors.') : t('login.sub', 'Введите e-mail или номер телефона — пришлём одноразовый код.', 'Enter your e-mail or phone — we will send a one-time code.')}</p>
+      : only === 'email'
+        ? h`<label class="field"><span>E-mail</span><input name="target" type="email" required autocomplete="email" inputmode="email" enterkeyhint="next" autocapitalize="off" spellcheck="false" placeholder="name@mail.ru" value="${target}"></label>`
+        : only === 'phone'
+          ? h`<label class="field"><span>${tr('Телефон', 'Phone')}</span><input name="target" type="tel" required autocomplete="tel" inputmode="tel" enterkeyhint="next" placeholder="+7 900 000-00-00" value="${target}"></label>`
+          : h`<label class="field"><span>${t('f.contact', 'Телефон или e-mail', 'Phone or e-mail')}</span><input name="target" required autocomplete="username" inputmode="email" enterkeyhint="next" autocapitalize="off" spellcheck="false" placeholder="+7 900 000-00-00" value="${target}"></label>`;
+    shell(h`<h2>${demoEmail ? tr('Вход в демоверсию', 'Demo sign-in') : t('login.title', 'Вход и регистрация', 'Sign in or sign up')}</h2><p class="muted" style="margin-top:8px">${demoEmail ? tr('Создайте свой тестовый профиль или выберите готовый. Готовыми профилями пользуются все посетители.', 'Create your own test profile or choose a sample. Sample profiles are shared by all visitors.') : (only === 'email' ? tr('Введите e-mail — пришлём одноразовый код.', 'Enter your e-mail — we will send a one-time code.') : only === 'phone' ? tr('Введите номер телефона — пришлём код по SMS.', 'Enter your phone number — we will send a code by SMS.') : t('login.sub', 'Введите e-mail или номер телефона — пришлём одноразовый код.', 'Enter your e-mail or phone — we will send a one-time code.'))}</p>
       <form class="stack" style="margin-top:20px" id="f1">${field}
       <button class="btn btn-red btn-block btn-lg">${t('login.get_code', 'Получить код', 'Get code')}</button></form>`);
     $('#f1', view).onsubmit = (e) => { e.preventDefault(); busy(e.submitter, async () => { try { info = await POST('/auth/request', { target: e.target.elements.namedItem('target').value }); target = info.target; step2(); } catch (er) { toastErr(er); } }); };
@@ -1746,6 +1763,7 @@ route('/legal', (view) => {
 route('/legal/:doc', async (view, p) => {
   const id = LEGAL_IDS.includes(p.doc) ? p.doc : 'terms';
   const d = await loadLegal(id);
+  document.title = `${d.title} — ${tr('Мой лучший агент', 'My Best Agent')}`;
   const toc = d.sections.map((s, i) => [s, i]).filter(([s]) => s.h);
   const wide = matchMedia('(min-width: 980px)').matches;
   mount(view, h`<div class="wrap legal-wrap">
@@ -1778,7 +1796,7 @@ route('/legal/:doc', async (view, p) => {
 });
 
 /* =================== 404 =================== */
-route('/404', (view) => mount(view, h`<div class="wrap"><div class="success"><div class="big-ic wait">${icon('search')}</div><h2>${tr('Страница не найдена', 'Page not found')}</h2><a class="btn" style="margin-top:20px" href="#/">${tr('На главную', 'Home')}</a></div></div>`), { notFound: true });
+route('/404', (view) => (document.title = `${tr('Страница не найдена', 'Page not found')} — ${tr('Мой лучший агент', 'My Best Agent')}`, mount(view, h`<div class="wrap"><div class="success"><div class="big-ic wait">${icon('search')}</div><h2>${tr('Страница не найдена', 'Page not found')}</h2><a class="btn" style="margin-top:20px" href="#/">${tr('На главную', 'Home')}</a></div></div>`)), { notFound: true });
 
 /* =================== язык и тема =================== */
 export async function setLang(lang, persist) {

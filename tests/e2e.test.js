@@ -178,6 +178,23 @@ describe('Мобильная вёрстка (360 px) — публичные ст
     assert.ok(r > 200 && g > 200 && b > 200, 'светлый фон, а не тёмный: ' + bg);
     await page.context().close();
   });
+  it('SEO: чистые адреса (/map, /a/3) открывают экран приложения; заголовок вкладки; «Поделиться» — ссылкой /a/3', async () => {
+    const page = await newPage();
+    await page.goto(BASE + '/map');
+    await page.waitForFunction(() => location.hash === '#/map' && location.pathname === '/');
+    await page.waitForSelector('.map-page');
+    assert.match(await page.title(), /^Карта поиска — /);
+    await page.goto(BASE + '/a/3');
+    await page.waitForFunction(() => location.hash === '#/a/3');
+    const t = await page.evaluate(async () => (await (await fetch('/api/applications/3', { headers: { 'X-Requested-With': 'mba' } })).json()).item.title);
+    await page.waitForFunction((x) => document.title.startsWith(x), t);
+    await page.locator('#share').click();
+    await page.waitForSelector('.sheet a[href^="https://t.me/share"]');
+    const tg = await page.locator('.sheet a[href^="https://t.me/share"]').getAttribute('href');
+    assert.ok(tg.includes(encodeURIComponent(BASE + '/a/3')), 'share link uses the clean URL: ' + tg);
+    assert.deepEqual(page.errors, []);
+    await page.context().close();
+  });
 });
 
 describe('Вход и регистрация', () => {

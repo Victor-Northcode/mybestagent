@@ -134,6 +134,7 @@ export async function handleRoute() {
     view.innerHTML = '';
     try { await r.handler(view, params); } catch (e) {
       if (id !== rendering) return;
+      if (e.status === 404) document.title = `${tr('Не найдено', 'Not found')} — ${tr('Мой лучший агент', 'My Best Agent')}`;
       mount(view, h`<div class="wrap"><div class="empty" style="margin-top:40px">${icon('alert')}<b>${e.status === 404 ? tr('Не найдено', 'Not found') : tr('Что-то пошло не так', 'Something went wrong')}</b>${e.message}<div style="margin-top:16px"><a class="btn btn-ghost btn-sm" href="#/">${tr('На главную', 'Home')}</a></div></div></div>`);
     }
     if (!r.opts.keepScroll) window.scrollTo({ top: 0, behavior: 'instant' });
