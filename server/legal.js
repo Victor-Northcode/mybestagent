@@ -10,10 +10,14 @@ const EDITION = '2026-11-09'; // дата редакции документов
 const DOC_IDS = ['terms', 'privacy', 'consent', 'publication'];
 
 /* ---------- реквизиты оператора ---------- */
+// Реквизиты фонда-оператора. Любое поле можно заменить в админке → «Переводы» (ключ legal.op.<поле>) или переменной LEGAL_<ПОЛЕ>.
+const OP_FIELDS = ['name', 'inn', 'kpp', 'ogrn', 'address', 'account', 'bank', 'bik', 'corr', 'email'];
+const OP_COMMON = { inn: '6685217330', kpp: '668501001', ogrn: '1246600008434', account: '40703810005000000829', bik: '046577975', corr: '30101810500000000975', email: 'support@mybestagent.ru' };
 const OP_DEFAULTS = {
-  ru: { name: '', email: 'support@mybestagent.ru', inn: '', ogrn: '', address: '' },
-  en: { name: '', email: 'support@mybestagent.ru', inn: '', ogrn: '', address: '' }
+  ru: { ...OP_COMMON, name: '', address: '', bank: 'Уральский филиал ПАО «Банк ПСБ», г. Екатеринбург' },
+  en: { ...OP_COMMON, name: '', address: '', bank: 'Ural branch of PSB Bank PJSC, Yekaterinburg' }
 };
+const OP_LOCALIZED = ['name', 'bank']; // остальные поля от языка не зависят
 function overrides(lang) {
   const o = {};
   for (const r of all("SELECT key, value FROM translations WHERE lang = ? AND key LIKE 'legal.%'", lang)) o[r.key] = r.value;
@@ -21,12 +25,14 @@ function overrides(lang) {
 }
 function operator(lang, ov) {
   const d = OP_DEFAULTS[lang];
-  // ИНН, ОГРН, адрес и e-mail от языка не зависят: если заданы только по-русски, берём их и для английской версии
+  // ИНН, КПП, ОГРН, счета, адрес и e-mail от языка не зависят: если заданы только по-русски, берём их и для английской версии
   const ru = lang === 'en' ? overrides('ru') : {};
-  const pick = (k) => (ov['legal.op.' + k] || (k !== 'name' ? ru['legal.op.' + k] : '') || process.env['LEGAL_' + k.toUpperCase()] || d[k] || '').trim();
-  const site = (process.env.BASE_URL || 'https://mybestagent.ru').replace(/\/$/, '');
-  return { name: pick('name'), email: pick('email'), inn: pick('inn'), ogrn: pick('ogrn'), address: pick('address'), site };
+  const pick = (k) => (ov['legal.op.' + k] || (!OP_LOCALIZED.includes(k) ? ru['legal.op.' + k] : '') || process.env['LEGAL_' + k.toUpperCase()] || d[k] || '').trim();
+  const op = { site: (process.env.BASE_URL || 'https://mybestagent.ru').replace(/\/$/, '') };
+  for (const k of OP_FIELDS) op[k] = pick(k);
+  return op;
 }
+const operatorInfo = (lang) => operator(lang === 'en' ? 'en' : 'ru', overrides(lang === 'en' ? 'en' : 'ru'));
 
 /* ---------- тексты ----------
    Каждый документ: заголовок, краткое описание и разделы. Пункты нумеруются автоматически (1.1, 1.2 …).
@@ -519,8 +525,10 @@ function getDoc(id, lang) {
     return { n: s.h ? String(si) : '', h: s.h, items: s.items.map((t) => (t.startsWith('— ') ? { bullet: true, text: t.slice(2) } : { n: s.h ? `${si}.${++pi}` : "", text: t })) };
   });
   const req = [];
-  const L = lang === 'en' ? { name: 'Operator', inn: 'TIN (INN)', ogrn: 'OGRN', address: 'Address', email: 'E-mail', site: 'Website' } : { name: 'Оператор', inn: 'ИНН', ogrn: 'ОГРН', address: 'Адрес', email: 'E-mail', site: 'Сайт' };
-  for (const k of ['name', 'inn', 'ogrn', 'address', 'email', 'site']) if (op[k]) req.push([L[k], op[k]]);
+  const L = lang === 'en'
+    ? { name: 'Operator', inn: 'TIN (INN)', kpp: 'KPP', ogrn: 'OGRN', address: 'Address', account: 'Settlement account', bank: 'Bank', bik: 'BIC', corr: 'Correspondent account', email: 'E-mail', site: 'Website' }
+    : { name: 'Оператор', inn: 'ИНН', kpp: 'КПП', ogrn: 'ОГРН', address: 'Адрес', account: 'Расчётный счёт', bank: 'Банк', bik: 'БИК', corr: 'Корр. счёт', email: 'E-mail', site: 'Сайт' };
+  for (const k of [...OP_FIELDS, 'site']) if (op[k]) req.push([L[k], op[k]]);
   return { id, lang, title: (ov['legal.' + id] || '').trim() || src.title, lead: fill(src.lead), edition: EDITION, custom: !!custom, sections: numbered, requisites: req, docs: DOC_IDS.map((d) => ({ id: d, title: TITLES[lang][d] })) };
 }
 
@@ -593,19 +601,22 @@ function renderPdf(src, res) {
     pdf.moveDown(0.6);
   }
 
-  // реквизиты оператора
-  ensure(40 + doc.requisites.length * 16);
+  // реквизиты оператора: высота строки — по самому длинному значению (название банка может переноситься)
+  pdf.font('R').fontSize(9.5);
+  const rowH = doc.requisites.map(([k, v]) => Math.max(16, pdf.heightOfString(k, { width: 120 }) + 4, pdf.heightOfString(v, { width: W - 156 }) + 4));
+  const boxH = 38 + rowH.reduce((a, b) => a + b, 0);
+  ensure(boxH + 12);
   pdf.moveDown(0.4);
   const top = pdf.y;
-  const boxH = 30 + doc.requisites.length * 16;
   pdf.roundedRect(X, top, W, boxH, 10).fillColor('#f6f5f2').fill();
   pdf.font('B').fontSize(11).fillColor(INK).text(en ? 'Operator details' : 'Реквизиты оператора', X + 16, top + 12);
-  let ry = top + 30;
-  for (const [k, v] of doc.requisites) {
-    pdf.font('R').fontSize(9.5).fillColor(MUTED).text(k, X + 16, ry, { width: 110 });
-    pdf.font('R').fontSize(9.5).fillColor(INK).text(v, X + 130, ry, { width: W - 146 });
-    ry += 16;
-  }
+  let ry = top + 32;
+  doc.requisites.forEach(([k, v], i) => {
+    pdf.font('R').fontSize(9.5).fillColor(MUTED).text(k, X + 16, ry, { width: 120 });
+    pdf.font('R').fontSize(9.5).fillColor(INK).text(v, X + 140, ry, { width: W - 156 });
+    ry += rowH[i];
+  });
+  pdf.y = top + boxH;
 
   // колонтитулы и номера страниц
   const range = pdf.bufferedPageRange();
@@ -637,4 +648,4 @@ function sendPdf(id, lang, res, inline) {
 }
 const pdfCache = new Map();
 
-module.exports = { DOC_IDS, getDoc, sendPdf, EDITION };
+module.exports = { DOC_IDS, getDoc, sendPdf, EDITION, operatorInfo };

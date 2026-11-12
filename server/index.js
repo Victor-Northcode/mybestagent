@@ -1199,7 +1199,7 @@ A.get('/payments', h((req, res) => res.json({ items: all('SELECT p.*, t.name_ru,
 const AD = express.Router(); AD.use(needAdmin);
 // Готовность к работе: что подключено, а что ещё нужно настроить (показывается в админке → «Система» и в журнале при запуске)
 function readiness() {
-  const op = (k) => ((get("SELECT value FROM translations WHERE key = ? AND lang = 'ru'", 'legal.op.' + k) || {}).value || process.env['LEGAL_' + k.toUpperCase()] || '').trim();
+  const opInfo = LEGAL.operatorInfo('ru'); const op = (k) => opInfo[k];
   return [
     { key: 'mode', ok: !DEV, value: DEV ? 'test' : 'production' },
     { key: 'base_url', ok: !!process.env.BASE_URL && /^https:\/\//.test(process.env.BASE_URL), value: process.env.BASE_URL || '' },
