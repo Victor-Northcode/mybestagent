@@ -59,17 +59,23 @@ const avatar = (u, cls = '') => h`<div class="ava ${cls}" style="${u.avatar ? `b
 // Куда человек может обратиться сразу — звонок в одно касание. Номера сверены 12.11.2026:
 // 112/101/102/103 — экстренные номера РФ; «ЛизаАлерт» — lizaalert.org; ДСКЦ МИД — mid.ru (круглосуточно).
 const services = () => [
-  { num: '112', tel: '112', ic: 'siren', main: true, title: tr('Единый номер экстренных служб', 'Emergency number'), sub: tr('Полиция, скорая, спасатели. Бесплатно, с любого телефона', 'Police, ambulance, rescue. Free, from any phone') },
-  { num: '102', tel: '102', ic: 'police', title: tr('Полиция', 'Police'), sub: tr('Пропал человек, кража, угроза. Заявление о пропаже принимают сразу', 'Missing person, theft, threat. Missing-person reports are taken at once') },
-  { num: '103', tel: '103', ic: 'firstaid', title: tr('Скорая помощь', 'Ambulance'), sub: tr('Угроза жизни и здоровью', 'Threat to life or health') },
-  { num: '101', tel: '101', ic: 'fire', title: tr('МЧС: пожарные и спасатели', 'Fire & rescue (EMERCOM)'), sub: tr('Пожар, авария, человек в опасности', 'Fire, accident, person in danger') },
-  { num: '8 800 700-54-52', tel: '88007005452', ic: 'lifebuoy', title: tr('Поисково-спасательный отряд «ЛизаАлерт»', 'LizaAlert search & rescue'), sub: tr('Поиск пропавших людей. Бесплатно, круглосуточно', 'Searching for missing people. Free, 24/7') },
+  { num: '112', tel: '112', ic: 'siren', main: true, short: '', title: tr('Единый номер экстренных служб', 'Emergency number'), sub: tr('Полиция, скорая, спасатели. Бесплатно, с любого телефона', 'Police, ambulance, rescue. Free, from any phone') },
+  { num: '102', tel: '102', ic: 'police', short: tr('Полиция', 'Police'), title: tr('Полиция', 'Police'), sub: tr('Пропал человек, кража, угроза. Заявление о пропаже принимают сразу', 'Missing person, theft, threat. Missing-person reports are taken at once') },
+  { num: '103', tel: '103', ic: 'firstaid', short: tr('Скорая', 'Ambulance'), title: tr('Скорая помощь', 'Ambulance'), sub: tr('Угроза жизни и здоровью', 'Threat to life or health') },
+  { num: '101', tel: '101', ic: 'fire', short: tr('МЧС', 'Rescue'), title: tr('МЧС: пожарные и спасатели', 'Fire & rescue (EMERCOM)'), sub: tr('Пожар, авария, человек в опасности', 'Fire, accident, person in danger') },
+  { num: '8 800 700-54-52', tel: '88007005452', ic: 'lifebuoy', short: tr('ЛизаАлерт', 'LizaAlert'), title: tr('Поисково-спасательный отряд «ЛизаАлерт»', 'LizaAlert search & rescue'), sub: tr('Поиск пропавших людей. Бесплатно, круглосуточно', 'Searching for missing people. Free, 24/7') },
   { num: tr('В приложении', 'In the app'), href: '#/new/lost?category=people', ic: 'handshake', title: tr('Волонтёры рядом', 'Volunteers nearby'), sub: tr('Подайте заявку — волонтёры и партнёры поблизости получат оповещение', 'Post a report — volunteers and partners nearby get an alert') },
-  { num: '+7 495 695-45-45', tel: '+74956954545', ic: 'plane', title: tr('МИД России: кризисный центр', 'Russian MFA crisis centre'), sub: tr('Если беда случилась за границей. Круглосуточно', 'If trouble happens abroad. 24/7') }
+  { num: '+7 495 695-45-45', tel: '+74956954545', ic: 'plane', short: tr('МИД', 'MFA'), title: tr('МИД России: кризисный центр', 'Russian MFA crisis centre'), sub: tr('Если беда случилась за границей. Круглосуточно', 'If trouble happens abroad. 24/7') }
 ];
 const svcItem = (s) => h`<a class="svc ${s.main ? 'svc-main' : ''}" href="${s.href || 'tel:' + s.tel}" ${s.href ? '' : raw(`aria-label="${esc(s.title)}: ${esc(tr('позвонить', 'call'))} ${esc(s.num)}"`)}>
   <span class="svc-ic">${icon(s.ic)}</span><span class="svc-tx"><b>${s.title}</b><span>${s.sub}</span></span><span class="svc-num">${s.href ? '' : icon('phone', 'ic-sm')}${s.num}</span></a>`;
 const svcNote = () => h`<p class="svc-foot">${icon('alert', 'ic-sm')}${tr('Номера действуют в России. За границей звоните 112 или в кризисный центр МИД. Платформа не заменяет полицию и экстренные службы.', 'Numbers are for Russia. Abroad, call 112 or the MFA crisis centre. The platform does not replace the police or emergency services.')}</p>`;
+// Главная: одна компактная строка — звонок в одно касание; подробности и волонтёры — в окне «Все службы» (то же, что SOS)
+const sosStrip = () => h`<div class="sos-strip" id="sos" role="group" aria-label="${tr('Экстренные службы', 'Emergency services')}">
+  <span class="sos-strip-h">${tr('Экстренно', 'Emergency')}</span>
+  ${services().filter((s) => s.tel).map((s) => h`<a class="sc ${s.main ? 'sc-main' : ''}" href="tel:${s.tel}" aria-label="${s.title}: ${tr('позвонить', 'call')} ${s.num}">${icon(s.ic, 'ic-sm')}${/^\d{3}$/.test(s.num) ? h`<b>${s.num}</b>` : ''}${s.short ? h`<span>${s.short}</span>` : ''}</a>`)}
+  <button type="button" class="sc sc-more" data-sos-all aria-haspopup="dialog">${tr('Все службы', 'All services')}${icon('chevR', 'ic-sm')}</button>
+</div>`;
 export function sosSheet() {
   const s = sheet(h`${sheetHead(tr('Куда обратиться прямо сейчас', 'Get help right now'), tr('Нажмите на службу — телефон сразу наберёт номер', 'Tap a service and your phone dials it'))}
     <div class="svc-list">${services().map(svcItem)}</div>${svcNote()}`);
@@ -112,13 +118,7 @@ route('/', async (view) => {
         ['found', 'labrador.jpg', '#/new/found', t('home.svc_f', 'Я что-то нашёл', 'I found something'), t('home.svc_ft', 'Поможем вернуть владельцу', 'We help return it')]]
         .map(([c, img, href, ti, tx], i) => h`<a class="ctile ctile-${c} reveal" style="--i:${i}" href="${href}"><span class="ctile-tx"><b>${ti}</b><span>${tx}</span>${c !== 'found' ? h`<span class="svc-n" data-cat="${c}"></span>` : ''}</span><img src="/assets/img/${img}" alt="" loading="lazy"></a>`)}
       </nav>
-    </section>
-
-    <section class="blk svc-blk" id="sos" aria-labelledby="sosH">
-      <div class="blk-head"><div><h2 id="sosH">${tr('Куда обратиться сразу', 'Where to get help right away')}</h2>
-        <p class="blk-sub">${tr('Если пропал человек — сначала позвоните в полицию или 112, потом подайте заявку здесь. Нажмите на службу — телефон наберёт номер.', 'If a person is missing, call the police or 112 first, then post a report here. Tap a service to call.')}</p></div></div>
-      <div class="svc-grid">${services().map(svcItem)}</div>
-      ${svcNote()}
+      ${sosStrip()}
     </section>
 
     <section class="blk">
@@ -210,6 +210,7 @@ route('/', async (view) => {
     </section>
   </div>`);
 
+  $('[data-sos-all]', view).onclick = sosSheet;
   let leadKind = 'partner';
   $$('[data-seg=kind] button', view).forEach((b) => b.onclick = () => { $$('[data-seg=kind] button', view).forEach((x) => x.classList.toggle('on', x === b)); leadKind = b.dataset.v; });
   // «Подключить компанию / службу» — к форме партнёрства, поле «Организация» подсказывает, что вписать

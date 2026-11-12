@@ -1831,7 +1831,7 @@ body.map-open { overflow: hidden; }
 @media (min-width: 980px) { .sos-btn { height: 44px; padding: 0 14px 0 12px; margin-right: 2px; } }
 
 .blk-sub { margin-top: 6px; font-size: 15.5px; line-height: 1.5; color: var(--muted); max-width: 72ch; }
-.svc-grid, .svc-list { display: grid; gap: 10px; }
+.svc-list { display: grid; gap: 10px; }
 .svc {
   display: grid; grid-template-columns: 42px minmax(0, 1fr); grid-template-areas: "ic tx" "ic num"; column-gap: 14px; row-gap: 10px; align-items: start;
   padding: 14px 16px; border-radius: var(--r-lg); background: var(--surface-2); color: var(--ink);
@@ -1858,19 +1858,37 @@ body.map-open { overflow: hidden; }
 .svc-main .svc-num { background: #fff; color: var(--red-solid); box-shadow: none; font-size: 22px; padding: 7px 16px 7px 13px; }
 .svc-foot { display: flex; align-items: flex-start; gap: 8px; margin-top: 14px; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
 .svc-foot .ic { flex: none; margin-top: 1px; }
-@media (min-width: 640px) {
-  .svc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .svc-grid .svc-main { grid-column: span 2; }
-}
-@media (min-width: 1100px) {
-  .svc-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-  .svc-grid .svc { grid-template-columns: 42px minmax(0, 1fr); grid-template-areas: "ic num" "tx tx"; padding: 16px 18px 18px; align-content: start; }
-  .svc-grid .svc-num { justify-self: end; }
-  .svc-grid .svc-main { grid-template-areas: "ic tx" "ic num"; align-content: center; }
-  .svc-grid .svc-main .svc-num { justify-self: start; }
-  .svc-grid .svc-main .svc-tx b { font-size: 20px; }
-}
 .sheet .svc { padding: 12px 14px; }
+
+/* Главная: экстренные службы — одна строка. На телефоне листается вбок, подробности — в окне «Все службы» */
+.sos-strip {
+  display: flex; align-items: center; gap: 8px; margin: 18px 0 -6px; padding: 4px 0 12px;
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.sos-strip::-webkit-scrollbar { display: none; }
+.sos-strip-h { flex: none; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.sc {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 13px 0 11px;
+  border-radius: 999px; font-size: 14.5px; font-weight: 600; color: var(--ink); white-space: nowrap;
+  background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); transition: background .2s, transform .15s;
+}
+.sc:hover { background: var(--fill); }
+.sc:active { transform: scale(.96); }
+.sc .ic { width: 17px; height: 17px; color: var(--red-solid); }
+.sc b { font-weight: 800; font-variant-numeric: tabular-nums; }
+.sc-main { color: #fff; background: var(--red-solid); box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--red-solid) 80%, transparent); padding: 0 15px 0 12px; }
+.sc-main:hover { background: color-mix(in srgb, var(--red-solid) 88%, #000); }
+.sc-main .ic { color: #fff; }
+.sc-main b { font-size: 16px; }
+.sc-more { color: var(--red-t); background: transparent; box-shadow: none; padding: 0 6px 0 4px; }
+.sc-more:hover { background: transparent; text-decoration: underline; }
+.sc-more .ic { color: currentColor; }
+@media (max-width: 979px) {
+  .sos-strip { margin: 16px -32px -6px; padding: 4px 32px 12px; -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+  /* «Сообщить о пропаже / Я нашёл» дублируют «Потерял / Нашёл» в нижнем меню — на телефоне не занимаем ими экран */
+  .hb-cta { display: none; }
+}
+@media (max-width: 640px) { .sos-strip { margin-inline: -16px; padding-inline: 16px; } }
 
 /* «Для людей, компаний и государства» */
 .aud { display: grid; gap: 14px; }

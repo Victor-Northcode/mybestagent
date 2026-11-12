@@ -218,11 +218,20 @@ describe('Мобильная вёрстка (360 px) — публичные ст
       await page.context().close();
     });
   }
-  it('главная: «Куда обратиться сразу» и блок для физлиц, юрлиц и госслужб', async () => {
+  it('главная: экстренные службы одной строкой, путь до заявок короткий; блок для физлиц, юрлиц и госслужб', async () => {
     const page = await newPage();
     await open(page, '#/');
-    assert.deepEqual(await page.$$eval('#sos a.svc[href^="tel:"]', (as) => as.map((a) => a.getAttribute('href'))), SERVICE_TELS);
-    assert.match(await page.locator('#sos').innerText(), /ЛизаАлерт[\s\S]*МИД России/);
+    assert.deepEqual(await page.$$eval('#sos a.sc[href^="tel:"]', (as) => as.map((a) => a.getAttribute('href'))), SERVICE_TELS);
+    assert.match(await page.locator('#sos').innerText(), /112[\s\S]*ЛизаАлерт[\s\S]*МИД/);
+    const strip = await page.locator('#sos').boundingBox();
+    assert.ok(strip.height <= 64, 'services take one line: ' + strip.height);
+    const latestTop = await page.evaluate(() => { const hh = [...document.querySelectorAll('h2')].find((x) => /Свежие заявки/.test(x.textContent)); return hh.getBoundingClientRect().top + scrollY; });
+    assert.ok(latestTop < 1300, 'latest reports start within ~1.5 screens: ' + latestTop);
+    await page.locator('[data-sos-all]').click();
+    await page.waitForSelector('.sheet[role="dialog"] a.svc[href="tel:+74956954545"]');
+    assert.equal(await page.locator('.sheet a.svc[href^="#/new/lost"]').count(), 1, 'volunteers are in «All services»');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.overlay', { state: 'detached', timeout: 2000 });
     const aud = await page.$$eval('.aud-card .aud-kicker', (els) => els.map((e) => e.textContent.trim()));
     assert.deepEqual(aud, ['Физическим лицам', 'Юридическим лицам', 'Государственным службам']);
     await page.locator('.aud-gov [data-lead]').click();
