@@ -105,7 +105,7 @@ npm start          # http://localhost:3000
    - **SMS**: `SMSRU_API_ID` из личного кабинета SMS.ru (и `SMSRU_FROM`, если согласовано имя отправителя).
    - **Оплата**: `YOOKASSA_SHOP_ID` и `YOOKASSA_SECRET_KEY` (ЮKassa → Интеграция → Ключи API), ставка НДС `YOOKASSA_VAT_CODE`.
      В ЮKassa → Интеграция → HTTP-уведомления укажите `https://ваш-домен/api/payments/webhook`, события `payment.succeeded` и `payment.canceled`.
-   - **Реквизиты оператора**: `LEGAL_NAME`, `LEGAL_INN`, `LEGAL_OGRN`, `LEGAL_ADDRESS`, `LEGAL_EMAIL` (или админка → «Переводы»).
+   - **Реквизиты оператора**: ИНН, КПП, ОГРН и банковские реквизиты фонда уже вписаны в документы; осталось указать полное название (`LEGAL_NAME`) и юридический адрес (`LEGAL_ADDRESS`) — или в админке → «Переводы».
 3. **Чистая папка данных.** Используйте новую `data/` или укажите `DATA_DIR`. База с тестового стенда содержит демо-пользователей и заявки.
 4. **Запуск**: `npm start`. Что не настроено, сервер пишет в журнал при старте. То же видно в админке → «Система» → «Готовность к работе».
 5. Оператору персональных данных нужно подать уведомление в Роскомнадзор (ст. 22 152-ФЗ).
@@ -131,7 +131,8 @@ npm start          # http://localhost:3000
 | `SMTP_URL`, `MAIL_FROM` | отправка e-mail (коды входа, уведомления) через SMTP |
 | `SMSRU_API_ID`, `SMSRU_FROM` | отправка SMS через SMS.ru |
 | `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY`, `YOOKASSA_VAT_CODE`, `YOOKASSA_TAX_SYSTEM` | приём оплаты через ЮKassa |
-| `LEGAL_NAME`, `LEGAL_INN`, `LEGAL_OGRN`, `LEGAL_ADDRESS`, `LEGAL_EMAIL` | реквизиты оператора для документов (то же можно задать в админке → «Переводы», ключи `legal.op.*`) |
+| `LEGAL_NAME`, `LEGAL_ADDRESS`, `LEGAL_EMAIL` | название, юридический адрес и e-mail оператора в документах |
+| `LEGAL_INN`, `LEGAL_KPP`, `LEGAL_OGRN`, `LEGAL_ACCOUNT`, `LEGAL_BANK`, `LEGAL_BIK`, `LEGAL_CORR` | заменяют встроенные реквизиты фонда (ИНН, КПП, ОГРН, расчётный счёт, банк, БИК, корр. счёт). Всё это можно задать и в админке → «Переводы», ключи `legal.op.*` |
 | `DATA_DIR` | где хранить базу, фото и резервные копии (по умолчанию `./data`) |
 | `UPLOAD_QUOTA_MB` | лимит места под фото на одного пользователя (по умолчанию 200 МБ). Фото, не прикреплённые ни к чему, удаляются через сутки |
 | `VAPID_PUBLIC`, `VAPID_PRIVATE`, `VAPID_SUBJECT` | ключи web-push. Если не задать, ключи создаются автоматически и сохраняются в `data/vapid.json` |

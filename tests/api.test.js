@@ -1272,10 +1272,26 @@ describe('Правовые документы', () => {
     const en = await anon().get('/api/legal/terms.pdf?lang=en&inline=1');
     assert.match(en.headers.get('content-disposition'), /^inline; filename="terms-of-use\.pdf"/);
   });
+  it('реквизиты фонда (ИНН, КПП, ОГРН, банк) есть во всех документах и в PDF', async () => {
+    for (const id of ['terms', 'privacy', 'consent', 'publication']) {
+      const d = (await anon().get('/api/legal/' + id)).body;
+      const req = Object.fromEntries(d.requisites);
+      assert.equal(req['ИНН'], '6685217330'); assert.equal(req['КПП'], '668501001'); assert.equal(req['ОГРН'], '1246600008434');
+      assert.equal(req['Расчётный счёт'], '40703810005000000829'); assert.equal(req['БИК'], '046577975'); assert.equal(req['Корр. счёт'], '30101810500000000975');
+      assert.match(req['Банк'], /ПАО «Банк ПСБ»/);
+    }
+    const en = Object.fromEntries((await anon().get('/api/legal/terms?lang=en')).body.requisites);
+    assert.equal(en['KPP'], '668501001'); assert.match(en['Bank'], /PSB Bank/);
+    const pdf = await anon().get('/api/legal/terms.pdf');
+    assert.equal(pdf.status, 200); assert.equal(pdf.body.subarray(0, 5).toString(), '%PDF-');
+  });
   it('администратор задаёт реквизиты оператора — они попадают во все документы', async () => {
     await admin.post('/api/admin/translations', { key: 'legal.op.name', lang: 'ru', value: 'ООО «Лучший агент»' });
     await admin.post('/api/admin/translations', { key: 'legal.op.inn', lang: 'ru', value: '7700000000' });
+    await admin.post('/api/admin/translations', { key: 'legal.op.bank', lang: 'ru', value: 'АО «Тестбанк»' });
     try {
+      assert.equal(Object.fromEntries((await anon().get('/api/legal/terms')).body.requisites)['Банк'], 'АО «Тестбанк»');
+      assert.match(Object.fromEntries((await anon().get('/api/legal/terms?lang=en')).body.requisites)['Bank'], /PSB Bank/, 'название банка у английской версии своё');
       const d = (await anon().get('/api/legal/consent')).body;
       assert.match(d.sections[0].items[0].text, /оператору платформы — ООО «Лучший агент» \(далее — «Оператор»\)/);
       assert.ok(d.requisites.some(([k, v]) => k === 'ИНН' && v === '7700000000'));
@@ -1285,6 +1301,7 @@ describe('Правовые документы', () => {
     } finally {
       await admin.post('/api/admin/translations', { key: 'legal.op.name', lang: 'ru', value: '' });
       await admin.post('/api/admin/translations', { key: 'legal.op.inn', lang: 'ru', value: '' });
+      await admin.post('/api/admin/translations', { key: 'legal.op.bank', lang: 'ru', value: '' });
     }
     const d = (await anon().get('/api/legal/consent')).body;
     assert.match(d.sections[0].items[0].text, /оператору платформы \(далее — «Оператор»\)/);
