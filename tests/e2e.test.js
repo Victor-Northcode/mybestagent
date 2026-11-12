@@ -339,6 +339,40 @@ describe('Мастер заявки', () => {
     assert.deepEqual(page.errors, []);
     await page.context().close();
   });
+  it('«Я потерял → Животные»: вид, порода, окрас, одежда, парк города и транспорт попадают в заявку', async () => {
+    const page = await newPage();
+    await login(page, 'lisa@example.com');
+    await open(page, '#/new/lost');
+    await page.locator('[data-cat="animals"]').click();
+    await page.locator('select[name="species"]').selectOption('Собака');
+    assert.ok(await page.locator('#breedList option[value="Такса"]').count(), 'подсказки пород для собак');
+    await page.locator('input[name="breed"]').fill('Такса');
+    await page.locator('input[name="color"]').fill('Рыжий');
+    await page.locator('textarea[name="features"]').fill('белое пятно на груди');
+    await page.locator('input[name="clothes"]').fill('зелёная шлейка');
+    await page.locator('#next').click();
+    await page.locator('#next').click(); // фото — пропустить
+    await page.waitForSelector('.map-host.leaflet-container');
+    const box = await page.locator('.map-host').boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await page.locator('input[name="city"]').fill('Екатеринбург');
+    await page.locator('select[name="park_pick"]').selectOption('Харитоновский сад');
+    await page.locator('select[name="transport"]').selectOption('tram');
+    assert.ok(await page.locator('#routeBox').isVisible(), 'поле маршрута появилось');
+    await page.locator('input[name="transport_route"]').fill('№ 15');
+    await noOverflow(page, 'wizard place animals');
+    await page.locator('#next').click();
+    await page.locator('#next').click(); // опубликовать
+    await page.waitForSelector('.success h2');
+    await page.locator('.success a[href^="#/a/"]').click();
+    await page.waitForSelector('dl.kv');
+    assert.match(await page.locator('h1').innerText(), /Пропажа: собака, такса, рыжий/);
+    const kv = await page.locator('dl.kv').first().innerText();
+    for (const s of ['Такса', 'Рыжий', 'зелёная шлейка', 'Харитоновский сад', 'Трамвай, № 15']) assert.ok(kv.includes(s), `${s} — в параметрах заявки:\n${kv}`);
+    assert.match(await page.locator('.d-rest').innerText(), /Особые приметы[\s\S]*белое пятно на груди/);
+    assert.deepEqual(page.errors, []);
+    await page.context().close();
+  });
   it('фото из мастера сохраняются в заявке; метка на карте видна; карта разворачивается на весь экран', async () => {
     const page = await newPage();
     await login(page, 'lisa@example.com');

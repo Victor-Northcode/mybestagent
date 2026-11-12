@@ -6,6 +6,7 @@ import {
   onEvent, connectStream, mediaPh, enablePush, pushStatus, isIOS, isStandalone, shareSheet, countUp, formData, busy, observeReveal, safeSet, esc,
   emergencyPhones
 } from './core.js';
+import { BREEDS, COLORS, parksOf } from './places.js';
 
 /* =================== общие компоненты =================== */
 // Псевдоним собеседника в анонимном чате (сервер отдаёт по-русски, здесь — перевод).
@@ -554,17 +555,26 @@ const OPT = {
   skin: { light: ['Светлая', 'Light'], olive: ['Смуглая', 'Olive'], dark: ['Тёмная', 'Dark'] },
   disability: { none: ['Нет', 'None'], g1: ['I группа', 'Group I'], g2: ['II группа', 'Group II'], g3: ['III группа', 'Group III'], child: ['Ребёнок-инвалид', 'Disabled child'] },
   health: { deaf: ['Не слышит или плохо слышит', 'Deaf or hard of hearing'], blind: ['Не видит или плохо видит', 'Blind or low vision'], dementia: ['Деменция: может не помнить имя и адрес', 'Dementia: may not remember name or address'], concussion: ['Контузия', 'Concussion'], other: ['Другое', 'Other'] },
-  transport: { bus: ['Автобус', 'Bus'], metro: ['Метро', 'Metro'], train: ['Поезд, электричка', 'Train'], plane: ['Самолёт', 'Plane'], other: ['Другой транспорт', 'Other transport'] }
+  transport: { bus: ['Автобус', 'Bus'], trolleybus: ['Троллейбус', 'Trolleybus'], tram: ['Трамвай', 'Tram'], minibus: ['Маршрутка', 'Minibus'], metro: ['Метро', 'Metro'], suburban: ['Электричка', 'Commuter train'],
+    train: ['Поезд', 'Train'], plane: ['Самолёт', 'Plane'], taxi: ['Такси', 'Taxi'], other: ['Другой транспорт', 'Other transport'] }
 };
 const ROUTE = {
   bus: [['Номер маршрута', 'Route number'], ['№ 15, остановка «Парк»', 'No. 15, “Park” stop']],
+  trolleybus: [['Номер маршрута', 'Route number'], ['№ 7, остановка «Рынок»', 'No. 7, “Market” stop']],
+  tram: [['Номер маршрута', 'Route number'], ['№ 3, остановка «Вокзал»', 'No. 3, “Station” stop']],
+  minibus: [['Номер маршрута', 'Route number'], ['№ 45, у ТЦ', 'No. 45, near the mall']],
   metro: [['Станция, линия', 'Station, line'], ['Станция «Пушкинская»', 'Pushkinskaya station']],
+  suburban: [['Направление, станция', 'Line, station'], ['Ярославское направление, ст. Мытищи', 'Yaroslavl line, Mytishchi']],
   train: [['Номер поезда, вагон', 'Train number, car'], ['№ 102, вагон 5', 'No. 102, car 5']],
   plane: [['Рейс', 'Flight'], ['SU 1234', 'SU 1234']],
-  other: [['Какой транспорт', 'What transport'], ['Трамвай № 3, такси', 'Tram No. 3, taxi']]
+  taxi: [['Машина, служба такси', 'Car, taxi service'], ['Белый седан, номер А123ВС', 'White sedan, plate A123BC']],
+  other: [['Какой транспорт', 'What transport'], ['Речной трамвай, канатная дорога', 'River boat, cable car']]
 };
 const DETAIL_KEYS = ['sex', 'height', 'weight', 'build', 'skin', 'hair_color', 'hair_length', 'eye_color', 'nationality', 'clothes_top', 'clothes_bottom', 'headwear', 'shoes',
-  'language', 'health_note', 'disability', 'landmark', 'transport', 'transport_route', 'place_photo'];
+  'language', 'health_note', 'disability', 'breed', 'color', 'clothes', 'park', 'landmark', 'transport', 'transport_route', 'place_photo'];
+// Вид животного хранится словом из справочника (на языке интерфейса); подсказки пород привязаны к русскому названию
+const speciesRu = (v) => { const e = (state.config?.dicts?.species || []).find((x) => x.ru === v || x.en === v); return e ? e.ru : v; };
+const PARK_OTHER = '__other';
 export const optName = (k, v) => { const o = OPT[k] && OPT[k][v]; return o ? tr(o[0], o[1]) : v; };
 const optSelect = (name, cur) => h`<select name="${name}"><option value="">—</option>${Object.keys(OPT[name]).map((v) => h`<option value="${v}" ${cur === v ? 'selected' : ''}>${optName(name, v)}</option>`)}</select>`;
 const fld = (label, control) => h`<label class="field"><span>${label}</span>${control}</label>`;
@@ -620,7 +630,8 @@ async function wizard(view, kind, existing) {
         if (+d.person_age < 18 && d.relation !== 'legal_rep') return err(t('wiz.e_minor', 'Заявку о несовершеннолетнем подаёт только законный представитель', 'Only a legal guardian can report a minor'), 'relation');
         if (!d.title) d.title = `${tr('Пропал человек', 'Missing person')}: ${d.person_name}, ${d.person_age} ${tr(plural(+d.person_age, 'год', 'года', 'лет'), 'y.o.')}`;
       }
-      if (!d.title) return err(t('wiz.e_title', 'Заполните заголовок', 'Fill in the title'), 'title');
+      if (d.category === 'animals') { if (!d.title && !d.species && !d.breed && !d.color) return err(t('wiz.e_pet', 'Укажите вид животного, породу или кличку', 'Enter the species, breed or name'), 'species'); }
+      else if (!d.title) return err(t('wiz.e_title', 'Заполните заголовок', 'Fill in the title'), 'title');
     }
     if (s === 'place' && (d.lat == null || d.lat === '')) return err(t('wiz.e_place', 'Отметьте место на карте', 'Mark the place on the map'), '#picker');
     if (s === 'place' && !d.event_date) return err(tr('Укажите дату', 'Enter the date'), 'event_date');
@@ -636,6 +647,48 @@ async function wizard(view, kind, existing) {
   const catPick = (c) => h`<button type="button" class="pick ${d.category === c ? 'on' : ''}" data-cat="${c}">
     <div class="cat-ic" style="background:${c === 'people' ? 'linear-gradient(145deg,var(--red),var(--red-2))' : c === 'animals' ? 'linear-gradient(145deg,var(--blue),var(--blue-2))' : 'linear-gradient(145deg,#2a2c33,#0e0f13)'}">${icon(CAT[c].icon)}</div>
     <div><b>${catName(c)}</b><span>${c === 'people' ? tr('Проверка модератором', 'Moderator review') : tr('Публикуется сразу', 'Published instantly')}</span></div></button>`;
+
+  // Парк: выпадающий список парков выбранного города; «Другой парк» или город без списка — своё название
+  function drawParks() {
+    const row = $('#parkRow', view); if (!row) return;
+    const city = ($('[name=city]', view) || {}).value || '';
+    const inp0 = $('[name=park]', view);
+    const cur = inp0 ? inp0.value : (d.park || '');
+    const list = parksOf(city);
+    const sel = !cur ? '' : list.includes(cur) ? cur : PARK_OTHER;
+    mount(row, list.length ? h`
+      ${fld(t('wiz.park', 'Парк, сквер, лес', 'Park, square, forest'), h`<select name="park_pick"><option value="">${tr('Не в парке', 'Not in a park')}</option>${list.map((v) => h`<option ${sel === v ? 'selected' : ''}>${v}</option>`)}<option value="${PARK_OTHER}" ${sel === PARK_OTHER ? 'selected' : ''}>${tr('Другой парк…', 'Another park…')}</option></select>`)}
+      <label class="field ${sel === PARK_OTHER ? '' : 'hide'}" id="parkOther"><span>${t('wiz.park_name', 'Название парка', 'Park name')}</span><input name="park" value="${cur}" maxlength="120" autocomplete="off"></label>`
+      : fld(t('wiz.park', 'Парк, сквер, лес', 'Park, square, forest'), h`<input name="park" value="${cur}" maxlength="120" autocomplete="off" placeholder="${tr('Если это было в парке — его название', 'If it was in a park — its name')}">`));
+    const pick = $('[name=park_pick]', row);
+    if (pick) pick.onchange = () => {
+      const other = pick.value === PARK_OTHER, inp = $('[name=park]', row);
+      $('#parkOther', row).classList.toggle('hide', !other);
+      inp.value = other ? (list.includes(inp.value) ? '' : inp.value) : pick.value;
+      if (other) inp.focus();
+    };
+  }
+  // По точке на карте подставляем город и адрес (и парк для животных), не затирая то, что человек вписал сам
+  const autoFilled = {};
+  let geoSeq = 0, geoTimer = 0;
+  function suggestPlace(p) {
+    if (!state.config?.map?.geocoder) return;
+    clearTimeout(geoTimer);
+    geoTimer = setTimeout(async () => {
+      const seq = ++geoSeq;
+      let r; try { r = await GET(`/geo/reverse?lat=${(+p.lat).toFixed(6)}&lng=${(+p.lng).toFixed(6)}&lang=${state.lang === 'en' ? 'en' : 'ru'}`); } catch (e) { return; }
+      if (seq !== geoSeq || steps[step] !== 'place' || !view.isConnected) return;
+      for (const k of ['city', 'address']) {
+        const el = $(`#wform [name=${k}]`, view);
+        if (el && r[k] && (!el.value.trim() || el.value === autoFilled[k])) { el.value = r[k]; autoFilled[k] = r[k]; d[k] = r[k]; }
+      }
+      if (d.category === 'animals') {
+        const park = $('[name=park]', view);
+        if (r.park && park && (!park.value || park.value === autoFilled.park)) { park.value = r.park; autoFilled.park = r.park; }
+        drawParks();
+      }
+    }, 350);
+  }
 
   function draw() {
     const s = steps[step];
@@ -657,10 +710,19 @@ async function wizard(view, kind, existing) {
           ${c === 'people' ? h`<div class="note note-blue">${icon('shield')}<div>${t('wiz.pf_note', 'Без документов и домашнего адреса. Укажите, где человек сейчас: полиция, больница, остановка. Заявку проверит модератор.', 'No documents or home address. Say where the person is now: police, hospital, bus stop. A moderator will review it.')}</div></div>
             <div class="grid-pair"><label class="field"><span>${t('wiz.approx_age', 'Примерный возраст', 'Approximate age')}</span><input name="person_age" type="number" min="0" max="120" inputmode="numeric" value="${d.person_age ?? ''}"></label>
             <label class="field"><span>${t('wiz.sex', 'Пол', 'Sex')}</span>${optSelect('sex', d.sex)}</label></div>` : ''}
-          ${c !== 'people' ? h`<label class="field"><span>${c === 'animals' ? t('wiz.species', 'Вид животного', 'Species') : t('wiz.thing_type', 'Тип вещи', 'Item type')}</span><select name="species"><option value="">—</option>${dict(c === 'animals' ? 'species' : 'thing_type').map((v) => h`<option ${d.species === v ? 'selected' : ''}>${v}</option>`)}</select></label>` : ''}
+          ${c === 'animals' ? h`
+          <label class="field"><span>${t('wiz.species', 'Вид животного', 'Species')}</span><select name="species"><option value="">—</option>${dict('species').map((v) => h`<option ${d.species === v ? 'selected' : ''}>${v}</option>`)}</select></label>
+          <div class="grid-2">
+            ${fld(t('wiz.breed', 'Порода', 'Breed'), h`<input name="breed" value="${d.breed || ''}" maxlength="80" list="breedList" autocomplete="off" placeholder="${tr('Начните вводить или выберите', 'Start typing or pick')}"><datalist id="breedList">${(BREEDS[speciesRu(d.species)] || []).map((v) => h`<option value="${v}">`)}</datalist>`)}
+            ${fld(t('wiz.color', 'Окрас', 'Colour'), h`<input name="color" value="${d.color || ''}" maxlength="80" list="colorList" autocomplete="off" placeholder="${tr('Рыжий, чёрно-белый…', 'Ginger, black and white…')}"><datalist id="colorList">${COLORS.map((v) => h`<option value="${v}">`)}</datalist>`)}
+          </div>
+          <label class="field"><span>${t('wiz.marks', 'Особые приметы', 'Distinguishing marks')}</span><textarea name="features" rows="3" maxlength="1000" placeholder="${tr('Чип, клеймо, шрамы, разные глаза, купированный хвост, хромает', 'Chip, tattoo, scars, odd eyes, docked tail, limps')}">${d.features || ''}</textarea></label>
+          ${fld(t('wiz.pet_clothes', 'Одежда, если есть', 'Clothing, if any'), txt(d, 'clothes', 150, tr('Красный ошейник с адресником, шлейка, комбинезон', 'Red collar with a tag, harness, coat')))}
+          <label class="field"><span>${isLost ? t('wiz.pet_name', 'Кличка и коротко (необязательно)', 'Name and short description (optional)') : t('wiz.pet_name_f', 'Коротко: кого нашли (необязательно)', 'Short: what you found (optional)')}</span><input name="title" value="${d.title || ''}" maxlength="140" placeholder="${isLost ? tr('Такса Буся', 'Dachshund Busya') : tr('Рыжая собака без ошейника', 'Ginger dog without a collar')}"><p class="hint">${tr('Если не заполнить — заголовок соберётся из вида, породы и окраса', 'If empty, the title is built from species, breed and colour')}</p></label>`
+          : h`          ${c !== 'people' ? h`<label class="field"><span>${t('wiz.thing_type', 'Тип вещи', 'Item type')}</span><select name="species"><option value="">—</option>${dict('thing_type').map((v) => h`<option ${d.species === v ? 'selected' : ''}>${v}</option>`)}</select></label>` : ''}
           <label class="field"><span>${c === 'animals' ? (isLost ? t('wiz.t_pet', 'Кличка и коротко', 'Name and short description') : t('wiz.t_pet_f', 'Коротко: кого нашли', 'Short: what you found')) : c === 'things' ? t('wiz.t_thing', 'Что за вещь', 'What item') : t('wiz.t_person_f', 'Коротко: кого нашли', 'Short: who you found')} <em>*</em></span><input name="title" value="${d.title || ''}" maxlength="140" placeholder="${c === 'animals' ? tr('Рыжий кот Барсик', 'Ginger cat Barsik') : c === 'things' ? tr('Чёрный рюкзак с ноутбуком', 'Black backpack with laptop') : tr('Пожилой мужчина без документов', 'Elderly man without documents')}"></label>
-          ${c !== 'people' ? h`<label class="field"><span>${t('wiz.features', 'Приметы', 'Distinctive features')}</span><textarea name="features" rows="3" maxlength="1000" placeholder="${c === 'animals' ? tr('Порода, окрас, ошейник, чип, клеймо', 'Breed, colour, collar, chip') : tr('Цвет, марка, серийный номер, брелоки', 'Colour, brand, serial number')}">${d.features || ''}</textarea></label>` : ''}`}
-        <label class="field"><span>${t('wiz.desc', 'Подробное описание', 'Full description')}</span><textarea name="description" rows="4" maxlength="4000">${d.description || ''}</textarea></label>
+          ${c !== 'people' ? h`<label class="field"><span>${t('wiz.features', 'Приметы', 'Distinctive features')}</span><textarea name="features" rows="3" maxlength="1000" placeholder="${c === 'animals' ? tr('Порода, окрас, ошейник, чип, клеймо', 'Breed, colour, collar, chip') : tr('Цвет, марка, серийный номер, брелоки', 'Colour, brand, serial number')}">${d.features || ''}</textarea></label>` : ''}`}`}
+        <label class="field"><span>${c === 'animals' ? t('wiz.comments', 'Комментарии', 'Comments') : t('wiz.desc', 'Подробное описание', 'Full description')}</span><textarea name="description" rows="4" maxlength="4000" placeholder="${c === 'animals' ? tr('Характер, на что откликается, как подойти, чем приманить', 'Temper, what it responds to, how to approach') : ''}">${d.description || ''}</textarea></label>
       </form>`;
     }
     if (s === 'looks') body = h`<h2>${t('wiz.looks', 'Приметы', 'Appearance')}</h2><p class="muted" style="margin-top:8px">${t('wiz.looks_t', 'Заполните то, что знаете: по этим приметам человека узнают на улице и подберут похожие заявки.', 'Fill in what you know: people use these details to recognise the person, and we use them to match reports.')}</p>
@@ -709,7 +771,9 @@ async function wizard(view, kind, existing) {
           ${fld(t('wiz.city', 'Город', 'City'), h`<input name="city" value="${d.city || state.user.city || ''}" maxlength="80">`)}
           ${fld(t('wiz.address2', 'Адрес', 'Address'), h`<input name="address" value="${d.address || ''}" maxlength="200" placeholder="${tr('Тверская ул., 7', '7 Tverskaya St')}">`)}
         </div>
-        ${fld(t('wiz.landmark', 'Место или ориентир', 'Place or landmark'), txt(d, 'landmark', 150, tr('Парк Горького, вокзал, ТЦ «Европейский»', 'Gorky Park, railway station, a mall')))}
+        ${d.category === 'animals' ? h`<div class="grid-2" id="parkRow"></div>
+        ${fld(t('wiz.place_other', 'Другое место или ориентир', 'Other place or landmark'), txt(d, 'landmark', 150, tr('Подъезд дома, зоомагазин, дача, вокзал', 'Building entrance, pet shop, country house')))}`
+        : fld(t('wiz.landmark', 'Место или ориентир', 'Place or landmark'), txt(d, 'landmark', 150, tr('Парк Горького, вокзал, ТЦ «Европейский»', 'Gorky Park, railway station, a mall')))}
         <div class="grid-2">
           ${fld(t('wiz.transport', 'Общественный транспорт', 'Public transport'), h`<select name="transport"><option value="">${tr('Не в транспорте', 'Not in transport')}</option>${Object.keys(OPT.transport).map((v) => h`<option value="${v}" ${d.transport === v ? 'selected' : ''}>${optName('transport', v)}</option>`)}</select>`)}
           <label class="field ${d.transport ? '' : 'hide'}" id="routeBox"><span id="routeL">${tr(...rl[0])}</span><input name="transport_route" value="${d.transport_route || ''}" maxlength="100" placeholder="${tr(...rl[1])}" autocomplete="off"></label>
@@ -757,8 +821,16 @@ async function wizard(view, kind, existing) {
         $('#routeL', view).textContent = tr(...rl[0]);
         $('[name=transport_route]', view).placeholder = tr(...rl[1]);
       };
+      if (d.category === 'animals') {
+        $('[name=city]', view).addEventListener('input', () => drawParks());
+        drawParks();
+      }
     }
-    if (s === 'place') { const pk = mapPicker($('#picker', view), d.lat != null && d.lat !== '' ? { lat: +d.lat, lng: +d.lng } : null, (p) => { d.lat = p.lat; d.lng = p.lng; const pe = $('#picker', view); if (pe && pe.classList.contains('has-err')) { pe.classList.remove('has-err'); const fe = $('#ferr-picker', view); if (fe) fe.remove(); } }, { kind, category: d.category }); onLeave(() => pk.map.remove()); }
+    if (s === 'place') { const pk = mapPicker($('#picker', view), d.lat != null && d.lat !== '' ? { lat: +d.lat, lng: +d.lng } : null, (p) => { d.lat = p.lat; d.lng = p.lng; suggestPlace(p); const pe = $('#picker', view); if (pe && pe.classList.contains('has-err')) { pe.classList.remove('has-err'); const fe = $('#ferr-picker', view); if (fe) fe.remove(); } }, { kind, category: d.category }); onLeave(() => pk.map.remove()); }
+    if (s === 'details' && d.category === 'animals') {
+      const sp = $('[name=species]', view);
+      sp.onchange = () => mount($('#breedList', view), (BREEDS[speciesRu(sp.value)] || []).map((v) => h`<option value="${v}">`));
+    }
     if (s === 'details' && d.category === 'people' && isLost) {
       const upd = () => { const a = $('[name=person_age]', view).value; mount($('#minorNote', view), a !== '' && +a < 18 ? h`<div class="note note-amber">${icon('alert')}<div>${t('wiz.minor', 'Человеку меньше 18 лет: заявку подаёт только законный представитель.', 'Under 18: only a legal guardian can file.')}</div></div>` : ''); };
       $('[name=person_age]', view).oninput = upd; upd();
@@ -822,8 +894,14 @@ route('/a/:id', async (view, p) => {
     if (a.last_seen && !structuredPlace && !a.address) kv.push([t('wiz.last_seen', 'Последнее местонахождение', 'Last known location'), a.last_seen]);
   }
   if (a.species) kv.push([a.category === 'animals' ? t('wiz.species', 'Вид животного', 'Species') : t('wiz.thing_type', 'Тип вещи', 'Item type'), a.species]);
+  if (a.category === 'animals') {
+    if (dt.breed) kv.push([t('wiz.breed', 'Порода', 'Breed'), dt.breed]);
+    if (dt.color) kv.push([t('wiz.color', 'Окрас', 'Colour'), dt.color]);
+    if (dt.clothes) kv.push([t('wiz.pet_clothes_s', 'Одежда', 'Clothing'), dt.clothes]);
+  }
   kv.push([t('wiz.date', 'Дата', 'Date'), fmtDate(a.event_date) + (a.event_time ? ', ' + a.event_time : '')]);
   if (a.address || a.city) kv.push([t('a.place', 'Место', 'Place'), [a.address, a.city].filter(Boolean).join(', ')]);
+  if (dt.park) kv.push([t('wiz.park_s', 'Парк', 'Park'), dt.park]);
   if (dt.landmark) kv.push([t('wiz.landmark', 'Место или ориентир', 'Place or landmark'), dt.landmark]);
   if (dt.transport) kv.push([t('wiz.transport_s', 'Транспорт', 'Transport'), [optName('transport', dt.transport), dt.transport_route].filter(Boolean).join(', ')]);
   // приметы человека — единый набор параметров
@@ -868,8 +946,8 @@ route('/a/:id', async (view, p) => {
         ${a.reward ? h`<div class="reward">${icon('gift', 'ic-lg')}<div class="grow"><div class="xs muted" style="font-weight:700">${t('a.reward', 'Вознаграждение', 'Reward')}</div><b>${money(a.reward)}</b></div><span class="xs muted" style="max-width:130px;text-align:right">${t('a.reward_t', 'Платит автор заявки', 'Paid by the author')}</span></div>` : ''}
       </div>
       <div class="stack-lg d-rest">
-        ${a.features ? h`<div><h3 style="font-size:15px;margin-bottom:8px">${a.category === 'people' ? t('wiz.marks', 'Особые приметы', 'Distinguishing marks') : t('wiz.features', 'Приметы', 'Distinctive features')}</h3><p>${a.features}</p></div>` : ''}
-        ${a.description ? h`<div><h3 style="font-size:15px;margin-bottom:8px">${t('a.desc', 'Описание', 'Description')}</h3><p style="white-space:pre-wrap">${a.description}</p></div>` : ''}
+        ${a.features ? h`<div><h3 style="font-size:15px;margin-bottom:8px">${a.category !== 'things' ? t('wiz.marks', 'Особые приметы', 'Distinguishing marks') : t('wiz.features', 'Приметы', 'Distinctive features')}</h3><p>${a.features}</p></div>` : ''}
+        ${a.description ? h`<div><h3 style="font-size:15px;margin-bottom:8px">${a.category === 'animals' ? t('wiz.comments', 'Комментарии', 'Comments') : t('a.desc', 'Описание', 'Description')}</h3><p style="white-space:pre-wrap">${a.description}</p></div>` : ''}
         <div class="card pad"><dl class="kv">${kv.map(([k, v]) => h`<div><dt>${k}</dt><dd>${v}</dd></div>`)}</dl></div>
         ${looks.length ? h`<div><h3 style="font-size:15px;margin-bottom:8px">${t('wiz.looks', 'Приметы', 'Appearance')}</h3><div class="card pad"><dl class="kv" id="looks">${looks.map(([k, v]) => h`<div><dt>${k}</dt><dd>${v}</dd></div>`)}</dl></div></div>` : ''}
         ${a.lat != null ? h`<div class="mini-map" id="mm"></div>` : ''}

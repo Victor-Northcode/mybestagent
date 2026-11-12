@@ -1,6 +1,6 @@
 // Service worker: офлайн-оболочка, кэш статики и push-уведомления.
-const CACHE = 'mba-v17';
-const SHELL = ['/', '/css/app.css', '/js/app.js', '/js/core.js', '/js/views.js', '/js/admin.js', '/vendor/leaflet.js', '/vendor/leaflet.css', '/assets/logo-256.png', '/assets/logo.png', '/assets/icon-192.png', '/manifest.webmanifest', '/fonts/golos.css', '/fonts/golos-cyrillic.woff2', '/fonts/golos-latin.woff2'];
+const CACHE = 'mba-v18';
+const SHELL = ['/', '/css/app.css', '/js/app.js', '/js/core.js', '/js/views.js', '/js/admin.js', '/js/places.js', '/vendor/leaflet.js', '/vendor/leaflet.css', '/assets/logo-256.png', '/assets/logo.png', '/assets/icon-192.png', '/manifest.webmanifest', '/fonts/golos.css', '/fonts/golos-cyrillic.woff2', '/fonts/golos-latin.woff2'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

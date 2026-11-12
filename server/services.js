@@ -129,8 +129,8 @@ const SPECIES = [['dog', /соба|пес|пёс|щен|шпиц|лабрад|о
   ['bird', /птиц|попуг|корелл|голуб|bird|parrot/], ['rodent', /хомя|крыс|морск.*свин|шинш|rodent|hamster/]];
 function speciesOf(a) { const txt = [a.species, a.title].join(' ').toLowerCase(); const m = SPECIES.find(([, re]) => re.test(txt)); return m ? m[0] : null; }
 const detailsOf = (a) => { try { return JSON.parse(a.details || '{}'); } catch (e) { return {}; } };
-// Одежда, обувь и ориентир — тоже приметы для сравнения
-const detailWords = (d) => [d.clothes_top, d.clothes_bottom, d.headwear, d.shoes, d.landmark].filter(Boolean).join(' ');
+// Одежда, обувь и ориентир, а у животных — порода, окрас, одежда и парк — тоже приметы для сравнения
+const detailWords = (d) => [d.clothes_top, d.clothes_bottom, d.headwear, d.shoes, d.landmark, d.breed, d.color, d.clothes, d.park].filter(Boolean).join(' ');
 function matchScore(a, b) {
   if (a.category !== b.category || a.kind === b.kind) return 0;
   if (a.category === 'animals') { const sa = speciesOf(a), sb = speciesOf(b); if (sa && sb && sa !== sb) return 0; }

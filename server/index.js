@@ -212,6 +212,7 @@ app.post('/api/auth/logout', h((req, res) => {
 }));
 
 /* ---------- конфигурация и словари ---------- */
+const GEO = require('./geo');
 app.get('/api/config', h((req, res) => {
   const dicts = {};
   for (const d of all('SELECT * FROM dicts ORDER BY type, sort, id')) (dicts[d.type] = dicts[d.type] || []).push({ id: d.id, ru: d.value_ru, en: d.value_en });
@@ -219,14 +220,13 @@ app.get('/api/config', h((req, res) => {
   if (PUBLIC_DEMO) res.set('Cache-Control', 'private, no-store');
   // какими способами сейчас можно войти: в рабочем режиме — только через подключённого провайдера
   const login = { email: DEV || !!S.channels.email, phone: DEV || !!S.channels.sms };
-  res.json({ ...demo, login, vapidPublic: S.vapidPublic, dev: DEV, payments: PAY, levels: S.LEVELS, dicts, map: { provider: 'osm', center: [55.7558, 37.6173], zoom: 11 } });
+  res.json({ ...demo, login, vapidPublic: S.vapidPublic, dev: DEV, payments: PAY, levels: S.LEVELS, dicts, map: { provider: 'osm', center: [55.7558, 37.6173], zoom: 11, geocoder: GEO.enabled } });
 }));
 app.get('/api/i18n/:lang', h((req, res) => {
   const out = {}; for (const r of all('SELECT key, value FROM translations WHERE lang = ?', req.params.lang)) out[r.key] = r.value;
   res.set('Cache-Control', 'no-cache').json(out);
 }));
 // Город, адрес и парк по точке на карте — подсказка для шага «Место» мастера заявки
-const GEO = require('./geo');
 app.get('/api/geo/reverse', needAuth, h(async (req, res) => {
   const lat = num(req.query.lat), lng = num(req.query.lng);
   if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) fail(400, 'bad_point', 'Некорректная точка');
@@ -446,7 +446,9 @@ const PERSON_OPTS = {
 };
 const PERSON_TEXT = { nationality: 60, language: 80, clothes_top: 150, clothes_bottom: 150, headwear: 100, shoes: 100, health_note: 200 };
 const HEALTH = ['deaf', 'blind', 'dementia', 'concussion', 'other'];
-const TRANSPORT = { bus: 'автобус', metro: 'метро', train: 'поезд', plane: 'самолёт', other: 'транспорт' };
+const TRANSPORT = { bus: 'автобус', trolleybus: 'троллейбус', tram: 'трамвай', minibus: 'маршрутка', metro: 'метро', suburban: 'электричка', train: 'поезд', plane: 'самолёт', taxi: 'такси', other: 'транспорт' };
+// Животные: порода и окрас — подсказки из списка или свой вариант; одежда — ошейник, шлейка, попона; парк — из списка парков города
+const PET_TEXT = { breed: 80, color: 80, clothes: 150, park: 120 };
 function readDetails(b, category) {
   const src = b.details && typeof b.details === 'object' && !Array.isArray(b.details) ? b.details : {};
   const d = {};
@@ -467,7 +469,14 @@ function readDetails(b, category) {
     const health = Array.isArray(src.health) ? HEALTH.filter((x) => src.health.includes(x)) : [];
     if (health.length) d.health = health;
   }
+  if (category === 'animals') for (const [k, max] of Object.entries(PET_TEXT)) text(k, max);
   return d;
+}
+// Заголовок заявки о животном, если автор его не написал: «Пропажа: собака, такса, рыжий»
+function petTitle(kind, species, d) {
+  const low = (x) => (x ? x[0].toLowerCase() + x.slice(1) : '');
+  const what = [low(species), low(d.breed), low(d.color)].filter(Boolean).join(', ');
+  return what ? str((kind === 'lost' ? 'Пропажа: ' : 'Находка: ') + what, 140) : '';
 }
 function readApp(b, isNew, existing) {
   const o = {};
@@ -476,7 +485,7 @@ function readApp(b, isNew, existing) {
     o.category = CATS.includes(b.category) ? b.category : fail(400, 'bad_category', 'Категория');
   }
   const kind = isNew ? o.kind : existing.kind, category = isNew ? o.category : existing.category;
-  o.title = str(b.title, 140); if (!o.title) fail(400, 'title_required', 'Укажите заголовок');
+  o.title = str(b.title, 140);
   o.description = str(b.description, 4000); o.features = str(b.features, 1000);
   o.species = str(b.species, 60);
   o.event_date = str(b.event_date, 16) || new Date().toISOString().slice(0, 10);
@@ -494,6 +503,8 @@ function readApp(b, isNew, existing) {
   o.photos = JSON.stringify(photos);
   const details = readDetails(b, category);
   o.details = JSON.stringify(details);
+  if (!o.title && category === 'animals') o.title = petTitle(kind, o.species, details);
+  if (!o.title) fail(400, 'title_required', 'Укажите заголовок');
   if (category === 'people') {
     o.person_name = str(b.person_name, 120); o.person_age = num(b.person_age);
     // «Где видели последний раз»: ориентир, транспорт и адрес из шага «Место»
