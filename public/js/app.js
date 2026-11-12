@@ -39,7 +39,7 @@ const chrome = () => {
   const hideFoot = ['map', 'chat', 'admin', 'pay', 'new', 'edit'].includes(document.body.dataset.route);
   $('#foot').classList.toggle('hide', hideFoot);
   if (!hideFoot) footer();
-  document.title = tr('Мой лучший агент — поиск людей, животных и вещей', 'My Best Agent — find people, pets and things');
+  const pt = pageTitle(p); if (pt) document.title = pt;
 };
 function footer() {
   mount($('#foot'), h`<div class="wrap"><div class="footer-grid">
@@ -68,7 +68,29 @@ function detectLang() {
   return 'en';
 }
 
+// «Чистые» адреса из поиска, sitemap и превью в мессенджерах (/map, /a/12) — это экраны приложения /#/map, /#/a/12.
+// Сервер уже отдал нужные мета-теги; здесь только переключаемся на адрес с # без перезагрузки.
+function pathToHash() {
+  const p = location.pathname.replace(/\/+$/, '');
+  if (location.hash || !p || p === '/index.html') return;
+  history.replaceState(history.state, '', '/#' + p + location.search);
+}
+// Заголовок вкладки (и для поисковиков, которые выполняют JS) — по разделу; заявка ставит свой заголовок сама
+const BRAND = () => tr('Мой лучший агент', 'My Best Agent');
+const TITLES = [
+  ['/map', 'Карта поиска', 'Search map'], ['/registry', 'Реестр ценностей', 'Valuables registry'], ['/community', 'Волонтёры и партнёры', 'Volunteers & partners'],
+  ['/tariffs', 'Тарифы', 'Plans'], ['/legal', 'Документы и согласия', 'Legal documents'], ['/new/lost', 'Сообщить о пропаже', 'Report a loss'],
+  ['/new/found', 'Сообщить о находке', 'Report a find'], ['/login', 'Вход и регистрация', 'Sign in'], ['/me', 'Личный кабинет', 'My account'],
+  ['/chat', 'Чаты', 'Chats'], ['/notifications', 'Уведомления', 'Notifications'], ['/support', 'Поддержка', 'Support'], ['/admin', 'Админ-панель', 'Admin panel']
+];
+function pageTitle(p) {
+  if (p.startsWith('/a/')) return null; // заголовок заявки ставит её экран
+  const m = TITLES.find(([pre]) => p === pre || p.startsWith(pre + '/'));
+  return m ? `${tr(m[1], m[2])} — ${BRAND()}` : tr('Мой лучший агент — поиск пропавших людей, животных и вещей', 'My Best Agent — find missing people, pets and things');
+}
+
 async function boot() {
+  pathToHash();
   setTheme(); // тёмной темы нет — сайт всегда светлый
   // глобальные обработчики
   document.addEventListener('submit', (e) => e.preventDefault(), true);

@@ -11,6 +11,7 @@ const { seed } = require('./seed');
 const S = require('./services');
 const I18N = require('./i18n');
 const YK = require('./yookassa');
+const SEO = require('./seo');
 
 if (seed()) for (const a of all("SELECT * FROM applications WHERE status = 'published' ORDER BY id")) S.runMatching(a);
 
@@ -1332,22 +1333,44 @@ setInterval(retention, 24 * 3600e3).unref();
 /* ---------- статика и SPA ---------- */
 app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '30d', immutable: true }));
 const PUB = path.join(__dirname, '..', 'public');
-// Главная страница: абсолютные ссылки для превью в мессенджерах и поисковиков (по BASE_URL)
+// SEO: у главной, ключевых разделов и каждой заявки — свой «чистый» адрес с заголовком, описанием, превью и разметкой.
+// Абсолютные ссылки строятся от BASE_URL. Тестовый стенд и NOINDEX=1 закрывают сайт от поисковиков.
 const SITE = String(process.env.BASE_URL || '').replace(/\/$/, '').replace(/["<>]/g, '');
-const INDEX_HTML = (() => {
-  let html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
-  if (SITE) html = html.replace('content="/assets/icon-512.png"', `content="${SITE}/assets/icon-512.png"`)
-    .replace('<meta property="og:title"', `<link rel="canonical" href="${SITE}/">\n<meta property="og:url" content="${SITE}/">\n<meta property="og:title"`);
-  return html;
-})();
-const sendIndex = (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(INDEX_HTML); };
+const NOINDEX = DEV || process.env.NOINDEX === '1';
+const SEO_OPTS = { site: SITE, noindex: NOINDEX, yandex: process.env.YANDEX_VERIFICATION || '', google: process.env.GOOGLE_SITE_VERIFICATION || '' };
+const BASE_HTML = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
+const pageHtml = (meta) => SEO.render(BASE_HTML, meta, SEO_OPTS);
+const PAGE_HTML = new Map(Object.keys(SEO.PAGES).map((p) => [p, pageHtml(SEO.sectionMeta(p))]));
+for (const id of LEGAL.DOC_IDS) PAGE_HTML.set(`/legal/${id}`, pageHtml(SEO.legalMeta(id, LEGAL.getDoc(id, 'ru'), SITE)));
+const sendHtml = (res, html, status = 200) => { res.status(status).set('Cache-Control', 'no-cache').type('html').send(html); };
+const sendIndex = (req, res) => sendHtml(res, PAGE_HTML.get('/'));
 app.get(['/', '/index.html'], sendIndex);
-// robots.txt: рабочий сайт открыт для поисковиков (кроме API), тестовый стенд — закрыт
-app.get('/robots.txt', (req, res) => res.type('text/plain').send(DEV ? 'User-agent: *\nDisallow: /\n' : 'User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /uploads/\n'));
+// разделы: /map, /registry, /community, /tariffs, /legal, /legal/terms …
+app.get([...PAGE_HTML.keys()].filter((p) => p !== '/').flatMap((p) => [p, p + '/']), (req, res) => sendHtml(res, PAGE_HTML.get(req.path.replace(/(.)\/$/, '$1'))));
+// заявка: превью в мессенджерах и сниппет в поиске; только то, что видит гость (у найденных людей ПД скрыты)
+app.get(['/a/:id(\\d+)', '/a/:id(\\d+)/'], h((req, res) => {
+  const a = get('SELECT * FROM applications WHERE id = ?', Number(req.params.id));
+  if (!a || !['published', 'found'].includes(a.status)) return sendHtml(res, pageHtml(SEO.notFoundMeta(req.path)), 404);
+  sendHtml(res, pageHtml(SEO.appMeta(appDto(a, null), SITE)));
+}));
+// поиск из выдачи (SearchAction) → карта с запросом
+app.get('/search', (req, res) => { const q = str(req.query.q, 100); res.redirect(302, '/#/map' + (q ? '?q=' + encodeURIComponent(q) : '')); });
+app.get('/robots.txt', (req, res) => res.type('text/plain').send(SEO.robots(SITE, NOINDEX)));
+app.get('/sitemap.xml', (req, res) => {
+  if (NOINDEX) return res.status(404).type('text/plain').send('Not found');
+  const site = SITE || `${req.protocol}://${req.get('host')}`;
+  const apps = all("SELECT id, updated_at, emergency_status FROM applications WHERE status = 'published' ORDER BY updated_at DESC LIMIT 45000");
+  res.set('Cache-Control', 'max-age=600').type('application/xml').send(SEO.sitemap(site, apps, LEGAL.DOC_IDS));
+});
 app.get(['/sw.js', '/manifest.webmanifest'], (req, res, next) => { res.set('Cache-Control', 'no-cache'); next(); });
 app.use(express.static(PUB, { index: false, maxAge: DEV ? 0 : '1h', setHeaders: (res, p) => { if (/\.(js|css|html)$/.test(p)) res.set('Cache-Control', 'no-cache'); } }));
 app.use('/api', (req, res) => res.status(404).json({ error: 'not_found' }));
-app.get('*', sendIndex);
+// остальные адреса: личные разделы приложения — без индексации, несуществующие — 404 (приложение само покажет «Не найдено»)
+app.get('*', (req, res) => {
+  const p = req.path.replace(/(.)\/+$/, '$1');
+  if (SEO.PRIVATE.test(p)) return sendHtml(res, pageHtml(SEO.privateMeta(p)));
+  sendHtml(res, pageHtml(SEO.notFoundMeta(p)), 404);
+});
 
 /* ---------- ошибки ---------- */
 app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars

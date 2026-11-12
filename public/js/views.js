@@ -782,7 +782,9 @@ route('/a/:id', async (view, p) => {
   mount(view, h`<div class="wrap" style="padding-top:20px"><div class="sk" style="height:360px"></div></div>`);
   const { item: a } = await GET('/applications/' + p.id);
   const owner = a.is_owner;
-  const url = location.origin + '/#/a/' + a.id;
+  // ссылка «Поделиться» — чистый адрес: мессенджеры и поисковики получают превью с фото и описанием заявки
+  const url = location.origin + '/a/' + a.id;
+  document.title = `${a.title} — ${kindName(a.kind)} — ${tr('Мой лучший агент', 'My Best Agent')}`;
   const kv = [];
   if (a.category === 'people' && !a.hidden_pd) {
     if (a.person_name) kv.push([t('wiz.fio', 'ФИО', 'Full name'), a.person_name]);
