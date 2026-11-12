@@ -955,7 +955,13 @@ input, textarea, select { scroll-margin: calc(var(--top-h) + 20px) 0 calc(var(--
 .legal-req { margin-top: 28px; padding: 16px 18px; border-radius: var(--r); background: var(--surface-2); border: 1px solid var(--line); font-size: 14px; }
 .legal-req dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 10px 0 0; }
 .legal-req dt { color: var(--muted); }
-.legal-req dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+.legal-req dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) {
+  /* на телефоне подпись над значением — номера счетов не рвутся посередине */
+  .legal-req dl { grid-template-columns: 1fr; gap: 0; }
+  .legal-req dt { font-size: 13px; margin-top: 10px; }
+  .legal-req dt:first-child { margin-top: 0; }
+}
 .legal-end { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
 .legal-index { display: grid; gap: 12px; }
 .legal-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; transition: transform .25s var(--ease), box-shadow .25s; }

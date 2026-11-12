@@ -14,7 +14,7 @@ const DOC_IDS = ['terms', 'privacy', 'consent', 'publication'];
 const OP_FIELDS = ['name', 'inn', 'kpp', 'ogrn', 'address', 'account', 'bank', 'bik', 'corr', 'email'];
 const OP_COMMON = { inn: '6685217330', kpp: '668501001', ogrn: '1246600008434', account: '40703810005000000829', bik: '046577975', corr: '30101810500000000975', email: 'support@mybestagent.ru' };
 const OP_DEFAULTS = {
-  ru: { ...OP_COMMON, name: '', address: '', bank: 'Уральский филиал ПАО «Банк ПСБ», г. Екатеринбург' },
+  ru: { ...OP_COMMON, name: '', address: '', bank: 'Уральский филиал ПАО «Банк ПСБ», г.\u00a0Екатеринбург' },
   en: { ...OP_COMMON, name: '', address: '', bank: 'Ural branch of PSB Bank PJSC, Yekaterinburg' }
 };
 const OP_LOCALIZED = ['name', 'bank']; // остальные поля от языка не зависят
