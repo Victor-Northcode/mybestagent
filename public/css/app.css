@@ -160,7 +160,7 @@ p { margin: 0; }
   background: color-mix(in srgb, var(--surface) 94%, transparent);
   backdrop-filter: saturate(1.6) blur(20px); -webkit-backdrop-filter: saturate(1.6) blur(20px);
   border-top: 1px solid var(--line);
-  display: grid; grid-template-columns: repeat(5, 1fr); align-items: center;
+  display: grid; grid-template-columns: 1fr 1fr auto 1fr 1fr; align-items: center;
 }
 .tab { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 700; color: var(--muted); position: relative; padding: 6px 0; transition: color .2s; }
 .tab .ic { width: 23px; height: 23px; transition: transform .3s var(--spring); }
@@ -168,14 +168,6 @@ p { margin: 0; }
 .tab.on .ic { transform: translateY(-1px) scale(1.08); }
 .tab.on::before { content: ""; position: absolute; top: -1px; width: 22px; height: 3px; border-radius: 0 0 3px 3px; background: var(--red); animation: grow .35s var(--ease); }
 .tab .dotbadge { top: 0; right: calc(50% - 22px); }
-.tab-fab { margin-top: -26px; }
-.tab-fab .fab {
-  width: 58px; height: 58px; border-radius: 20px; display: grid; place-items: center; color: #fff;
-  background: linear-gradient(145deg, var(--red), var(--red-2)); box-shadow: 0 10px 24px rgba(224, 25, 45, .42), inset 0 1px 0 rgba(255, 255, 255, .25);
-  transition: transform .25s var(--spring);
-}
-.tab-fab .fab .ic { width: 28px; height: 28px; color: #fff; }
-.tab-fab:active .fab { transform: scale(.9) rotate(90deg); }
 @media (min-width: 980px) { .tabbar { display: none; } }
 main { min-height: calc(100dvh - var(--top-h)); padding-bottom: calc(var(--tab-h) + var(--safe-b) + 24px); }
 @media (min-width: 980px) { main { padding-bottom: 48px; } }
@@ -1304,14 +1296,6 @@ body[data-route="map"] main { padding-bottom: 0; min-height: 0; }
   --shadow-3: 0 24px 60px rgba(0, 0, 0, .6);
   color-scheme: dark;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    --bg: #150a0f; --bg-2: #1d0f15; --surface: #22121a; --surface-2: #2b1820; --fill: #33202a; --fill-2: #3e2833;
-    --ink: #f8eef1; --ink-2: #ecdbe1; --muted: #c8a8b3; --muted-2: #957582; --line: #3a222b; --line-2: #4e2f3b;
-    --blue: #ec6a93; --blue-2: #d8285d; --blue-soft: rgba(236, 106, 147, .16); --btn: #c21a4d; --btn-2: #a3153f;
-    color-scheme: dark;
-  }
-}
 body { background: var(--bg); }
 
 /* ---------- типографика ---------- */
@@ -1342,8 +1326,6 @@ a.link:hover, .link:hover { text-decoration: underline; text-underline-offset: 3
 .icon-btn { width: 44px; height: 44px; border-radius: 12px; }
 .icon-btn:hover { background: var(--fill); }
 .lang-btn { font: 600 14px var(--font); border-radius: 12px; }
-.top-new { margin-right: 4px; }
-@media (max-width: 1179px) { .top-new { display: none !important; } }
 @media (max-width: 520px) { .brand span { font-size: 17px; } }
 
 /* ---------- нижняя панель (телефон) ---------- */
@@ -1351,7 +1333,6 @@ a.link:hover, .link:hover { text-decoration: underline; text-underline-offset: 3
 .tab { font-size: 12px; font-weight: 600; }
 .tab.on { color: var(--blue-t); }
 .tab.on::before { background: var(--blue); width: 28px; }
-.tab-fab .fab { background: var(--btn); border-radius: 16px; box-shadow: 0 8px 20px color-mix(in srgb, var(--btn) 40%, transparent); }
 
 /* ---------- кнопки ---------- */
 .btn { --b: var(--btn); --c: #fff; min-height: 50px; border-radius: var(--r); font-weight: 600; font-size: 16px; letter-spacing: 0; padding: 0 22px;
@@ -1461,8 +1442,6 @@ a.link:hover, .link:hover { text-decoration: underline; text-underline-offset: 3
   .ctile img { width: 54%; right: -6px; bottom: -6px; border-radius: 14px; }
   .svc-n { display: none; }
 }
-.svc-note { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 15px; color: var(--muted); }
-.svc-note .ic { color: var(--red); }
 
 /* ---------- карточки заявок: фото и текст без рамок ---------- */
 .app-card { background: transparent; border: 0; border-radius: 0; box-shadow: none; overflow: visible; transition: none; }
@@ -1613,8 +1592,6 @@ a.link:hover, .link:hover { text-decoration: underline; text-underline-offset: 3
 @media (min-width: 900px) { .apps-latest { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px 20px; } }
 @media (min-width: 521px) { .ctile { min-height: 190px; } .ctile-tx { max-width: 60%; } }
 
-/* шапка: когда видна кнопка «Разместить заявку», пункты «Потерял»/«Нашёл» не дублируются */
-@media (min-width: 1180px) { .nav a.nav-new { display: none; } }
 @media (min-width: 521px) { .ctile img { width: 40%; } .ctile-tx { max-width: 57%; } .ctile .svc-n { flex-direction: column; gap: 2px; } }
 
 /* «Найдено» — всегда зелёным, «Потеряно» — фирменным: статусы не путаются */
@@ -1764,3 +1741,182 @@ body.map-open { overflow: hidden; }
 }
 /* главная, телефон: заголовок в узкой карточке ленты — до трёх строк */
 @media (max-width: 520px) { .apps-latest .app-card h3 { -webkit-line-clamp: 3; } }
+
+/* =========================================================
+   «Потерял» / «Нашёл» — главные действия, всегда на виду.
+   Компьютер: две кнопки в шапке. Телефон: две кнопки в центре нижнего меню.
+   «Потерял» — фирменный малиновый, «Нашёл» — зелёный (как статусы заявок).
+   ========================================================= */
+:root {
+  --lost-a: var(--btn); --lost-b: var(--btn-2);
+  --found-a: #12804a; --found-b: #0b6438;
+}
+.qn-lost, .tn-lost { --qa: var(--lost-a); --qb: var(--lost-b); }
+.qn-found, .tn-found { --qa: var(--found-a); --qb: var(--found-b); }
+
+/* шапка */
+.qn-group { display: none; gap: 8px; margin-right: 6px; }
+@media (min-width: 980px) { .qn-group { display: flex; } }
+.qn {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px 0 14px;
+  border-radius: 12px; color: #fff; font-weight: 700; font-size: 15px; letter-spacing: .005em; white-space: nowrap;
+  background: linear-gradient(145deg, var(--qa), var(--qb));
+  box-shadow: 0 6px 16px -4px color-mix(in srgb, var(--qa) 60%, transparent), inset 0 1px 0 rgba(255, 255, 255, .2);
+  transition: transform .22s var(--spring), box-shadow .25s, filter .2s;
+}
+.qn .ic { width: 19px; height: 19px; flex: none; transition: transform .4s var(--spring); }
+/* блик пробегает по кнопке при наведении */
+.qn::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(110deg, transparent 25%, rgba(255, 255, 255, .32) 50%, transparent 75%);
+  transform: translateX(-130%); transition: transform .7s var(--ease);
+}
+.qn:hover { transform: translateY(-1px); filter: brightness(1.07); box-shadow: 0 10px 22px -6px color-mix(in srgb, var(--qa) 75%, transparent), inset 0 1px 0 rgba(255, 255, 255, .2); }
+.qn:hover::after { transform: translateX(130%); }
+.qn-lost:hover .ic { transform: rotate(-14deg) scale(1.15); }
+.qn-found:hover .ic { transform: scale(1.2); }
+.qn:active { transform: translateY(0) scale(.97); }
+.qn:focus-visible { outline: 3px solid color-mix(in srgb, var(--qa) 45%, transparent); outline-offset: 2px; }
+.qn.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--qa); }
+@media (min-width: 980px) and (max-width: 1179px) {
+  .qn-group { gap: 6px; margin-right: 2px; }
+  .qn { padding: 0 14px 0 11px; font-size: 14.5px; gap: 7px; }
+}
+
+/* нижнее меню телефона */
+.tn-group { display: flex; gap: 6px; padding: 0 4px; margin-top: -24px; align-self: start; }
+.tn {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  width: 66px; height: 62px; border-radius: 18px; color: #fff;
+  font: 700 12px/1 var(--font); letter-spacing: .01em; white-space: nowrap;
+  background: linear-gradient(150deg, var(--qa), var(--qb));
+  box-shadow: 0 0 0 4px var(--surface), 0 10px 20px -6px color-mix(in srgb, var(--qa) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, .22);
+  transition: transform .22s var(--spring), filter .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.tn .ic { width: 25px; height: 25px; transition: transform .35s var(--spring); }
+.tn:active { transform: scale(.92); filter: brightness(.95); }
+.tn:active .ic { transform: scale(1.12); }
+.tn:focus-visible { outline: 3px solid color-mix(in srgb, var(--qa) 45%, transparent); outline-offset: 3px; }
+.tn.on::after { content: ""; position: absolute; bottom: -9px; width: 6px; height: 6px; border-radius: 50%; background: var(--qa); }
+.tab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 359px) {
+  .tn-group { gap: 4px; padding: 0 2px; }
+  .tn { width: 58px; height: 58px; border-radius: 16px; font-size: 11px; }
+  .tn .ic { width: 22px; height: 22px; }
+  .tab { font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qn, .qn .ic, .qn::after, .tn, .tn .ic { transition: none; }
+  .qn::after { display: none; }
+}
+
+/* =========================================================
+   SOS и экстренные службы: куда человек может обратиться сразу.
+   ========================================================= */
+.sos-btn {
+  display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 12px 0 11px; border-radius: 12px; flex: none;
+  font: 700 15px/1 var(--font); letter-spacing: .07em; color: color-mix(in srgb, var(--red-solid) 78%, #000);
+  background: color-mix(in srgb, var(--red-solid) 7%, var(--surface));
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--red-solid) 38%, transparent);
+  transition: background .2s, color .2s, transform .15s;
+}
+.sos-btn:hover { background: var(--red-solid); color: #fff; }
+.sos-btn:hover .sos-dot { background: #fff; }
+.sos-btn:active { transform: scale(.95); }
+.sos-btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--red-solid) 45%, transparent); outline-offset: 2px; }
+.sos-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red-solid); animation: sosPulse 1.8s ease-out infinite; }
+@keyframes sosPulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--red-solid) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 7px transparent; } }
+@media (min-width: 980px) { .sos-btn { height: 44px; padding: 0 14px 0 12px; margin-right: 2px; } }
+
+.blk-sub { margin-top: 6px; font-size: 15.5px; line-height: 1.5; color: var(--muted); max-width: 72ch; }
+.svc-list { display: grid; gap: 10px; }
+.svc {
+  display: grid; grid-template-columns: 42px minmax(0, 1fr); grid-template-areas: "ic tx" "ic num"; column-gap: 14px; row-gap: 10px; align-items: start;
+  padding: 14px 16px; border-radius: var(--r-lg); background: var(--surface-2); color: var(--ink);
+  transition: background .2s, transform .2s var(--spring), box-shadow .25s;
+}
+.svc:hover { background: var(--fill); }
+.svc:active { transform: scale(.985); }
+.svc-ic { grid-area: ic; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: var(--red-solid); background: color-mix(in srgb, var(--red-solid) 10%, var(--surface)); }
+.svc-ic .ic { width: 23px; height: 23px; }
+.svc-tx { grid-area: tx; display: grid; gap: 3px; min-width: 0; }
+.svc-tx b { font-size: 16px; font-weight: 700; line-height: 1.3; }
+.svc-tx > span { font-size: 14px; line-height: 1.4; color: var(--muted); }
+.svc-num {
+  grid-area: num; justify-self: start; display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px 6px 11px; border-radius: 999px;
+  font: 700 16px/1.1 var(--font); letter-spacing: .01em; white-space: nowrap; font-variant-numeric: tabular-nums;
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); color: var(--ink);
+}
+.svc-num .ic { color: var(--red-solid); width: 16px; height: 16px; }
+.svc[href^="#"] .svc-num { font-size: 14px; color: var(--muted); }
+.svc-main { background: linear-gradient(140deg, var(--red-solid), color-mix(in srgb, var(--red-solid) 72%, #000)); color: #fff; box-shadow: 0 12px 28px -12px color-mix(in srgb, var(--red-solid) 80%, transparent); }
+.svc-main:hover { background: linear-gradient(140deg, color-mix(in srgb, var(--red-solid) 92%, #fff), color-mix(in srgb, var(--red-solid) 72%, #000)); }
+.svc-main .svc-ic { background: rgba(255, 255, 255, .16); color: #fff; }
+.svc-main .svc-tx > span { color: rgba(255, 255, 255, .88); }
+.svc-main .svc-num { background: #fff; color: var(--red-solid); box-shadow: none; font-size: 22px; padding: 7px 16px 7px 13px; }
+.svc-foot { display: flex; align-items: flex-start; gap: 8px; margin-top: 14px; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+.svc-foot .ic { flex: none; margin-top: 1px; }
+.sheet .svc { padding: 12px 14px; }
+
+/* Главная: экстренные службы — одна строка. На телефоне листается вбок, подробности — в окне «Все службы» */
+.sos-strip {
+  display: flex; align-items: center; gap: 8px; margin: 18px 0 -6px; padding: 4px 0 12px;
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.sos-strip::-webkit-scrollbar { display: none; }
+.sos-strip-h { flex: none; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.sc {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 13px 0 11px;
+  border-radius: 999px; font-size: 14.5px; font-weight: 600; color: var(--ink); white-space: nowrap;
+  background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); transition: background .2s, transform .15s;
+}
+.sc:hover { background: var(--fill); }
+.sc:active { transform: scale(.96); }
+.sc .ic { width: 17px; height: 17px; color: var(--red-solid); }
+.sc b { font-weight: 800; font-variant-numeric: tabular-nums; }
+.sc-main { color: #fff; background: var(--red-solid); box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--red-solid) 80%, transparent); padding: 0 15px 0 12px; }
+.sc-main:hover { background: color-mix(in srgb, var(--red-solid) 88%, #000); }
+.sc-main .ic { color: #fff; }
+.sc-main b { font-size: 16px; }
+.sc-more { color: var(--red-t); background: transparent; box-shadow: none; padding: 0 6px 0 4px; }
+.sc-more:hover { background: transparent; text-decoration: underline; }
+.sc-more .ic { color: currentColor; }
+@media (max-width: 979px) {
+  .sos-strip { margin: 16px -32px -6px; padding: 4px 32px 12px; -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+  /* «Сообщить о пропаже / Я нашёл» дублируют «Потерял / Нашёл» в нижнем меню — на телефоне не занимаем ими экран */
+  .hb-cta { display: none; }
+}
+@media (max-width: 640px) { .sos-strip { margin-inline: -16px; padding-inline: 16px; } }
+
+/* «Для людей, компаний и государства» */
+.aud { display: grid; gap: 14px; }
+@media (min-width: 900px) { .aud { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.aud-card {
+  --ac: var(--btn); position: relative; display: flex; flex-direction: column; gap: 8px; min-width: 0;
+  padding: 24px 22px 22px; border-radius: var(--r-lg); background: var(--surface-2); overflow: hidden; isolation: isolate;
+}
+.aud-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: var(--ac); }
+.aud-org { --ac: #1f55a6; } /* синий из логотипа: компании отличаются от частных лиц */
+.aud-gov { --ac: var(--ink-2); }
+.aud-ic { width: 52px; height: 52px; border-radius: 15px; display: grid; place-items: center; margin-bottom: 6px; color: var(--ac); background: color-mix(in srgb, var(--ac) 11%, var(--surface)); }
+.aud-ic .ic { width: 30px; height: 30px; }
+.aud-kicker { font: 700 12px/1.2 var(--font); letter-spacing: .08em; text-transform: uppercase; color: color-mix(in srgb, var(--ac) 80%, var(--ink)); }
+.aud-card h3 { font-size: 21px; line-height: 1.25; letter-spacing: -.01em; }
+.aud-card p { font-size: 15px; line-height: 1.5; color: var(--muted); }
+.aud-cta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 12px; }
+.aud-cta .btn { min-height: 44px; }
+
+/* узкая шапка телефона: SOS важнее подписи логотипа */
+@media (max-width: 420px) {
+  .top-in { gap: 8px; }
+  .top-act { gap: 4px; }
+  .brand span { font-size: 15px; }
+  .lang-btn { padding: 0 8px; }
+  .lang-btn .ic { display: none; }
+  .sos-btn { padding: 0 10px 0 9px; gap: 6px; }
+}
+@media (max-width: 374px) { .brand span { font-size: 14px; } .brand img { width: 40px; } .sos-dot { display: none; } .sos-btn { padding: 0 10px; } }
+@media (max-width: 359px) { .brand > span { display: none; } }
+@media (prefers-reduced-motion: reduce) { .sos-dot { animation: none; } .svc, .sos-btn { transition: none; } }

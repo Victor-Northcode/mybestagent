@@ -102,7 +102,7 @@ describe('Рабочий режим: чистая база и честные о�
   });
   it('главная: абсолютные ссылки для превью; robots.txt открывает сайт поисковикам', async () => {
     const html = await (await fetch(S1.base + '/')).text();
-    assert.match(html, /og:image" content="https:\/\/mybestagent\.test\/assets\/icon-512\.png"/);
+    assert.match(html, /og:image" content="https:\/\/mybestagent\.test\/assets\/og-image\.jpg"/);
     assert.match(html, /rel="canonical" href="https:\/\/mybestagent\.test\/"/);
     const robots = await (await fetch(S1.base + '/robots.txt')).text();
     assert.match(robots, /Allow: \//); assert.match(robots, /Disallow: \/api\//);

@@ -55,6 +55,33 @@ const levelName = (l) => (state.lang === 'en' ? l.en : l.ru);
 const initials = (n) => String(n || '?').split(/\s+/).map((x) => x[0]).slice(0, 2).join('').toUpperCase();
 const avatar = (u, cls = '') => h`<div class="ava ${cls}" style="${u.avatar ? `background-image:url('${esc(u.avatar)}')` : ''}">${u.avatar ? '' : initials(u.name)}</div>`;
 
+/* =================== ЭКСТРЕННЫЕ СЛУЖБЫ =================== */
+// Куда человек может обратиться сразу — звонок в одно касание. Номера сверены 12.11.2026:
+// 112/101/102/103 — экстренные номера РФ; «ЛизаАлерт» — lizaalert.org; ДСКЦ МИД — mid.ru (круглосуточно).
+const services = () => [
+  { num: '112', tel: '112', ic: 'siren', main: true, short: '', title: tr('Единый номер экстренных служб', 'Emergency number'), sub: tr('Полиция, скорая, спасатели. Бесплатно, с любого телефона', 'Police, ambulance, rescue. Free, from any phone') },
+  { num: '102', tel: '102', ic: 'police', short: tr('Полиция', 'Police'), title: tr('Полиция', 'Police'), sub: tr('Пропал человек, кража, угроза. Заявление о пропаже принимают сразу', 'Missing person, theft, threat. Missing-person reports are taken at once') },
+  { num: '103', tel: '103', ic: 'firstaid', short: tr('Скорая', 'Ambulance'), title: tr('Скорая помощь', 'Ambulance'), sub: tr('Угроза жизни и здоровью', 'Threat to life or health') },
+  { num: '101', tel: '101', ic: 'fire', short: tr('МЧС', 'Rescue'), title: tr('МЧС: пожарные и спасатели', 'Fire & rescue (EMERCOM)'), sub: tr('Пожар, авария, человек в опасности', 'Fire, accident, person in danger') },
+  { num: '8 800 700-54-52', tel: '88007005452', ic: 'lifebuoy', short: tr('ЛизаАлерт', 'LizaAlert'), title: tr('Поисково-спасательный отряд «ЛизаАлерт»', 'LizaAlert search & rescue'), sub: tr('Поиск пропавших людей. Бесплатно, круглосуточно', 'Searching for missing people. Free, 24/7') },
+  { num: tr('В приложении', 'In the app'), href: '#/new/lost?category=people', ic: 'handshake', title: tr('Волонтёры рядом', 'Volunteers nearby'), sub: tr('Подайте заявку — волонтёры и партнёры поблизости получат оповещение', 'Post a report — volunteers and partners nearby get an alert') },
+  { num: '+7 495 695-45-45', tel: '+74956954545', ic: 'plane', short: tr('МИД', 'MFA'), title: tr('МИД России: кризисный центр', 'Russian MFA crisis centre'), sub: tr('Если беда случилась за границей. Круглосуточно', 'If trouble happens abroad. 24/7') }
+];
+const svcItem = (s) => h`<a class="svc ${s.main ? 'svc-main' : ''}" href="${s.href || 'tel:' + s.tel}" ${s.href ? '' : raw(`aria-label="${esc(s.title)}: ${esc(tr('позвонить', 'call'))} ${esc(s.num)}"`)}>
+  <span class="svc-ic">${icon(s.ic)}</span><span class="svc-tx"><b>${s.title}</b><span>${s.sub}</span></span><span class="svc-num">${s.href ? '' : icon('phone', 'ic-sm')}${s.num}</span></a>`;
+const svcNote = () => h`<p class="svc-foot">${icon('alert', 'ic-sm')}${tr('Номера действуют в России. За границей звоните 112 или в кризисный центр МИД. Платформа не заменяет полицию и экстренные службы.', 'Numbers are for Russia. Abroad, call 112 or the MFA crisis centre. The platform does not replace the police or emergency services.')}</p>`;
+// Главная: одна компактная строка — звонок в одно касание; подробности и волонтёры — в окне «Все службы» (то же, что SOS)
+const sosStrip = () => h`<div class="sos-strip" id="sos" role="group" aria-label="${tr('Экстренные службы', 'Emergency services')}">
+  <span class="sos-strip-h">${tr('Экстренно', 'Emergency')}</span>
+  ${services().filter((s) => s.tel).map((s) => h`<a class="sc ${s.main ? 'sc-main' : ''}" href="tel:${s.tel}" aria-label="${s.title}: ${tr('позвонить', 'call')} ${s.num}">${icon(s.ic, 'ic-sm')}${/^\d{3}$/.test(s.num) ? h`<b>${s.num}</b>` : ''}${s.short ? h`<span>${s.short}</span>` : ''}</a>`)}
+  <button type="button" class="sc sc-more" data-sos-all aria-haspopup="dialog">${tr('Все службы', 'All services')}${icon('chevR', 'ic-sm')}</button>
+</div>`;
+export function sosSheet() {
+  const s = sheet(h`${sheetHead(tr('Куда обратиться прямо сейчас', 'Get help right now'), tr('Нажмите на службу — телефон сразу наберёт номер', 'Tap a service and your phone dials it'))}
+    <div class="svc-list">${services().map(svcItem)}</div>${svcNote()}`);
+  $$('a[href^="#"]', s.el).forEach((a) => a.addEventListener('click', () => s.close()));
+}
+
 /* =================== ГЛАВНАЯ =================== */
 route('/', async (view) => {
   mount(view, h`
@@ -91,7 +118,7 @@ route('/', async (view) => {
         ['found', 'labrador.jpg', '#/new/found', t('home.svc_f', 'Я что-то нашёл', 'I found something'), t('home.svc_ft', 'Поможем вернуть владельцу', 'We help return it')]]
         .map(([c, img, href, ti, tx], i) => h`<a class="ctile ctile-${c} reveal" style="--i:${i}" href="${href}"><span class="ctile-tx"><b>${ti}</b><span>${tx}</span>${c !== 'found' ? h`<span class="svc-n" data-cat="${c}"></span>` : ''}</span><img src="/assets/img/${img}" alt="" loading="lazy"></a>`)}
       </nav>
-      <p class="svc-note">${icon('phone', 'ic-sm')}${t('home.svc_police', 'Если пропал человек — сначала позвоните 102 или 112', 'If a person is missing, call 102 or 112 first')}</p>
+      ${sosStrip()}
     </section>
 
     <section class="blk">
@@ -130,6 +157,34 @@ route('/', async (view) => {
       <div class="stories" id="stories" tabindex="0" role="region" aria-label="${t('home.stories', 'Успешные находки', 'Successful reunions')}"></div>
     </section>
 
+    <section class="blk" aria-labelledby="audH">
+      <div class="blk-head"><div><h2 id="audH">${tr('Для людей, компаний и государства', 'For people, companies and government')}</h2>
+        <p class="blk-sub">${tr('Одна платформа для всех, кто ищет, находит и помогает', 'One platform for everyone who searches, finds and helps')}</p></div></div>
+      <div class="aud">
+        <article class="aud-card aud-person reveal">
+          <span class="aud-ic">${icon('users', '', 'duo')}</span>
+          <span class="aud-kicker">${tr('Физическим лицам', 'Individuals')}</span>
+          <h3>${tr('Потеряли или нашли', 'Lost or found something')}</h3>
+          <p>${tr('Человек, питомец или вещь: заявка за 2 минуты, автоподбор совпадений, оповещения рядом и анонимный чат.', 'A person, pet or item: report in 2 minutes, automatic matching, nearby alerts and an anonymous chat.')}</p>
+          <div class="aud-cta"><a class="qn qn-lost" href="#/new/lost">${icon('search', 'ic-sm')}<span>${t('nav.lost', 'Потерял', 'Lost')}</span></a><a class="qn qn-found" href="#/new/found">${icon('heart', 'ic-sm')}<span>${t('nav.found', 'Нашёл', 'Found')}</span></a></div>
+        </article>
+        <article class="aud-card aud-org reveal" style="--i:1">
+          <span class="aud-ic">${icon('buildings', '', 'duo')}</span>
+          <span class="aud-kicker">${tr('Юридическим лицам', 'Companies')}</span>
+          <h3>${tr('Бюро находок для бизнеса', 'Lost & found for business')}</h3>
+          <p>${tr('Транспорт, торговые центры, отели, аэропорты, такси и курьеры: находки сотрудников попадают в общую базу, владельцы находятся быстрее. Значок проверенного партнёра и статистика возвратов.', 'Transport, malls, hotels, airports, taxis and couriers: your staff’s finds go into the shared base and owners are found faster. Verified partner badge and return stats.')}</p>
+          <div class="aud-cta"><button type="button" class="btn btn-sm btn-ghost" data-lead="${tr('Компания', 'Company')}">${icon('handshake', 'ic-sm')}${tr('Подключить компанию', 'Connect your company')}</button></div>
+        </article>
+        <article class="aud-card aud-gov reveal" style="--i:2">
+          <span class="aud-ic">${icon('bank', '', 'duo')}</span>
+          <span class="aud-kicker">${tr('Государственным службам', 'Government services')}</span>
+          <h3>${tr('Полиция, МЧС, ПСО, МИД', 'Police, rescue, consulates')}</h3>
+          <p>${tr('Поисково-спасательные отряды, полиция, МЧС, консульства и соцслужбы: экстренные поиски по вашей зоне, помощь волонтёров рядом, отчёты.', 'Search & rescue teams, police, emergency services, consulates and social services: urgent searches in your area, help from nearby volunteers, reports.')}</p>
+          <div class="aud-cta"><button type="button" class="btn btn-sm btn-ghost" data-lead="${tr('Ведомство или служба', 'Agency or service')}">${icon('bank', 'ic-sm')}${tr('Подключить службу', 'Connect your service')}</button></div>
+        </article>
+      </div>
+    </section>
+
     <section class="blk" id="partner">
       <div class="grid-2 partner-grid">
         <div>
@@ -155,8 +210,16 @@ route('/', async (view) => {
     </section>
   </div>`);
 
+  $('[data-sos-all]', view).onclick = sosSheet;
   let leadKind = 'partner';
   $$('[data-seg=kind] button', view).forEach((b) => b.onclick = () => { $$('[data-seg=kind] button', view).forEach((x) => x.classList.toggle('on', x === b)); leadKind = b.dataset.v; });
+  // «Подключить компанию / службу» — к форме партнёрства, поле «Организация» подсказывает, что вписать
+  $$('[data-lead]', view).forEach((b) => b.onclick = () => {
+    $$('[data-seg=kind] button', view).forEach((x) => x.classList.toggle('on', x.dataset.v === 'partner')); leadKind = 'partner';
+    const org = $('#leadForm [name=org]', view); org.placeholder = b.dataset.lead;
+    $('#partner', view).scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    setTimeout(() => org.focus({ preventScroll: true }), 450);
+  });
   $('#leadForm', view).onsubmit = (e) => {
     e.preventDefault(); const f = formData(e.target);
     busy(e.submitter, async () => {
@@ -720,7 +783,9 @@ route('/a/:id', async (view, p) => {
   mount(view, h`<div class="wrap" style="padding-top:20px"><div class="sk" style="height:360px"></div></div>`);
   const { item: a } = await GET('/applications/' + p.id);
   const owner = a.is_owner;
-  const url = location.origin + '/#/a/' + a.id;
+  // ссылка «Поделиться» — чистый адрес: мессенджеры и поисковики получают превью с фото и описанием заявки
+  const url = location.origin + '/a/' + a.id;
+  document.title = `${a.title} — ${kindName(a.kind)} — ${tr('Мой лучший агент', 'My Best Agent')}`;
   const kv = [];
   if (a.category === 'people' && !a.hidden_pd) {
     if (a.person_name) kv.push([t('wiz.fio', 'ФИО', 'Full name'), a.person_name]);
@@ -1170,7 +1235,7 @@ async function meProfile(el, u) {
         </section>
         <nav class="list reveal prof-links">
           <a href="#/me/zone">${icon('zone')}<span class="grow">${t('me.zone', 'Зона оповещений', 'Alert zone')}<small>${u.zone.enabled ? `${tr('включена', 'on')} · ${u.zone.radius} ${tr('км', 'km')}` : tr('выключена', 'off')}</small></span>${icon('chevR')}</a>
-          <a href="#/me/settings">${icon('settings')}<span class="grow">${t('me.settings', 'Настройки', 'Settings')}<small>${tr('Уведомления, язык, тема', 'Notifications, language, theme')}</small></span>${icon('chevR')}</a>
+          <a href="#/me/settings">${icon('settings')}<span class="grow">${t('me.settings', 'Настройки', 'Settings')}<small>${tr('Уведомления, язык', 'Notifications, language')}</small></span>${icon('chevR')}</a>
           <a href="#/me/family">${icon('users')}<span class="grow">${t('me.family', 'Семья', 'Family')}<small>${u.family_id ? tr('подключена', 'connected') : tr('не подключена', 'not set up')}</small></span>${icon('chevR')}</a>
           <a href="#/legal/privacy">${icon('file')}<span class="grow">${tr('Как мы храним данные', 'How we store data')}<small>${tr('Политика конфиденциальности', 'Privacy policy')}</small></span>${icon('chevR')}</a>
           <a href="/api/me/export" download id="exp">${icon('download')}<span class="grow">${tr('Скачать мои данные', 'Download my data')}<small>${tr('Профиль, заявки, платежи · JSON', 'Profile, reports, payments · JSON')}</small></span></a>
@@ -1400,9 +1465,8 @@ async function meSettings(el, u) {
   const ps = await pushStatus();
   mount(el, h`<div class="stack-lg" style="max-width:720px">
     <div class="card pad stack">
-      <h3>${t('set.lang', 'Язык и оформление', 'Language & appearance')}</h3>
+      <h3>${tr('Язык', 'Language')}</h3>
       <div class="seg" id="lang"><button class="${state.lang === 'ru' ? 'on' : ''}" data-v="ru">Русский</button><button class="${state.lang === 'en' ? 'on' : ''}" data-v="en">English</button></div>
-      <div class="seg" id="theme">${[['auto', 'settings', tr('Авто', 'Auto')], ['light', 'sun', tr('Светлая', 'Light')], ['dark', 'moon', tr('Тёмная', 'Dark')]].map(([v, ic, l]) => h`<button class="${state.theme === v ? 'on' : ''}" data-v="${v}">${icon(ic, 'ic-sm')}${l}</button>`)}</div>
     </div>
     <div class="card pad stack">
       <h3>${t('set.notif', 'Уведомления', 'Notifications')}</h3>
@@ -1420,7 +1484,6 @@ async function meSettings(el, u) {
     <div class="row"><button class="btn btn-ghost grow" id="logout">${icon('logout')}${t('set.logout', 'Выйти', 'Sign out')}</button><button class="btn btn-danger" id="delAcc">${icon('trash')}${t('set.delete', 'Удалить аккаунт', 'Delete account')}</button></div>
   </div>`);
   $$('#lang button', el).forEach((b) => b.onclick = async () => { await setLang(b.dataset.v, true); meSettings(el, state.user); });
-  $$('#theme button', el).forEach((b) => b.onclick = () => { setTheme(b.dataset.v); $$('#theme button', el).forEach((x) => x.classList.toggle('on', x === b)); });
   $('#pushOn', el).onchange = async (e) => {
     if (e.target.checked) { try { await enablePush(); toast(tr('Push-уведомления включены', 'Push enabled')); meSettings(el, u); } catch (er) { e.target.checked = false; toastErr(er); } }
     else { const reg = await navigator.serviceWorker.getRegistration(); const s = reg && await reg.pushManager.getSubscription(); if (s) await s.unsubscribe(); toast(tr('Push выключены на этом устройстве', 'Push disabled on this device')); }
@@ -1781,10 +1844,11 @@ export async function setLang(lang, persist) {
   try { state.overrides = await GET('/i18n/' + state.lang); } catch (e) { state.overrides = {}; }
   if (persist && state.user) PATCH('/me', { lang: state.lang }).catch(() => {});
 }
-export function setTheme(v) {
-  state.theme = v; safeSet('mba.theme', v);
-  const dark = v === 'dark' || (v === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-  document.querySelector('meta[name=theme-color]').content = dark ? '#1a0c12' : '#ffffff';
+// Тёмная тема убрана: оформление всегда светлое, сохранённый ранее выбор «тёмная/авто» сбрасывается.
+export function setTheme() {
+  state.theme = 'light';
+  try { localStorage.removeItem('mba.theme'); } catch (e) { /* хранилище недоступно */ }
+  document.documentElement.dataset.theme = 'light';
+  document.querySelector('meta[name=theme-color]').content = '#ffffff';
 }
 export { currentPath };
