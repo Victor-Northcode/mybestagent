@@ -1,5 +1,5 @@
 // Точка входа: оболочка (шапка, нижнее меню, подвал), язык, тема, realtime, PWA.
-import { state, t, tr, h, raw, mount, $, $$, icon, GET, refreshMe, handleRoute, setChrome, currentPath, connectStream, onEvent, toast, go, observeReveal, emergencyPhones } from './core.js';
+import { state, t, tr, h, raw, mount, $, $$, icon, GET, refreshMe, handleRoute, setChrome, currentPath, connectStream, onEvent, toast, go, observeReveal, emergencyPhones, sosSheet } from './core.js';
 import { setLang } from './views.js';
 import './admin.js';
 
@@ -18,6 +18,7 @@ const chrome = () => {
       ${u && ['moderator', 'admin'].includes(u.role) ? h`<a href="#/admin" class="${on('/admin')}">${t('nav.admin', 'Админ', 'Admin')}</a>` : ''}
     </nav>
     <div class="top-act">
+      <button type="button" class="sos-btn" id="sosBtn" aria-haspopup="dialog" aria-label="${tr('SOS: экстренные службы — куда обратиться', 'SOS: emergency services — where to get help')}"><i class="sos-dot" aria-hidden="true"></i>SOS</button>
       <button type="button" class="btn btn-sm btn-blue top-new" id="topNew">${icon('plus', 'ic-sm')}${tr('Разместить заявку', 'New report')}</button>
       <button class="icon-btn lang-btn" id="langBtn" aria-label="${tr('Язык: русский. Переключить на английский (English)', 'Language: English. Switch to Russian (Русский)')}" title="${tr('Switch to English', 'Переключить на русский')}">${icon('globe', 'ic-sm')}<span>${state.lang === 'en' ? 'EN' : 'RU'}</span></button>
       ${u ? h`<a class="icon-btn desk-only" href="#/chats" aria-label="${tr('Сообщения', 'Messages')}">${icon('chat')}${u.unreadChats ? h`<span class="dotbadge">${u.unreadChats}</span>` : ''}</a>
@@ -38,6 +39,7 @@ const chrome = () => {
   $('#skipBtn').onclick = () => { const v = $('#view'); v.tabIndex = -1; v.focus(); };
   $('#fab').onclick = newSheet;
   $('#topNew').onclick = newSheet;
+  $('#sosBtn').onclick = sosSheet;
   const hideFoot = ['map', 'chat', 'admin', 'pay', 'new', 'edit'].includes(document.body.dataset.route);
   $('#foot').classList.toggle('hide', hideFoot);
   if (!hideFoot) footer();

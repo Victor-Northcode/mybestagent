@@ -443,3 +443,22 @@ export function emergencyPhones(variant = '') {
     ${EMERGENCY_PHONES.map(([tel, num, ru, en]) => h`<a class="sos-ph" href="tel:${tel}" aria-label="${tr(ru, en)}: ${num}"><b>${num}</b>${variant === 'mini' && tel !== '88007005452' ? '' : h`<span>${tr(ru, en)}</span>`}</a>`)}
   </div>`;
 }
+
+/* ---------- кнопка SOS в шапке: окно «Куда обратиться прямо сейчас», звонок в одно касание ---------- */
+const sosServices = () => [
+  { num: '112', tel: '112', ic: 'siren', main: true, title: tr('Единый номер экстренных служб', 'Emergency number'), sub: tr('Полиция, скорая, спасатели. Бесплатно, с любого телефона', 'Police, ambulance, rescue. Free, from any phone') },
+  { num: '102', tel: '102', ic: 'police', title: tr('Полиция', 'Police'), sub: tr('Пропал человек, кража, угроза. Заявление о пропаже человека принимают сразу', 'Missing person, theft, threat. Missing-person reports are taken at once') },
+  { num: '103', tel: '103', ic: 'heart', title: tr('Скорая помощь', 'Ambulance'), sub: tr('Угроза жизни и здоровью', 'Threat to life or health') },
+  { num: '101', tel: '101', ic: 'alert', title: tr('МЧС: пожарные и спасатели', 'Fire & rescue'), sub: tr('Пожар, авария, человек в опасности', 'Fire, accident, person in danger') },
+  { num: '8 800 700-54-52', tel: '88007005452', ic: 'users', title: tr('Поисково-спасательный отряд «ЛизаАлерт»', 'LizaAlert search & rescue'), sub: tr('Поиск пропавших людей. Бесплатно, круглосуточно', 'Searching for missing people. Free, 24/7') },
+  { num: tr('Разместить заявку', 'Post a report'), href: '#/new/lost', ic: 'handshake', title: tr('Волонтёры рядом', 'Volunteers nearby'), sub: tr('Подайте заявку о пропаже — волонтёры и партнёры поблизости получат оповещение', 'Post a missing report — volunteers and partners nearby get an alert') }
+];
+export function sosSheet() {
+  const item = (s) => h`<a class="svc ${s.main ? 'svc-main' : ''}" href="${s.href || 'tel:' + s.tel}" ${s.href ? '' : raw(`aria-label="${esc(s.title)}: ${esc(tr('позвонить', 'call'))} ${esc(s.num)}"`)}>
+    <span class="svc-ic">${icon(s.ic)}</span><span class="svc-tx"><b>${s.title}</b><span>${s.sub}</span></span><span class="svc-num">${s.href ? '' : icon('phone', 'ic-sm')}${s.num}</span></a>`;
+  const s = sheet(h`${sheetHead(tr('Куда обратиться прямо сейчас', 'Get help right now'), tr('Нажмите на службу — телефон сразу наберёт номер', 'Tap a service and your phone dials it'))}
+    <div class="svc-list">${sosServices().map(item)}</div>
+    <p class="svc-foot">${icon('alert', 'ic-sm')}${tr('Номера действуют в России. Платформа не заменяет полицию и экстренные службы.', 'Numbers are for Russia. The platform does not replace the police or emergency services.')}</p>`);
+  s.el.querySelectorAll('a[href^="#"]').forEach((a) => a.addEventListener('click', () => s.close()));
+  return s;
+}

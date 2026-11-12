@@ -1762,3 +1762,60 @@ body.map-open { overflow: hidden; }
 .nav a.nav-found:hover { background: var(--found-soft); color: var(--found-2); }
 .nav a.nav-lost.on { background: var(--lost); color: #fff; }
 .nav a.nav-found.on { background: var(--found); color: #fff; }
+
+/* =========================================================
+   Кнопка SOS в шапке и окно экстренных служб
+   ========================================================= */
+.sos-btn {
+  display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 12px 0 11px; border-radius: 12px; flex: none; cursor: pointer; border: 0;
+  font: 700 15px/1 var(--font); letter-spacing: .07em; color: color-mix(in srgb, var(--red-solid) 82%, #000);
+  background: color-mix(in srgb, var(--red-solid) 7%, var(--surface));
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--red-solid) 38%, transparent);
+  transition: background .2s, color .2s, transform .15s;
+}
+.sos-btn:hover { background: var(--red-solid); color: #fff; }
+.sos-btn:hover .sos-dot { background: #fff; }
+.sos-btn:active { transform: scale(.95); }
+.sos-btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--red-solid) 45%, transparent); outline-offset: 2px; }
+.sos-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red-solid); animation: sosPulse 1.8s ease-out infinite; }
+@keyframes sosPulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--red-solid) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 7px transparent; } }
+@media (min-width: 980px) { .sos-btn { height: 44px; padding: 0 14px 0 12px; margin-right: 2px; } }
+
+.svc-list { display: grid; gap: 10px; }
+.svc {
+  display: grid; grid-template-columns: 42px minmax(0, 1fr); grid-template-areas: "ic tx" "ic num"; column-gap: 14px; row-gap: 10px; align-items: start;
+  padding: 12px 14px; border-radius: var(--r-lg); background: var(--surface-2); color: var(--ink); text-decoration: none;
+  transition: background .2s, transform .2s;
+}
+.svc:hover { background: var(--fill); }
+.svc:active { transform: scale(.985); }
+.svc-ic { grid-area: ic; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: var(--red-solid); background: color-mix(in srgb, var(--red-solid) 10%, var(--surface)); }
+.svc-ic .ic { width: 23px; height: 23px; }
+.svc-tx { grid-area: tx; display: grid; gap: 3px; min-width: 0; }
+.svc-tx b { font-size: 16px; font-weight: 700; line-height: 1.3; }
+.svc-tx > span { font-size: 14px; line-height: 1.4; color: var(--muted); }
+.svc-num {
+  grid-area: num; justify-self: start; display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px 6px 11px; border-radius: 999px;
+  font: 700 16px/1.1 var(--font); letter-spacing: .01em; white-space: nowrap; font-variant-numeric: tabular-nums;
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); color: var(--ink);
+}
+.svc-num .ic { color: var(--red-solid); width: 16px; height: 16px; }
+.svc[href^="#"] .svc-num { font-size: 14px; color: var(--muted); }
+.svc[href^="#"] .svc-ic { color: var(--ink); background: var(--surface); }
+.svc-main { background: linear-gradient(140deg, var(--red-solid), color-mix(in srgb, var(--red-solid) 72%, #000)); color: #fff; box-shadow: 0 12px 28px -12px color-mix(in srgb, var(--red-solid) 80%, transparent); }
+.svc-main:hover { background: linear-gradient(140deg, color-mix(in srgb, var(--red-solid) 92%, #fff), color-mix(in srgb, var(--red-solid) 72%, #000)); }
+.svc-main .svc-ic { background: rgba(255, 255, 255, .16); color: #fff; }
+.svc-main .svc-tx > span { color: rgba(255, 255, 255, .9); }
+.svc-main .svc-num { background: #fff; color: var(--red-solid); box-shadow: none; font-size: 22px; padding: 7px 16px 7px 13px; }
+.svc-foot { display: flex; align-items: flex-start; gap: 8px; margin-top: 14px; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+.svc-foot .ic { flex: none; margin-top: 1px; }
+@media (max-width: 520px) { .sos-btn { padding: 0 10px 0 9px; gap: 6px; height: 38px; font-size: 14px; } }
+@media (max-width: 374px) { .sos-dot { display: none; } .sos-btn { padding: 0 9px; } }
+@media (prefers-reduced-motion: reduce) { .sos-dot { animation: none; } .svc, .sos-btn { transition: none; } }
+/* узкие телефоны: место под SOS — название в две строки, у языка без значка глобуса */
+@media (max-width: 420px) {
+  .brand { gap: 8px; }
+  .brand span { font-size: 15px; max-width: 108px; }
+  .lang-btn { padding: 0 8px; }
+  .lang-btn .ic { display: none; }
+}

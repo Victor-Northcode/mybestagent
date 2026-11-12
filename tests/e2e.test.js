@@ -632,6 +632,27 @@ describe('Навигация и права доступа', () => {
       await page.context().close();
     }
   });
+  it('кнопка SOS в шапке на любой ширине открывает окно служб: звонок в одно касание, «Разместить заявку» ведёт в мастер', async () => {
+    for (const vp of [{ width: 1280, height: 800 }, { width: 360, height: 740 }]) {
+      const page = await newPage({ viewport: vp });
+      await open(page, '#/');
+      const btn = page.locator('#sosBtn');
+      assert.ok(await btn.isVisible(), 'SOS видна на ' + vp.width);
+      const top = await btn.evaluate((b) => b.getBoundingClientRect().top);
+      assert.ok(top < 80, 'SOS в шапке');
+      await noOverflow(page, 'шапка с SOS ' + vp.width);
+      await btn.click();
+      await page.waitForSelector('.sheet .svc-list');
+      assert.deepEqual(await page.locator('.sheet a.svc[href^="tel:"]').evaluateAll((as) => as.map((a) => a.getAttribute('href'))),
+        ['tel:112', 'tel:102', 'tel:103', 'tel:101', 'tel:88007005452']);
+      assert.equal(await page.locator('.sheet .svc-main').getAttribute('href'), 'tel:112');
+      await page.locator('.sheet a.svc[href="#/new/lost"]').click();
+      await page.waitForFunction(() => !document.querySelector('.sheet .svc-list'));
+      assert.match(await page.evaluate(() => decodeURIComponent(location.hash)), /#\/new\/lost/, 'гость — на вход с возвратом в мастер');
+      assert.deepEqual(page.errors, []);
+      await page.context().close();
+    }
+  });
   it('быстрый уход с карты (во время анимации и загрузки меток) не даёт ошибок', async () => {
     const page = await newPage({ viewport: { width: 1366, height: 860 } });
     await open(page, '#/');
