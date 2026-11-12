@@ -648,6 +648,13 @@ describe('Навигация и права доступа', () => {
       const top = await btn.evaluate((b) => b.getBoundingClientRect().top);
       assert.ok(top < 80, 'SOS в шапке');
       await noOverflow(page, 'шапка с SOS ' + vp.width);
+      const look = await btn.evaluate((b) => { const c = getComputedStyle(b); return { bg: c.backgroundColor, color: c.color, anim: c.animationName }; });
+      assert.equal(look.color, 'rgb(255, 255, 255)', 'надпись SOS белая');
+      assert.match(look.bg, /^rgb\((\d+), (\d+), (\d+)\)$/); const [r, g] = look.bg.match(/\d+/g).map(Number); assert.ok(r > 150 && g < 80, 'SOS залита красным: ' + look.bg);
+      assert.equal(look.anim, 'sosBeacon', 'SOS мигает');
+      assert.ok(await page.locator('#langBtn .ic').isVisible(), 'у языка значок глобуса');
+      const brandH = await page.locator('.top .brand > span').first().evaluate((e) => e.getBoundingClientRect().height);
+      assert.ok(brandH < 46, 'название не больше двух строк: ' + brandH);
       await btn.click();
       await page.waitForSelector('.sheet .svc-list');
       assert.deepEqual(await page.locator('.sheet a.svc[href^="tel:"]').evaluateAll((as) => as.map((a) => a.getAttribute('href'))),
@@ -659,6 +666,41 @@ describe('Навигация и права доступа', () => {
       assert.deepEqual(page.errors, []);
       await page.context().close();
     }
+  });
+  it('нижняя панель: значок текущего раздела выделен «таблеткой» и увеличен', async () => {
+    const page = await newPage({ viewport: { width: 390, height: 844 } });
+    await open(page, '#/map');
+    const st = await page.locator('#tabbar .tab.on .tab-ic').evaluate((e) => { const c = getComputedStyle(e); return { bg: c.backgroundColor, tf: c.transform }; });
+    assert.notEqual(st.bg, 'rgba(0, 0, 0, 0)', 'фон-«таблетка» у текущего раздела');
+    assert.match(st.tf, /^matrix\(1\.1/, 'значок увеличен: ' + st.tf);
+    assert.equal(await page.locator('#tabbar .tab:not(.on) .tab-ic').first().evaluate((e) => getComputedStyle(e).backgroundColor), 'rgba(0, 0, 0, 0)');
+    assert.deepEqual(page.errors, []);
+    await page.context().close();
+  });
+  it('документы: разделы свёрнуты под плюсиками, раскрываются по нажатию, «Развернуть все» и оглавление открывают текст', async () => {
+    const page = await newPage({ viewport: { width: 390, height: 844 } });
+    await open(page, '#/legal/terms');
+    const secs = page.locator('details.legal-sec');
+    const n = await secs.count();
+    assert.ok(n > 3, 'разделов ' + n);
+    assert.equal(await page.locator('details.legal-sec[open]').count(), 0, 'сначала всё свёрнуто');
+    assert.equal(await page.locator('.legal-hn').first().evaluate((e) => e.getBoundingClientRect().height < 32), true, 'номер раздела не переносится');
+    await secs.nth(1).locator('summary').click();
+    assert.equal(await secs.nth(1).evaluate((d) => d.open), true);
+    await secs.nth(1).locator('.legal-sec-body > *').first().waitFor({ state: 'visible', timeout: 3000 });
+    await page.locator('[data-fold-all]').click();
+    assert.equal(await page.locator('details.legal-sec[open]').count(), n, 'развёрнуто всё');
+    assert.equal(await page.locator('[data-fold-all]').getAttribute('aria-expanded'), 'true');
+    await page.locator('[data-fold-all]').click();
+    assert.equal(await page.locator('details.legal-sec[open]').count(), 0, 'свёрнуто всё');
+    await page.locator('.legal-toc summary').click();
+    const go = page.locator('.legal-toc [data-go]').nth(2);
+    const id = 'lg-' + await go.getAttribute('data-go');
+    await go.click();
+    assert.equal(await page.locator('#' + id).evaluate((d) => d.open), true, 'оглавление раскрывает раздел');
+    await noOverflow(page, 'документ');
+    assert.deepEqual(page.errors, []);
+    await page.context().close();
   });
   it('быстрый уход с карты (во время анимации и загрузки меток) не даёт ошибок', async () => {
     const page = await newPage({ viewport: { width: 1366, height: 860 } });

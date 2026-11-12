@@ -47,7 +47,7 @@ setInterval(() => { for (const s of streams.values()) for (const r of s) { try {
 /* ---------- E-mail (SMTP) и SMS (SMS.ru) ---------- */
 // SMTP_URL, например: smtps://robot%40my-bestagent.ru:ПАРОЛЬ@smtp.yandex.ru:465 (подойдёт почта любого провайдера)
 const mailer = process.env.SMTP_URL ? nodemailer.createTransport(process.env.SMTP_URL, { pool: true, maxConnections: 3 }) : null;
-const MAIL_FROM = process.env.MAIL_FROM || '«Мой лучший агент» <noreply@my-bestagent.ru>';
+const MAIL_FROM = process.env.MAIL_FROM || '«Мой лучший агент» <robot@my-bestagent.ru>';
 const SMSRU = process.env.SMSRU_API_ID || '';
 const SMS_API = process.env.SMSRU_API_URL || 'https://sms.ru/sms/send';
 const channels = { email: mailer ? 'SMTP' : '', sms: SMSRU ? 'SMS.ru' : '' };

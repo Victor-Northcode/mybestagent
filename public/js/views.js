@@ -1947,10 +1947,30 @@ const legalCache = {};
 const loadLegal = (id) => (legalCache[id + state.lang] ||= GET(`/legal/${id}?lang=${state.lang}`).catch((e) => { delete legalCache[id + state.lang]; throw e; }));
 const legalPdf = (id) => `/api/legal/${id}.pdf?lang=${state.lang}`;
 const legalDate = (d) => new Date(d + 'T00:00:00').toLocaleDateString(state.lang === 'en' ? 'en-GB' : 'ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-const legalBody = (d) => h`<div class="legal-body">
-  ${d.sections.map((s, i) => h`<section class="legal-sec" id="lg-${i}">${s.h ? h`<h2><span>${s.n}.</span>${s.h}</h2>` : ''}
-    ${s.items.map((it) => it.bullet ? h`<p class="legal-li">${it.text}</p>` : h`<p class="legal-p">${it.n ? h`<span class="legal-n">${it.n}</span>` : ''}<span>${it.text}</span></p>`)}</section>`)}
+// Длинный документ сгруппирован: каждый раздел — заголовок с плюсиком, текст раскрывается по нажатию.
+// Поиск по странице (Ctrl+F) сам раскрывает нужный раздел; при печати раскрыто всё.
+const legalItems = (s) => s.items.map((it) => it.bullet ? h`<p class="legal-li">${it.text}</p>` : h`<p class="legal-p">${it.n ? h`<span class="legal-n">${it.n}</span>` : ''}<span>${it.text}</span></p>`);
+const legalBody = (d) => {
+  const folds = d.sections.filter((s) => s.h).length;
+  return h`<div class="legal-body">
+  ${folds > 1 ? h`<div class="legal-fold-bar"><button type="button" class="legal-fold-all" data-fold-all aria-expanded="false">${icon('list', 'ic-sm')}<span>${tr('Развернуть все разделы', 'Expand all sections')}</span></button></div>` : ''}
+  ${d.sections.map((s, i) => s.h
+    ? h`<details class="legal-sec" id="lg-${i}"><summary><h2><span class="legal-hn">${s.n}.</span><span>${s.h}</span></h2><i class="legal-plus" aria-hidden="true"></i></summary><div class="legal-sec-body">${legalItems(s)}</div></details>`
+    : h`<section class="legal-sec legal-sec-plain" id="lg-${i}">${legalItems(s)}</section>`)}
   ${d.requisites.length ? h`<div class="legal-req"><b>${tr('Реквизиты оператора', 'Operator details')}</b><dl>${d.requisites.map(([k, v]) => h`<dt>${k}</dt><dd>${v}</dd>`)}</dl></div>` : ''}</div>`;
+};
+// «Развернуть все / Свернуть все»: подпись кнопки следует за состоянием разделов (и при ручном раскрытии)
+function legalFolds(root) {
+  const all = $('[data-fold-all]', root); if (!all) return;
+  const secs = $$('details.legal-sec', root);
+  const sync = () => {
+    const open = secs.every((d) => d.open);
+    all.setAttribute('aria-expanded', String(open));
+    $('span', all).textContent = open ? tr('Свернуть все разделы', 'Collapse all sections') : tr('Развернуть все разделы', 'Expand all sections');
+  };
+  all.onclick = () => { const open = !secs.every((d) => d.open); secs.forEach((d) => { d.open = open; }); sync(); };
+  secs.forEach((d) => d.addEventListener('toggle', sync));
+}
 
 // Документ в нижнем листе: читается, не уходя со страницы (форма регистрации не теряется), кнопка «Принимаю» ставит галочку
 function legalSheet(ids, onAccept) {
@@ -1967,6 +1987,7 @@ function legalSheet(ids, onAccept) {
       <div class="legal-sheet-foot"><a class="btn btn-ghost" href="${legalPdf(cur)}" download aria-label="${tr('Скачать PDF', 'Download PDF')}">${icon('download', 'ic-sm')}PDF</a>
         ${onAccept ? h`<button type="button" class="btn btn-red grow" data-accept>${icon('check', 'ic-sm')}${tr('Прочитал(а) и принимаю', 'I have read and accept')}</button>` : h`<button type="button" class="btn grow" data-close>${tr('Закрыть', 'Close')}</button>`}</div>`);
     $$('[data-close]', box).forEach((b) => b.onclick = s.close);
+    legalFolds(box);
     $$('[data-t]', box).forEach((b) => b.onclick = () => { cur = b.dataset.t; s.el.scrollTop = 0; draw(); });
     const acc = $('[data-accept]', box); if (acc) acc.onclick = () => { onAccept(); s.close(); };
   };
@@ -2014,12 +2035,19 @@ route('/legal/:doc', async (view, p) => {
         <div class="legal-end"><a class="btn btn-ghost btn-sm" href="${legalPdf(id)}" download>${icon('download', 'ic-sm')}${tr('Скачать PDF', 'Download PDF')}</a><a class="btn btn-ghost btn-sm" href="#/legal">${tr('Все документы', 'All documents')}</a></div></article>
     </div></div>`);
   const tocEl = $('.legal-toc', view);
+  legalFolds(view);
   $$('[data-go]', view).forEach((b) => b.onclick = () => {
     const el = document.getElementById('lg-' + b.dataset.go); if (!el) return;
+    if (el.tagName === 'DETAILS') el.open = true;
     el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
     if (tocEl && !matchMedia('(min-width: 980px)').matches) tocEl.open = false;
   });
   $('#lgPrint', view).onclick = () => window.print();
+  // печать и «Сохранить как PDF» из браузера — со всем текстом, затем разделы возвращаются как были
+  const before = () => $$('details.legal-sec', view).forEach((d) => { d.dataset.was = d.open ? '1' : ''; d.open = true; });
+  const after = () => $$('details.legal-sec', view).forEach((d) => { if (d.dataset.was !== undefined) { d.open = d.dataset.was === '1'; delete d.dataset.was; } });
+  addEventListener('beforeprint', before); addEventListener('afterprint', after);
+  onLeave(() => { removeEventListener('beforeprint', before); removeEventListener('afterprint', after); });
   // подсветка текущего раздела в оглавлении
   if (tocEl && 'IntersectionObserver' in window) {
     const btns = new Map($$('[data-go]', tocEl).map((b) => [b.dataset.go, b]));

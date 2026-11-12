@@ -26,7 +26,7 @@ const chrome = () => {
         <a class="icon-btn desk-only" href="#/me" aria-label="${tr('Кабинет', 'Account')}">${icon('user')}</a>`
       : h`<a class="btn btn-sm" href="#/login">${t('nav.login', 'Войти', 'Sign in')}</a>`}
     </div></div>`);
-  const tb = (pre, href, ic, label, extra = '') => { const a = on(pre); return h`<a class="tab ${a}" href="${href}" ${a ? raw('aria-current="page"') : ''}>${icon(ic, '', a ? 'fill' : '')}<span>${label}</span>${extra}</a>`; };
+  const tb = (pre, href, ic, label, extra = '') => { const a = on(pre); return h`<a class="tab ${a}" href="${href}" ${a ? raw('aria-current="page"') : ''}><span class="tab-ic">${icon(ic, '', a ? 'fill' : '')}</span><span>${label}</span>${extra}</a>`; };
   $('#tabbar').setAttribute('aria-label', tr('Основная навигация', 'Main navigation'));
   mount($('#tabbar'), h`
     ${tb('/', '#/', 'home', t('tab.home', 'Главная', 'Home'))}
