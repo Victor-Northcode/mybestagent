@@ -225,6 +225,15 @@ app.get('/api/i18n/:lang', h((req, res) => {
   const out = {}; for (const r of all('SELECT key, value FROM translations WHERE lang = ?', req.params.lang)) out[r.key] = r.value;
   res.set('Cache-Control', 'no-cache').json(out);
 }));
+// Город, адрес и парк по точке на карте — подсказка для шага «Место» мастера заявки
+const GEO = require('./geo');
+app.get('/api/geo/reverse', needAuth, h(async (req, res) => {
+  const lat = num(req.query.lat), lng = num(req.query.lng);
+  if (lat == null || lng == null || Math.abs(lat) > 90 || Math.abs(lng) > 180) fail(400, 'bad_point', 'Некорректная точка');
+  rateLimit('geo:' + req.user.id, 30, 60e3);
+  try { res.json(await GEO.reverse(lat, lng, req.query.lang === 'en' ? 'en' : 'ru')); }
+  catch (e) { res.status(e.code === 'geo_off' ? 503 : 502).json({ error: e.code || 'geo_failed' }); }
+}));
 /* ---------- юридические документы: JSON для страницы и PDF для скачивания ---------- */
 const LEGAL = require('./legal');
 app.get('/api/legal/:doc', h((req, res) => {
