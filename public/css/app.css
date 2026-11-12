@@ -1720,3 +1720,39 @@ body.map-open { overflow: hidden; }
 .footer-grid > * { min-width: 0; }
 .footer .sos-phones.mini .sos-ph { white-space: normal; }
 @media (max-width: 759px) { .footer-grid > :first-child { grid-column: 1 / -1; } }
+
+/* ---------- цвета действий: «Потерял» — красный, «Нашёл» — зелёный, поиск — индиго (белый текст, контраст ≥ 4.9:1) ---------- */
+:root {
+  --lost: #d9232c; --lost-2: #b81d25; --lost-soft: #fdeaea;
+  --found: #12804a; --found-2: #0d6a3c; --found-soft: #e3f4ea;
+  --search: #3f4fd6; --search-2: #3341bf; --search-soft: #eceefe;
+}
+.btn.btn-lost { --b: var(--lost); --c: #fff; background: var(--lost); color: #fff; }
+.btn.btn-lost:hover { background: var(--lost-2); }
+.btn.btn-found { --b: var(--found); --c: #fff; background: var(--found); color: #fff; }
+.btn.btn-found:hover { background: var(--found-2); }
+.btn.btn-search { --b: var(--search); --c: #fff; background: var(--search); color: #fff; gap: 8px; }
+.btn.btn-search:hover { background: var(--search-2); }
+.btn.btn-lost:focus-visible, .btn.btn-found:focus-visible, .btn.btn-search:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+/* большая строка поиска на главной — в цвет поиска */
+.big-search { border-color: var(--search); }
+.big-search:focus-within { box-shadow: 0 0 0 4px var(--search-soft); }
+.big-search .btn.btn-search:focus-visible { outline-offset: -4px; outline-color: #fff; }
+/* кнопка-стрелка в поиске по реестру */
+.search-box .fbtn.fbtn-search { background: var(--search); }
+.search-box .fbtn.fbtn-search .ic { color: #fff; }
+.search-box .fbtn.fbtn-search:hover { background: var(--search-2); }
+.search-box:focus-within { border-color: var(--search); }
+/* «Искать в этой области» на карте */
+.map-area.map-area-search { background: var(--search); color: #fff; }
+.map-area.map-area-search:hover { background: var(--search-2); }
+/* переключатель «Потеряно / Найдено» на карте */
+.kind-seg button.k-lost.on { background: var(--lost); color: #fff; }
+.kind-seg button.k-found.on { background: var(--found); color: #fff; }
+/* «Потерял» / «Нашёл» в шапке (видны на средних экранах) */
+.nav a.nav-lost { color: var(--lost-2); }
+.nav a.nav-found { color: var(--found-2); }
+.nav a.nav-lost:hover { background: var(--lost-soft); color: var(--lost-2); }
+.nav a.nav-found:hover { background: var(--found-soft); color: var(--found-2); }
+.nav a.nav-lost.on { background: var(--lost); color: #fff; }
+.nav a.nav-found.on { background: var(--found); color: #fff; }

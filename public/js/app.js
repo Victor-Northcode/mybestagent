@@ -11,8 +11,8 @@ const chrome = () => {
     <a class="brand" href="#/" aria-label="${tr('Мой лучший агент — на главную', 'My Best Agent — home')}"><img src="/assets/logo-256.png" alt=""><span>${tr('Мой лучший агент', 'My Best Agent')}<small>${tr('поиск людей, животных и вещей', 'people, pets & things finder')}</small></span></a>
     <nav class="nav">
       <a href="#/map" class="${on('/map')}">${t('nav.map', 'Карта и поиск', 'Map & search')}</a>
-      <a href="#/new/lost" class="nav-new ${on('/new/lost')}">${t('nav.lost', 'Потерял', 'Lost')}</a>
-      <a href="#/new/found" class="nav-new ${on('/new/found')}">${t('nav.found', 'Нашёл', 'Found')}</a>
+      <a href="#/new/lost" class="nav-new nav-lost ${on('/new/lost')}">${t('nav.lost', 'Потерял', 'Lost')}</a>
+      <a href="#/new/found" class="nav-new nav-found ${on('/new/found')}">${t('nav.found', 'Нашёл', 'Found')}</a>
       <a href="#/registry" class="${on('/registry')}">${t('nav.registry', 'Реестр', 'Registry')}</a>
       <a href="#/community" class="${on('/community')}">${t('nav.community', 'Волонтёры', 'Volunteers')}</a>
       ${u && ['moderator', 'admin'].includes(u.role) ? h`<a href="#/admin" class="${on('/admin')}">${t('nav.admin', 'Админ', 'Admin')}</a>` : ''}
@@ -56,8 +56,8 @@ import { sheet, sheetHead } from './core.js';
 function newSheet() {
   const s = sheet(h`${sheetHead(t('fab.title', 'Новая заявка', 'New report'))}
     <div class="stack">
-      <a class="pick" href="#/new/lost" style="flex-direction:row;align-items:center"><div class="cat-ic" style="background:var(--btn)">${icon('search')}</div><div><b>${t('home.lost', 'Я потерял', 'I lost')}</b><span>${t('home.lost_sub', 'человека, питомца, вещь', 'a person, pet, item')}</span></div></a>
-      <a class="pick" href="#/new/found" style="flex-direction:row;align-items:center"><div class="cat-ic" style="background:var(--green)">${icon('heart')}</div><div><b>${t('home.found', 'Я нашёл', 'I found')}</b><span>${t('home.found_sub', 'сообщить о находке', 'report a find')}</span></div></a>
+      <a class="pick" href="#/new/lost" style="flex-direction:row;align-items:center"><div class="cat-ic" style="background:var(--lost)">${icon('search')}</div><div><b>${t('home.lost', 'Я потерял', 'I lost')}</b><span>${t('home.lost_sub', 'человека, питомца, вещь', 'a person, pet, item')}</span></div></a>
+      <a class="pick" href="#/new/found" style="flex-direction:row;align-items:center"><div class="cat-ic" style="background:var(--found)">${icon('heart')}</div><div><b>${t('home.found', 'Я нашёл', 'I found')}</b><span>${t('home.found_sub', 'сообщить о находке', 'report a find')}</span></div></a>
       <a class="pick" href="#/me/registry" style="flex-direction:row;align-items:center"><div class="cat-ic" style="background:linear-gradient(145deg,#2a2c33,#0e0f13)">${icon('gem')}</div><div><b>${t('me.registry', 'Реестр ценностей', 'Valuables')}</b><span>${tr('зарегистрировать ценную вещь', 'register a valuable item')}</span></div></a>
     </div>
     ${emergencyPhones('sheet')}`);

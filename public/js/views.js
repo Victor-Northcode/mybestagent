@@ -67,8 +67,8 @@ route('/', async (view) => {
           <p class="lead rise" style="--i:1">${t('home.lead3', 'Разместите заявку — мы подберём похожие и оповестим людей рядом. Контакты скрыты, связь через анонимный чат.', 'Post a report — we match similar ones and alert people nearby. Contacts stay hidden, you talk in an anonymous chat.')}</p>
         </div>
         <div class="hb-cta rise" style="--i:2">
-          <a class="btn btn-blue btn-lg" href="#/new/lost">${icon('plus')}${t('home.lost2', 'Сообщить о пропаже', 'Report a loss')}</a>
-          <a class="btn btn-soft btn-lg" href="#/new/found">${icon('check')}${t('home.found2', 'Я нашёл', 'I found something')}</a>
+          <a class="btn btn-lost btn-lg" href="#/new/lost">${icon('plus')}${t('home.lost2', 'Сообщить о пропаже', 'Report a loss')}</a>
+          <a class="btn btn-found btn-lg" href="#/new/found">${icon('check')}${t('home.found2', 'Я нашёл', 'I found something')}</a>
         </div>
       </div>
       <form class="big-search rise" style="--i:2" id="homeSearch" role="search">
@@ -77,7 +77,7 @@ route('/', async (view) => {
           <option value="people">${catName('people')}</option><option value="animals">${catName('animals')}</option><option value="things">${catName('things')}</option>
         </select></label>
         <label class="bs-in">${icon('search')}<span class="sr">${tr('Поиск по заявкам', 'Search reports')}</span><input name="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="${t('home.search_ph', 'Кличка, приметы, улица или район', 'Name, features, street or area')}"></label>
-        <button class="btn btn-blue">${t('home.search_btn', 'Найти', 'Search')}</button>
+        <button class="btn btn-search">${icon('search', 'ic-sm')}${t('home.search_btn', 'Найти', 'Search')}</button>
       </form>
       <div class="hero-stats rise" style="--i:3" id="heroStats">
         <div><b data-count="0">0</b><span>${t('home.st_active', 'активных заявок', 'active reports')}</span></div>
@@ -110,7 +110,7 @@ route('/', async (view) => {
       <div class="promo promo-light reveal" style="--i:1">
         <span class="promo-tx"><b>${t('home.reg', 'Реестр ценностей и антиквариата', 'Valuables & antiques registry')}</b>
           <span>${t('home.reg_t', 'Добавьте ценные вещи заранее. Перед покупкой проверьте — не краденое ли.', 'Add valuables in advance. Before buying, check it isn’t stolen.')}</span>
-          <form class="search-box" id="regForm">${icon('search')}<input name="q" aria-label="${t('home.reg_ph', 'Серийный номер или название', 'Serial number or name')}" placeholder="${t('home.reg_ph', 'Серийный номер или название', 'Serial number or name')}" minlength="3" required><button class="fbtn" aria-label="${tr('Проверить', 'Check')}">${icon('chevR')}</button></form></span>
+          <form class="search-box" id="regForm">${icon('search')}<input name="q" aria-label="${t('home.reg_ph', 'Серийный номер или название', 'Serial number or name')}" placeholder="${t('home.reg_ph', 'Серийный номер или название', 'Serial number or name')}" minlength="3" required><button class="fbtn fbtn-search" aria-label="${tr('Проверить', 'Check')}">${icon('chevR')}</button></form></span>
       </div>
     </div>
 
@@ -178,7 +178,7 @@ route('/', async (view) => {
   // Последние заявки: строго по времени публикации, компактная сетка (2 колонки на телефоне, 4 — на компьютере)
   mount($('#latest', view), latest.items.length ? h`<div class="apps apps-latest">${latest.items.map((a, i) => appCard(a, i))}</div>` : empty('inbox', tr('Пока нет заявок', 'No reports yet'),
     h`<p class="muted small" style="margin-top:6px">${tr('Потеряли или нашли человека, питомца или вещь — разместите первую заявку.', 'Lost or found a person, a pet or an item? Post the first report.')}</p>`,
-    h`<div class="row-wrap" style="justify-content:center;gap:10px"><a class="btn btn-red" href="#/new/lost">${icon('plus', 'ic-sm')}${tr('Сообщить о пропаже', 'Report a loss')}</a><a class="btn btn-ghost" href="#/new/found">${icon('check', 'ic-sm')}${tr('Я нашёл', 'I found')}</a></div>`));
+    h`<div class="row-wrap" style="justify-content:center;gap:10px"><a class="btn btn-lost" href="#/new/lost">${icon('plus', 'ic-sm')}${tr('Сообщить о пропаже', 'Report a loss')}</a><a class="btn btn-found" href="#/new/found">${icon('check', 'ic-sm')}${tr('Я нашёл', 'I found')}</a></div>`));
   // Истории: первая — крупная, остальные — аккуратные карточки; без горизонтальной прокрутки
   const CITY_EN = { 'Москва': 'Moscow', 'Санкт-Петербург': 'Saint Petersburg', 'Казань': 'Kazan', 'Новосибирск': 'Novosibirsk', 'Екатеринбург': 'Yekaterinburg' };
   const storyEl = $('#stories', view);
@@ -227,7 +227,7 @@ route('/map', async (view) => {
         </form>
         <div class="map-quick" id="quick">
           <div class="mq-row">
-            <div class="kind-seg" role="group" aria-label="${tr('Тип заявки', 'Report type')}">${[['', tr('Все', 'All')], ['lost', kindName('lost')], ['found', kindName('found')]].map(([v, l]) => h`<button type="button" data-k="${v}">${l}</button>`)}</div>
+            <div class="kind-seg" role="group" aria-label="${tr('Тип заявки', 'Report type')}">${[['', tr('Все', 'All')], ['lost', kindName('lost')], ['found', kindName('found')]].map(([v, l]) => h`<button type="button" data-k="${v}" class="${v ? 'k-' + v : ''}">${l}</button>`)}</div>
             <button type="button" class="chip filter-chip sos" data-em title="${tr('Только экстренные поиски', 'Emergency searches only')}">${icon('siren')}SOS</button>
           </div>
           <div class="cat-seg" role="group" aria-label="${tr('Категория', 'Category')}">${CATS.map((c) => h`<button type="button" class="chip filter-chip" data-c="${c}">${icon(CAT[c].icon)}<span>${catName(c)}</span></button>`)}</div>
@@ -238,7 +238,7 @@ route('/map', async (view) => {
     <div class="map-box">
       <div id="bigmap"></div>
       <div class="map-bar" aria-hidden="true"></div>
-      <button type="button" class="map-area" id="areaBtn" hidden>${icon('search')}<span>${tr('Искать в этой области', 'Search this area')}</span></button>
+      <button type="button" class="map-area map-area-search" id="areaBtn" hidden>${icon('search')}<span>${tr('Искать в этой области', 'Search this area')}</span></button>
       <div class="map-fab">
         <div class="fab-group"><button type="button" id="zin" aria-label="${tr('Приблизить', 'Zoom in')}">${icon('plus')}</button><button type="button" id="zout" aria-label="${tr('Отдалить', 'Zoom out')}">${MINUS}</button></div>
         <button type="button" class="fab-one" id="locBtn" aria-label="${tr('Рядом со мной', 'Near me')}" title="${tr('Рядом со мной', 'Near me')}">${icon('locate')}</button>
@@ -1080,7 +1080,7 @@ async function meOverview(el, u) {
     ${notes.items.length ? h`<div class="sec-head" style="margin-top:26px"><h3>${tr('Последние события', 'Recent activity')}</h3><a class="link small" href="#/notifications">${tr('Все', 'All')}</a></div>
       <div class="list reveal">${notes.items.slice(0, 4).map((n) => h`<a href="${n.link || '#/notifications'}"><div class="t-ic feed-ic n-${n.type}">${icon(NIC[n.type] || 'bell', '', 'duo')}</div>
         <div class="grow" style="min-width:0"><b style="display:block">${n.title}</b><div class="small muted ellipsis">${n.body}</div></div><span class="xs muted" style="flex:none">${ago(n.created_at)}</span></a>`)}</div>` : ''}
-    <div class="row" style="margin-top:16px"><a class="btn btn-red grow" href="#/new/lost">${icon('plus')}${t('home.lost', 'Я потерял', 'I lost')}</a><a class="btn btn-blue grow" href="#/new/found">${icon('plus')}${t('home.found', 'Я нашёл', 'I found')}</a></div>`);
+    <div class="row" style="margin-top:16px"><a class="btn btn-lost grow" href="#/new/lost">${icon('plus')}${t('home.lost', 'Я потерял', 'I lost')}</a><a class="btn btn-found grow" href="#/new/found">${icon('plus')}${t('home.found', 'Я нашёл', 'I found')}</a></div>`);
 }
 async function meApps(el) {
   const { items } = await GET('/my/applications');
@@ -1449,7 +1449,7 @@ route('/registry', async (view) => {
   const q0 = query().get('q') || '';
   mount(view, h`<div class="wrap" style="max-width:860px"><div class="page-head"><span class="eyebrow">${t('reg.eyebrow', 'Реестр ценностей и антиквариата', 'Valuables & antiques registry')}</span><h1 style="margin-top:12px">${t('reg.title', 'Проверка предмета перед покупкой', 'Check an item before buying')}</h1>
     <p>${t('reg.sub', 'Серийный номер, IMEI, гравировка или название — покажем, если предмет числится украденным или утерянным.', 'Serial number, IMEI, engraving or name — we’ll show if it’s marked stolen or lost.')}</p></div>
-    <form class="search-box" id="rf">${icon('search')}<input name="q" value="${q0}" placeholder="${t('home.reg_ph', 'Серийный номер или название', 'Serial number or name')}" minlength="3" required><button class="fbtn" aria-label="${tr('Проверить', 'Check')}">${icon('arrowUR')}</button></form>
+    <form class="search-box" id="rf">${icon('search')}<input name="q" value="${q0}" placeholder="${t('home.reg_ph', 'Серийный номер или название', 'Serial number or name')}" minlength="3" required><button class="fbtn fbtn-search" aria-label="${tr('Проверить', 'Check')}">${icon('arrowUR')}</button></form>
     <div class="row-wrap" style="margin-top:12px"><span class="xs muted">${tr('Например:', 'Try:')}</span><button type="button" class="chip chip-btn" data-try="NB-77120934">NB-77120934</button><button type="button" class="chip chip-btn" data-try="${tr('велосипед', 'bike')}">${tr('велосипед', 'bike')}</button></div>
     <div id="rr" style="margin-top:20px"></div>
     <div class="steps3">
