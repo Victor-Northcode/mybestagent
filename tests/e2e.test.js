@@ -167,13 +167,69 @@ describe('Мобильная вёрстка (360 px) — публичные ст
     assert.ok(await page.locator('.story.has-photo .story-bg').count() >= 2, 'stories with photos');
     await page.context().close();
   });
-  it('тёмная тема включается из шапки (на телефоне — в настройках, на компьютере — в шапке)', async () => {
+  it('тёмной темы нет: сайт светлый даже при тёмной системе и старом выборе «тёмная»', async () => {
     const page = await newPage({ viewport: { width: 1280, height: 800 } });
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.context().addInitScript(() => { try { localStorage.setItem('mba.theme', 'dark'); } catch (e) { /* about:blank */ } });
     await open(page, '#/');
-    const before = await page.evaluate(() => document.documentElement.dataset.theme);
-    await page.locator('#themeBtn').click();
-    const after = await page.evaluate(() => document.documentElement.dataset.theme);
-    assert.notEqual(before, after);
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'light');
+    assert.equal(await page.locator('#themeBtn').count(), 0, 'no theme switch in the header');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), await page.evaluate(() => { const d = document.createElement('div'); d.style.background = 'var(--bg)'; document.body.append(d); const c = getComputedStyle(d).backgroundColor; d.remove(); return c; }));
+    await open(page, '#/me/settings');
+    assert.equal(await page.locator('#theme').count(), 0, 'no theme choice in settings');
+    await page.context().close();
+  });
+  for (const [label, viewport, sel] of [['компьютер', { width: 1280, height: 800 }, '#top .qn'], ['ноутбук 980', { width: 980, height: 700 }, '#top .qn'], ['телефон', MOBILE, '#tabbar .tn']]) {
+    it(`кнопки «Потерял» и «Нашёл» сразу на виду (${label})`, async () => {
+      const page = await newPage({ viewport });
+      await open(page, '#/');
+      for (const [kind, text] of [['lost', 'Потерял'], ['found', 'Нашёл']]) {
+        const b = page.locator(`${sel}-${kind}`);
+        assert.ok(await b.isVisible(), `${kind} visible`);
+        assert.equal((await b.innerText()).trim(), text);
+        const box = await b.boundingBox();
+        assert.ok(box.y >= 0 && box.y + box.height <= viewport.height && box.x >= 0 && box.x + box.width <= viewport.width, `${kind} inside the first screen`);
+      }
+      await noOverflow(page, label);
+      await page.locator(`${sel}-found`).click();
+      await page.waitForFunction(() => location.hash.startsWith('#/new/found') || location.hash.startsWith('#/login'));
+      assert.deepEqual(page.errors, []);
+      await page.context().close();
+    });
+  }
+  const SERVICE_TELS = ['tel:112', 'tel:102', 'tel:103', 'tel:101', 'tel:88007005452', 'tel:+74956954545'];
+  for (const [label, viewport] of [['телефон', MOBILE], ['компьютер', { width: 1280, height: 800 }]]) {
+    it(`SOS в шапке: экстренные службы в одно касание (${label})`, async () => {
+      const page = await newPage({ viewport });
+      await open(page, '#/map');
+      const sos = page.locator('#sosBtn');
+      assert.ok(await sos.isVisible(), 'SOS visible on any page');
+      const box = await sos.boundingBox();
+      assert.ok(box.x + box.width <= viewport.width && box.y >= 0, 'SOS inside the header');
+      await sos.click();
+      await page.waitForSelector('.sheet[role="dialog"] .svc');
+      assert.deepEqual(await page.$$eval('.sheet a.svc[href^="tel:"]', (as) => as.map((a) => a.getAttribute('href'))), SERVICE_TELS);
+      assert.equal(await page.locator('.sheet a.svc[href^="#/new/lost"]').count(), 1, 'volunteers via the app');
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('.overlay', { state: 'detached', timeout: 2000 });
+      assert.equal(await page.evaluate(() => document.activeElement.id), 'sosBtn');
+      await noOverflow(page, label);
+      assert.deepEqual(page.errors, []);
+      await page.context().close();
+    });
+  }
+  it('главная: «Куда обратиться сразу» и блок для физлиц, юрлиц и госслужб', async () => {
+    const page = await newPage();
+    await open(page, '#/');
+    assert.deepEqual(await page.$$eval('#sos a.svc[href^="tel:"]', (as) => as.map((a) => a.getAttribute('href'))), SERVICE_TELS);
+    assert.match(await page.locator('#sos').innerText(), /ЛизаАлерт[\s\S]*МИД России/);
+    const aud = await page.$$eval('.aud-card .aud-kicker', (els) => els.map((e) => e.textContent.trim()));
+    assert.deepEqual(aud, ['Физическим лицам', 'Юридическим лицам', 'Государственным службам']);
+    await page.locator('.aud-gov [data-lead]').click();
+    await page.waitForFunction(() => document.activeElement && document.activeElement.name === 'org', null, { timeout: 3000 });
+    assert.equal(await page.locator('#leadForm [name=org]').getAttribute('placeholder'), 'Ведомство или служба');
+    await noOverflow(page, 'home');
+    assert.deepEqual(page.errors, []);
     await page.context().close();
   });
 });
@@ -405,21 +461,19 @@ describe('Карта', () => {
 });
 
 describe('Доступность (axe-core: serious/critical)', { skip: !fs.existsSync(AXE_SRC) && 'axe-core не найден' }, () => {
-  for (const theme of ['light', 'dark']) {
-    it(`публичные страницы, тема ${theme}`, async () => {
-      const page = await newPage({ bypassCSP: true }); // CSP запрещает inline-скрипты, а axe внедряется именно так
-      await page.context().addInitScript((th) => { try { localStorage.setItem('mba.theme', th); } catch (e) { /* about:blank */ } }, theme);
+  for (const viewport of [MOBILE, { width: 1280, height: 800 }]) {
+    it(`публичные страницы, ширина ${viewport.width}`, async () => {
+      const page = await newPage({ viewport, bypassCSP: true }); // CSP запрещает inline-скрипты, а axe внедряется именно так
       for (const hash of ['#/', '#/map', '#/a/3', '#/a/1', '#/registry', '#/tariffs', '#/community', '#/login', '#/legal', '#/legal/terms']) {
         await open(page, hash);
-        await axeCheck(page, hash + ' ' + theme);
+        await axeCheck(page, hash + ' ' + viewport.width);
       }
       assert.deepEqual(page.errors, []);
       await page.context().close();
     });
   }
-  it('личный кабинет и чат (Анна), тёмная тема, английский', async () => {
+  it('личный кабинет и чат (Анна), английский', async () => {
     const page = await newPage({ locale: 'en-US', bypassCSP: true });
-    await page.context().addInitScript(() => { try { localStorage.setItem('mba.theme', 'dark'); } catch (e) { /* about:blank */ } });
     await login(page, 'anna@example.com');
     for (const hash of ['#/me', '#/me/apps', '#/me/profile', '#/me/zone', '#/me/registry', '#/me/settings', '#/notifications', '#/chats', '#/chat/1', '#/support']) {
       await open(page, hash);
@@ -428,10 +482,10 @@ describe('Доступность (axe-core: serious/critical)', { skip: !fs.exis
     assert.deepEqual(page.errors, []);
     await page.context().close();
   });
-  it('окно «Новая заявка»: фокус внутри, Tab не выходит, Esc закрывает и возвращает фокус', async () => {
+  it('окно «Фильтры»: фокус внутри, Tab не выходит, Esc закрывает и возвращает фокус', async () => {
     const page = await newPage();
-    await open(page, '#/');
-    await page.focus('#fab');
+    await open(page, '#/map');
+    await page.focus('#fbtn');
     await page.keyboard.press('Enter');
     await page.waitForSelector('.sheet[role="dialog"][aria-labelledby]');
     await page.waitForTimeout(200);
@@ -441,7 +495,7 @@ describe('Доступность (axe-core: serious/critical)', { skip: !fs.exis
     }
     await page.keyboard.press('Escape');
     await page.waitForSelector('.overlay', { state: 'detached', timeout: 2000 });
-    assert.equal(await page.evaluate(() => document.activeElement.id), 'fab');
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'fbtn');
     await page.context().close();
   });
 });

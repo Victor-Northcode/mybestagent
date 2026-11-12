@@ -1,6 +1,6 @@
 // Точка входа: оболочка (шапка, нижнее меню, подвал), язык, тема, realtime, PWA.
 import { state, t, tr, h, raw, mount, $, $$, icon, GET, refreshMe, handleRoute, setChrome, currentPath, connectStream, onEvent, toast, go, observeReveal } from './core.js';
-import { setLang, setTheme } from './views.js';
+import { setLang, setTheme, sosSheet } from './views.js';
 import './admin.js';
 
 const chrome = () => {
@@ -11,16 +11,14 @@ const chrome = () => {
     <a class="brand" href="#/" aria-label="${tr('Мой лучший агент — на главную', 'My Best Agent — home')}"><img src="/assets/logo-256.png" alt=""><span>${tr('Мой лучший агент', 'My Best Agent')}<small>${tr('поиск людей, животных и вещей', 'people, pets & things finder')}</small></span></a>
     <nav class="nav">
       <a href="#/map" class="${on('/map')}">${t('nav.map', 'Карта и поиск', 'Map & search')}</a>
-      <a href="#/new/lost" class="nav-new ${on('/new/lost')}">${t('nav.lost', 'Потерял', 'Lost')}</a>
-      <a href="#/new/found" class="nav-new ${on('/new/found')}">${t('nav.found', 'Нашёл', 'Found')}</a>
       <a href="#/registry" class="${on('/registry')}">${t('nav.registry', 'Реестр', 'Registry')}</a>
       <a href="#/community" class="${on('/community')}">${t('nav.community', 'Волонтёры', 'Volunteers')}</a>
       ${u && ['moderator', 'admin'].includes(u.role) ? h`<a href="#/admin" class="${on('/admin')}">${t('nav.admin', 'Админ', 'Admin')}</a>` : ''}
     </nav>
     <div class="top-act">
-      <button type="button" class="btn btn-sm btn-blue top-new" id="topNew">${icon('plus', 'ic-sm')}${tr('Разместить заявку', 'New report')}</button>
+      ${quickNew('qn', 'ic-sm')}
+      <button type="button" class="sos-btn" id="sosBtn" aria-haspopup="dialog" aria-label="${tr('SOS: экстренные службы — куда обратиться', 'SOS: emergency services — where to get help')}"><i class="sos-dot" aria-hidden="true"></i>SOS</button>
       <button class="icon-btn lang-btn" id="langBtn" aria-label="${tr('Язык: русский. Переключить на английский (English)', 'Language: English. Switch to Russian (Русский)')}" title="${tr('Switch to English', 'Переключить на русский')}">${icon('globe', 'ic-sm')}<span>${state.lang === 'en' ? 'EN' : 'RU'}</span></button>
-      <button class="icon-btn" id="themeBtn" aria-label="${tr('Тема', 'Theme')}">${icon(document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon')}</button>
       ${u ? h`<a class="icon-btn desk-only" href="#/chats" aria-label="${tr('Сообщения', 'Messages')}">${icon('chat')}${u.unreadChats ? h`<span class="dotbadge">${u.unreadChats}</span>` : ''}</a>
         <a class="icon-btn" href="#/notifications" aria-label="${tr('Уведомления', 'Notifications')}">${icon('bell')}${u.unread ? h`<span class="dotbadge">${u.unread > 99 ? '99+' : u.unread}</span>` : ''}</a>
         <a class="icon-btn desk-only" href="#/me" aria-label="${tr('Кабинет', 'Account')}">${icon('user')}</a>`
@@ -31,15 +29,13 @@ const chrome = () => {
   mount($('#tabbar'), h`
     ${tb('/', '#/', 'home', t('tab.home', 'Главная', 'Home'))}
     ${tb('/map', '#/map', 'map', t('tab.map', 'Карта', 'Map'))}
-    <button class="tab tab-fab" id="fab" aria-label="${tr('Новая заявка', 'New report')}"><span class="fab">${icon('plus')}</span></button>
+    ${quickNew('tn', '')}
     ${tb('/chat', '#/chats', 'chat', t('tab.chats', 'Чаты', 'Chats'), u && u.unreadChats ? h`<span class="dotbadge">${u.unreadChats}</span>` : '')}
     ${u ? tb(currentPath().startsWith('/admin') ? '/admin' : '/me', '#/me', 'user', t('tab.me', 'Кабинет', 'Account')) : tb('/login', '#/login', 'user', t('nav.login', 'Войти', 'Sign in'))}`);
   // шапка перерисовывается целиком — возвращаем фокус на нажатую кнопку, чтобы не терять место при работе с клавиатуры
   $('#langBtn').onclick = async () => { await setLang(state.lang === 'en' ? 'ru' : 'en', true); await handleRoute(); $('#langBtn')?.focus(); };
-  $('#themeBtn').onclick = () => { setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); chrome(); $('#themeBtn')?.focus(); };
   $('#skipBtn').onclick = () => { const v = $('#view'); v.tabIndex = -1; v.focus(); };
-  $('#fab').onclick = newSheet;
-  $('#topNew').onclick = newSheet;
+  $('#sosBtn').onclick = sosSheet;
   const hideFoot = ['map', 'chat', 'admin', 'pay', 'new', 'edit'].includes(document.body.dataset.route);
   $('#foot').classList.toggle('hide', hideFoot);
   if (!hideFoot) footer();
@@ -54,15 +50,15 @@ function footer() {
   </div><div class="foot-bottom xs"><span>© ${new Date().getFullYear()} ${tr('Мой лучший агент', 'My Best Agent')}</span><span>${tr('Данные хранятся на серверах в РФ', 'Data is stored on servers in Russia')}</span><span>${tr('Картографические данные © участники OpenStreetMap', 'Map data © OpenStreetMap contributors')}</span></div></div>`);
   const pl = $('[data-partner]', $('#foot')); if (pl) pl.onclick = (e) => { e.preventDefault(); go('#/'); setTimeout(() => { const el = document.getElementById('partner'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 400); };
 }
-import { sheet, sheetHead } from './core.js';
-function newSheet() {
-  const s = sheet(h`${sheetHead(t('fab.title', 'Новая заявка', 'New report'))}
-    <div class="stack">
-      <a class="pick" href="#/new/lost" style="flex-direction:row;align-items:center"><div class="cat-ic" style="background:var(--btn)">${icon('search')}</div><div><b>${t('home.lost', 'Я потерял', 'I lost')}</b><span>${t('home.lost_sub', 'человека, питомца, вещь', 'a person, pet, item')}</span></div></a>
-      <a class="pick" href="#/new/found" style="flex-direction:row;align-items:center"><div class="cat-ic" style="background:var(--green)">${icon('heart')}</div><div><b>${t('home.found', 'Я нашёл', 'I found')}</b><span>${t('home.found_sub', 'сообщить о находке', 'report a find')}</span></div></a>
-      <a class="pick" href="#/me/registry" style="flex-direction:row;align-items:center"><div class="cat-ic" style="background:linear-gradient(145deg,#2a2c33,#0e0f13)">${icon('gem')}</div><div><b>${t('me.registry', 'Реестр ценностей', 'Valuables')}</b><span>${tr('зарегистрировать ценную вещь', 'register a valuable item')}</span></div></a>
-    </div>`);
-  $$('a', s.el).forEach((a) => a.addEventListener('click', () => s.close()));
+// «Потерял» и «Нашёл» — главные действия сайта: всегда на виду, в шапке (компьютер) и в нижнем меню (телефон)
+function quickNew(cls, icCls) {
+  const p = currentPath();
+  const btn = (kind, ic, label) => {
+    const cur = p.startsWith('/new/' + kind);
+    return h`<a href="#/new/${kind}" class="${cls} ${cls}-${kind} ${cur ? 'on' : ''}" ${cur ? raw('aria-current="page"') : ''}>${icon(ic, icCls)}<span>${label}</span></a>`;
+  };
+  return h`<div class="${cls}-group" role="group" aria-label="${tr('Новая заявка', 'New report')}">
+    ${btn('lost', 'search', t('nav.lost', 'Потерял', 'Lost'))}${btn('found', 'heart', t('nav.found', 'Нашёл', 'Found'))}</div>`;
 }
 
 // Язык определяется автоматически по настройкам браузера; сменить можно кнопкой в шапке.
@@ -73,8 +69,7 @@ function detectLang() {
 }
 
 async function boot() {
-  setTheme(state.theme);
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (state.theme === 'auto') { setTheme('auto'); chrome(); } });
+  setTheme(); // тёмной темы нет — сайт всегда светлый
   // глобальные обработчики
   document.addEventListener('submit', (e) => e.preventDefault(), true);
   document.addEventListener('click', (e) => { const b = e.target.closest('[data-back]'); if (b) { e.preventDefault(); if (history.length > 1) history.back(); else go('#/'); } });
