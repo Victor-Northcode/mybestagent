@@ -1901,3 +1901,23 @@ details.legal-sec[open]::details-content { block-size: auto; }
 .tpick input:checked + span { background: var(--ink); border-color: var(--ink); color: var(--bg); }
 .tpick input:focus-visible + span { outline: 2px solid var(--blue); outline-offset: 2px; }
 .field.has-err .tpick span { border-color: var(--red-solid); }
+
+/* =========================================================
+   Шапка: акцент на логотипе — знак крупный, название мелко, ровно в три строки (каждое слово — своя строка)
+   ========================================================= */
+.top .brand { gap: 10px; flex: none; }
+.top .brand img { width: 74px; height: 60px; object-fit: contain; }
+.top .brand .brand-name {
+  display: block; width: min-content; max-width: none; white-space: normal;
+  font: 700 14px/1.08 var(--display); letter-spacing: -.01em; color: var(--ink);
+}
+@media (max-width: 520px) {
+  .top .brand { gap: 8px; }
+  .top .brand img { width: 64px; height: 52px; }
+  .top .brand .brand-name { font-size: 13px; }
+}
+@media (max-width: 349px) {
+  .top .brand { gap: 6px; }
+  .top .brand img { width: 56px; height: 46px; }
+  .top .brand .brand-name { font-size: 12px; }
+}

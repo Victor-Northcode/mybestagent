@@ -653,8 +653,13 @@ describe('Навигация и права доступа', () => {
       assert.match(look.bg, /^rgb\((\d+), (\d+), (\d+)\)$/); const [r, g] = look.bg.match(/\d+/g).map(Number); assert.ok(r > 150 && g < 80, 'SOS залита красным: ' + look.bg);
       assert.equal(look.anim, 'sosBeacon', 'SOS мигает');
       assert.ok(await page.locator('#langBtn .ic').isVisible(), 'у языка значок глобуса');
-      const brandH = await page.locator('.top .brand > span').first().evaluate((e) => e.getBoundingClientRect().height);
-      assert.ok(brandH < 46, 'название не больше двух строк: ' + brandH);
+      const brand = await page.locator('.top .brand').first().evaluate((a) => {
+        const img = a.querySelector('img').getBoundingClientRect(), n = a.querySelector('.brand-name'), cs = getComputedStyle(n);
+        return { logoH: img.height, lines: Math.round(n.getBoundingClientRect().height / parseFloat(cs.lineHeight)), fs: parseFloat(cs.fontSize), textH: n.getBoundingClientRect().height };
+      });
+      assert.equal(brand.lines, 3, 'название ровно в три строки: ' + JSON.stringify(brand));
+      assert.ok(brand.logoH >= 44 && brand.logoH > brand.textH, 'логотип крупнее названия: ' + JSON.stringify(brand));
+      assert.ok(brand.fs <= 14, 'название мелким шрифтом: ' + brand.fs);
       await btn.click();
       await page.waitForSelector('.sheet .svc-list');
       assert.deepEqual(await page.locator('.sheet a.svc[href^="tel:"]').evaluateAll((as) => as.map((a) => a.getAttribute('href'))),
