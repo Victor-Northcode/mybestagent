@@ -125,6 +125,11 @@ describe('SEO: страницы заявок', () => {
     const robots = await (await fetch(S.base + '/robots.txt')).text();
     assert.match(robots, /Allow: \//); assert.match(robots, /Disallow: \/api\//); assert.match(robots, new RegExp(`Sitemap: ${SITE}/sitemap.xml`));
   });
+  it('/favicon.ico отдаёт значок сайта (его запрашивают браузеры и Яндекс)', async () => {
+    const r = await fetch(S.base + '/favicon.ico');
+    assert.equal(r.status, 200); assert.match(r.headers.get('content-type'), /image\/png/);
+    assert.ok((await r.arrayBuffer()).byteLength > 100);
+  });
 });
 
 describe('SEO: закрытый стенд (NOINDEX=1)', () => {

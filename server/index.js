@@ -13,6 +13,7 @@ const I18N = require('./i18n');
 const YK = require('./yookassa');
 const SEO = require('./seo');
 const THINGS = require('./things');
+const ERR_EN = require('./errors-en');
 
 if (seed()) for (const a of all("SELECT * FROM applications WHERE status = 'published' ORDER BY id")) S.runMatching(a);
 
@@ -280,7 +281,7 @@ app.patch('/api/me', needAuth, h((req, res) => {
 }));
 
 /* ---------- смена контактов для входа с подтверждением кодом ---------- */
-if (PUBLIC_DEMO) app.use('/api/me/contact', (req, res) => res.status(403).json({ error: 'demo_contact', message: 'Контакты тестового профиля закреплены за ним' }));
+if (PUBLIC_DEMO) app.use('/api/me/contact', (req, res) => res.status(403).json({ error: 'demo_contact', message: errText(req, 'Контакты тестового профиля закреплены за ним') }));
 app.post('/api/me/contact/request', needAuth, h(async (req, res) => {
   const t = normTarget(req.body.target), u = req.user;
   otpChannelReady(t);
@@ -1474,6 +1475,8 @@ app.get(['/a/:id(\\d+)', '/a/:id(\\d+)/'], h((req, res) => {
 }));
 // поиск из выдачи (SearchAction) → карта с запросом
 app.get('/search', (req, res) => { const q = str(req.query.q, 100); res.redirect(302, '/#/map' + (q ? '?q=' + encodeURIComponent(q) : '')); });
+// браузеры и поисковики сами запрашивают /favicon.ico — отдаём значок сайта, а не 404
+app.get('/favicon.ico', (req, res) => res.type('image/png').sendFile(path.join(PUB, 'assets', 'favicon.png'), { maxAge: '7d' }));
 app.get('/robots.txt', (req, res) => res.type('text/plain').send(SEO.robots(SITE, NOINDEX)));
 app.get('/sitemap.xml', (req, res) => {
   if (NOINDEX) return res.status(404).type('text/plain').send('Not found');
@@ -1492,11 +1495,15 @@ app.get('*', (req, res) => {
 });
 
 /* ---------- ошибки ---------- */
+// текст ошибки — на языке интерфейса (X-Lang: en → английский по словарю errors-en.js)
+const errText = (req, msg) => (req.get('X-Lang') === 'en' ? ERR_EN.toEn(msg) : msg);
 app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
-  if (err instanceof HttpError) return res.status(err.status).json({ error: err.code, message: err.message });
-  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'too_big', message: 'Слишком большой запрос' });
+  if (err instanceof HttpError) return res.status(err.status).json({ error: err.code, message: errText(req, err.message) });
+  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'too_big', message: errText(req, 'Слишком большой запрос') });
+  // ошибки платёжного провайдера (yookassa.js): свой статус и понятный текст вместо «Внутренняя ошибка»
+  if (typeof err.code === 'string' && /^provider_/.test(err.code) && err.status >= 400 && err.status < 600) return res.status(err.status).json({ error: err.code, message: errText(req, err.message) });
   console.error(err);
-  res.status(500).json({ error: 'server', message: 'Внутренняя ошибка сервера' });
+  res.status(500).json({ error: 'server', message: errText(req, 'Внутренняя ошибка сервера') });
 });
 
 const server = app.listen(PORT, process.env.HOST || undefined, () => {

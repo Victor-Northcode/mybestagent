@@ -251,7 +251,7 @@ table.t td:first-child { white-space: nowrap; }
 .place-photo { display: block; width: 100%; max-height: 320px; object-fit: cover; border-radius: 16px; cursor: zoom-in; }
 @media (min-width: 640px) { .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .check { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; cursor: pointer; line-height: 1.45; }
-.check input { appearance: none; flex: none; width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid var(--line-2); background: var(--surface); display: grid; place-items: center; transition: all .2s; margin: 0; cursor: pointer; }
+.check input { appearance: none; flex: none; width: 24px; height: 24px; border-radius: 7px; border: 1.5px solid var(--line-2); background: var(--surface); display: grid; place-items: center; transition: all .2s; margin: 0; cursor: pointer; }
 .check input:checked { background: var(--ink); border-color: var(--ink); }
 .check input:checked::after { content: ""; width: 10px; height: 6px; border: 2px solid var(--bg); border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px, -1px); }
 .switch { position: relative; display: inline-block; width: 50px; height: 30px; flex: none; isolation: isolate; }
@@ -877,8 +877,9 @@ input, textarea, select { scroll-margin: calc(var(--top-h) + 20px) 0 calc(var(--
 }
 /* плавающая кнопка «Написать» на странице заявки (телефон) */
 .m-cta { position: fixed; left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); bottom: calc(var(--tab-h) + var(--safe-b) + 36px); z-index: 55;
-  transform: translateY(160%); opacity: 0; pointer-events: none; transition: transform .4s var(--spring), opacity .25s; }
-.m-cta.show { transform: none; opacity: 1; pointer-events: auto; }
+  transform: translateY(160%); opacity: 0; pointer-events: none; visibility: hidden; transition: transform .4s var(--spring), opacity .25s, visibility 0s .4s; }
+/* скрытая копия не должна получать фокус с клавиатуры и читаться экранным диктором — отсюда visibility */
+.m-cta.show { transform: none; opacity: 1; pointer-events: auto; visibility: visible; transition: transform .4s var(--spring), opacity .25s, visibility 0s; }
 .m-cta .btn { box-shadow: 0 14px 34px -6px rgba(224, 25, 45, .5); }
 @media (min-width: 980px) { .m-cta { display: none; } }
 /* платежи на телефоне — карточками вместо таблицы */
