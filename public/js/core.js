@@ -107,6 +107,9 @@ const routes = [];
 let leaveFns = [];
 export function route(pattern, handler, opts = {}) { routes.push({ re: new RegExp('^' + pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)') + '$'), handler, opts }); }
 export function onLeave(fn) { leaveFns.push(fn); }
+// Рамка раздела (например, личного кабинета): fn(view, path) рисует меню и возвращает контейнер для содержимого страницы или null
+let shellFn = null;
+export function setShell(fn) { shellFn = fn; }
 export function go(hash) { if (location.hash === hash) handleRoute(); else location.hash = hash; }
 export const currentPath = () => (location.hash.replace(/^#/, '') || '/').split('?')[0].split('#')[0].replace(/(.)\/+$/, '$1');
 export const query = () => new URLSearchParams(location.hash.split('?')[1] || '');
@@ -132,10 +135,11 @@ export async function handleRoute() {
   const run = async () => {
     view.className = 'view' + (r.opts.full ? ' full' : '');
     view.innerHTML = '';
-    try { await r.handler(view, params); } catch (e) {
+    const target = (!r.opts.full && !r.opts.notFound && shellFn && shellFn(view, path)) || view;
+    try { await r.handler(target, params); } catch (e) {
       if (id !== rendering) return;
       if (e.status === 404) document.title = `${tr('Не найдено', 'Not found')} — ${tr('Мой лучший агент', 'My Best Agent')}`;
-      mount(view, h`<div class="wrap"><div class="empty" style="margin-top:40px">${icon('alert')}<b>${e.status === 404 ? tr('Не найдено', 'Not found') : tr('Что-то пошло не так', 'Something went wrong')}</b>${e.message}<div style="margin-top:16px"><a class="btn btn-ghost btn-sm" href="#/">${tr('На главную', 'Home')}</a></div></div></div>`);
+      mount(target, h`<div class="wrap"><div class="empty" style="margin-top:40px">${icon('alert')}<b>${e.status === 404 ? tr('Не найдено', 'Not found') : tr('Что-то пошло не так', 'Something went wrong')}</b>${e.message}<div style="margin-top:16px"><a class="btn btn-ghost btn-sm" href="#/">${tr('На главную', 'Home')}</a></div></div></div>`);
     }
     if (!r.opts.keepScroll) window.scrollTo({ top: 0, behavior: 'instant' });
     observeReveal(view);

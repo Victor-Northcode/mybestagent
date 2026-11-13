@@ -33,7 +33,7 @@ const chrome = () => {
     ${tb('/map', '#/map', 'map', t('tab.map', 'Карта', 'Map'))}
     <button class="tab tab-fab" id="fab" aria-label="${tr('Новая заявка', 'New report')}"><span class="fab">${icon('plus')}</span></button>
     ${tb('/chat', '#/chats', 'chat', t('tab.chats', 'Чаты', 'Chats'), u && u.unreadChats ? h`<span class="dotbadge">${u.unreadChats}</span>` : '')}
-    ${u ? tb(currentPath().startsWith('/admin') ? '/admin' : '/me', '#/me', 'user', t('tab.me', 'Кабинет', 'Account')) : tb('/login', '#/login', 'user', t('nav.login', 'Войти', 'Sign in'))}`);
+    ${u ? tb(currentPath().startsWith('/admin') ? '/admin' : /^\/(notifications|support)/.test(p) ? p : '/me', '#/me', 'user', t('tab.me', 'Кабинет', 'Account')) : tb('/login', '#/login', 'user', t('nav.login', 'Войти', 'Sign in'))}`);
   // шапка перерисовывается целиком — возвращаем фокус на нажатую кнопку, чтобы не терять место при работе с клавиатуры
   $('#langBtn').onclick = async () => { await setLang(state.lang === 'en' ? 'ru' : 'en', true); await handleRoute(); $('#langBtn')?.focus(); };
   $('#skipBtn').onclick = () => { const v = $('#view'); v.tabIndex = -1; v.focus(); };

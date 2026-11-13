@@ -282,10 +282,10 @@ describe('Личный кабинет (Анна)', () => {
       assert.deepEqual(page.errors, []);
     });
   }
-  it('переключатели и ползунок радиуса: область нажатия не меньше 40 px', async () => {
+  it('переключатели и кнопки радиуса: область нажатия не меньше 40 px', async () => {
     for (const hash of ['#/me/settings', '#/me/zone']) {
       await open(page, hash);
-      const hits = await page.evaluate(() => [...document.querySelectorAll('.switch, .range')].filter((e) => e.getClientRects().length).map((e) => {
+      const hits = await page.evaluate(() => [...document.querySelectorAll('.switch, .range, .rchip')].filter((e) => e.getClientRects().length).map((e) => {
         const b = e.getBoundingClientRect(), cx = b.left + b.width / 2, cy = b.top + b.height / 2;
         const ok = (y) => { const t = document.elementFromPoint(cx, y); return !!t && (t === e || e.contains(t)); };
         let up = 0, dn = 0; while (up < 30 && ok(cy - up - 1)) up++; while (dn < 30 && ok(cy + dn + 1)) dn++;
@@ -339,6 +339,101 @@ describe('Личный кабинет (Анна)', () => {
     await page.waitForFunction((t) => document.querySelector('#msgs').innerText.includes(t), text, { timeout: 5000 });
     await noOverflow(page, 'chat');
     assert.deepEqual(page.errors, []);
+  });
+  it('компьютер: колонка разделов на всех экранах кабинета, включая «Сообщения», «Уведомления», «Поддержку»; «назад» браузера работает', async () => {
+    page.errors = [];
+    await page.setViewportSize({ width: 1280, height: 800 });
+    for (const [hash, href] of [['#/me/zone', '#/me/zone'], ['#/chats', '#/chats'], ['#/notifications', '#/notifications'], ['#/support', '#/support'], ['#/support/1', '#/support']]) {
+      await open(page, hash);
+      assert.ok(await page.locator('.me-nav').isVisible(), 'колонка разделов: ' + hash);
+      assert.equal(await page.locator('.me-nav [aria-current="page"]').getAttribute('href'), href, 'выделен текущий раздел: ' + hash);
+      assert.equal(await page.locator('.acc-bar').isVisible().catch(() => false), false, 'на компьютере нет мобильной строки');
+    }
+    await open(page, '#/support');
+    await page.locator('.me-nav a[href="#/me/family"]').click();
+    await page.waitForFunction(() => location.hash === '#/me/family' && document.querySelector('.fam'));
+    await page.goBack();
+    await page.waitForFunction(() => location.hash === '#/support' && document.querySelector('.me-nav [aria-current="page"][href="#/support"]'));
+    await noOverflow(page, 'кабинет 1280');
+    assert.deepEqual(page.errors, []);
+    await page.setViewportSize(MOBILE);
+  });
+  it('телефон: обзор — список всех разделов; в разделе «‹ Кабинет» возвращает в одно касание, «Разделы» — лист со всеми разделами', async () => {
+    page.errors = [];
+    await page.setViewportSize({ width: 390, height: 844 });
+    await open(page, '#/me');
+    assert.equal(await page.locator('.acc-tiles').isVisible(), false, 'плитки обзора — только на компьютере');
+    assert.equal(await page.locator('.acc-rows a').count(), 12, 'все разделы строками');
+    assert.equal(await page.locator('.acc-bar').count(), 0, 'на обзоре кнопка «Кабинет» не нужна');
+    const rows = await page.$$eval('.acc-rows a', (as) => as.map((a) => Math.round(a.getBoundingClientRect().height)));
+    assert.ok(rows.every((x) => x >= 44), 'строки разделов крупные: ' + rows.join(','));
+    await page.locator('.acc-rows a[href="#/me/family"]').click();
+    await page.waitForFunction(() => location.hash === '#/me/family' && document.querySelector('.acc-back'));
+    await page.locator('.acc-back').click();
+    await page.waitForFunction(() => location.hash === '#/me' && document.querySelector('.acc-rows'));
+    for (const hash of ['#/support', '#/notifications', '#/chats', '#/me/settings']) {
+      await open(page, hash);
+      assert.ok(await page.locator('.acc-back').isVisible(), '«‹ Кабинет» на ' + hash);
+      const b = await page.locator('.acc-back').boundingBox();
+      assert.ok(b.height >= 40, 'кнопка возврата крупная');
+      await noOverflow(page, 'кабинет 390 ' + hash);
+    }
+    await page.locator('#accAll').click();
+    await page.waitForSelector('.sheet .acc-sheet');
+    assert.equal(await page.locator('.sheet .acc-sheet a').count(), 13);
+    await page.locator('.sheet .acc-sheet a[href="#/me/zone"]').click();
+    await page.waitForFunction(() => location.hash === '#/me/zone' && !document.querySelector('.sheet .acc-sheet'));
+    assert.deepEqual(page.errors, []);
+    await page.setViewportSize(MOBILE);
+  });
+  it('зона оповещений: радиус — кнопками (без ползунка), выбор сохраняется', async () => {
+    page.errors = [];
+    await page.setViewportSize({ width: 390, height: 844 });
+    await open(page, '#/me/zone');
+    assert.equal(await page.locator('#tab input[type="range"]').count(), 0, 'ползунка нет');
+    assert.deepEqual(await page.$$eval('.rchip', (b) => b.map((x) => x.textContent.trim())), ['1 км', '3 км', '5 км', '10 км', '20 км']);
+    await page.locator('.rchip[data-r="10"]').click();
+    assert.equal(await page.locator('.rchip[data-r="10"]').getAttribute('aria-checked'), 'true');
+    assert.equal(await page.locator('.rchip[aria-checked="true"]').count(), 1);
+    await page.locator('#zs').click();
+    await page.waitForFunction(async () => (await (await fetch('/api/me', { headers: { 'X-Requested-With': 'mba' } })).json()).user.zone.radius === 10);
+    await open(page, '#/me/zone');
+    assert.equal(await page.locator('.rchip[data-r="10"]').getAttribute('aria-checked'), 'true', 'после перезагрузки выбран сохранённый радиус');
+    await page.locator('.rchip[data-r="3"]').click(); await page.locator('#zs').click();
+    await page.waitForFunction(async () => (await (await fetch('/api/me', { headers: { 'X-Requested-With': 'mba' } })).json()).user.zone.radius === 3);
+    await noOverflow(page, 'зона 390');
+    assert.deepEqual(page.errors, []);
+    await page.setViewportSize(MOBILE);
+  });
+  it('семья: создание, приглашение, карточки участников ровной сеткой и не накладываются (телефон и компьютер)', async () => {
+    page.errors = [];
+    await page.setViewportSize({ width: 390, height: 844 });
+    await open(page, '#/me/family');
+    await page.locator('#mk input[name="name"]').fill('Семья Смирновых');
+    await page.locator('#mk button').click();
+    await page.waitForSelector('.fam-grid .fam-m');
+    await page.locator('#inv input[name="target"]').fill('relative@example.com');
+    await page.locator('#inv button').click();
+    await page.waitForSelector('.fam-pend');
+    const overlaps = async () => page.evaluate(() => {
+      const els = [...document.querySelectorAll('.fam-top, .fam-m, .fam-invite, .fam-foot')].map((e) => e.getBoundingClientRect());
+      const bad = [];
+      for (let i = 0; i < els.length; i++) for (let j = i + 1; j < els.length; j++) {
+        const a = els[i], b = els[j];
+        if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) bad.push([i, j]);
+      }
+      return bad;
+    });
+    assert.deepEqual(await overlaps(), [], 'телефон: ничего не накладывается');
+    await noOverflow(page, 'семья 390');
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.waitForTimeout(200);
+    assert.deepEqual(await overlaps(), [], 'компьютер: ничего не накладывается');
+    await page.locator('#leave').click();
+    await page.locator('.sheet [data-ok]').click();
+    await page.waitForSelector('#mk');
+    assert.deepEqual(page.errors, []);
+    await page.setViewportSize(MOBILE);
   });
 });
 
@@ -908,8 +1003,8 @@ describe('Навигация и права доступа', () => {
     const page = await newPage({ viewport: { width: 1280, height: 800 } });
     await login(page, 'anna@example.com');
     await open(page, '#/me');
-    const icons = await page.$$eval('.me-nav a svg', (l) => l.map((s) => s.innerHTML));
-    assert.equal(icons.length, 10);
+    const icons = await page.$$eval('.me-nav nav a svg', (l) => l.map((s) => s.innerHTML));
+    assert.equal(icons.length, 13, 'все разделы кабинета, включая «Сообщения», «Уведомления», «Поддержку»');
     assert.equal(new Set(icons).size, icons.length, 'иконки разделов не повторяются');
     const home = await page.$eval('#tabbar a[href="#/"] svg', (s) => s.innerHTML).catch(() => '');
     assert.ok(!icons.includes(home), '«Обзор» не совпадает с «Главной»');

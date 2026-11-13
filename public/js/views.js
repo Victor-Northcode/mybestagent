@@ -3,7 +3,7 @@ import {
   state, t, tr, dict, h, raw, mount, $, $$, icon, CAT, catName, kindName, statusName, statusChip,
   fmtDate, ago, timeOf, km, money, plural, GET, POST, PATCH, DEL, refreshMe, route, onLeave, go, query, currentPath,
   toast, toastErr, sheet, sheetHead, confirmBox, lightbox, photoField, upload, makeMap, pinIcon, mapPicker, mapFull, getPosition,
-  onEvent, connectStream, mediaPh, enablePush, pushStatus, isIOS, isStandalone, shareSheet, countUp, formData, busy, observeReveal, safeSet, esc,
+  onEvent, connectStream, mediaPh, enablePush, pushStatus, isIOS, isStandalone, shareSheet, countUp, formData, busy, observeReveal, safeSet, esc, setShell,
   emergencyPhones
 } from './core.js';
 import { BREEDS, COLORS, parksOf } from './places.js';
@@ -1295,37 +1295,51 @@ route('/notifications', async (view) => {
 }, { auth: true });
 
 /* =================== ЛИЧНЫЙ КАБИНЕТ =================== */
-const ME_TABS = () => [
-  ['', 'dash', t('me.overview', 'Обзор', 'Overview')], ['apps', 'file', t('me.apps', 'Мои заявки', 'My reports')], ['saved', 'bookmark', t('me.saved', 'Сохранённые', 'Saved')],
-  ['profile', 'idcard', t('me.profile', 'Профиль', 'Profile')], ['zone', 'zone', t('me.zone', 'Зона оповещений', 'Alert zone')], ['family', 'users', t('me.family', 'Семья', 'Family')],
-  ['registry', 'gem', t('me.registry', 'Реестр ценностей', 'Valuables')], ['payments', 'card', t('me.payments', 'Платежи', 'Payments')], ['rewards', 'award', t('me.rewards', 'Баллы и статус', 'Points & status')],
-  ['settings', 'settings', t('me.settings', 'Настройки', 'Settings')]
-];
+// Разделы кабинета по группам. «Сообщения», «Уведомления» и «Поддержка» живут по своим адресам, но открываются в той же рамке:
+// на компьютере слева всегда колонка разделов, на телефоне над разделом — «‹ Кабинет» и «Разделы», из любого экрана один шаг назад.
+const ME_GROUPS = () => {
+  const u = state.user || {};
+  return [
+    ['', [['/me', 'dash', t('me.overview', 'Обзор', 'Overview')], ['/me/apps', 'file', t('me.apps', 'Мои заявки', 'My reports')], ['/me/saved', 'bookmark', t('me.saved', 'Сохранённые', 'Saved')]]],
+    [tr('Общение', 'Messages'), [['/chats', 'chat', t('chats.title', 'Сообщения', 'Messages'), u.unreadChats], ['/notifications', 'bell', t('n.title', 'Уведомления', 'Notifications'), u.unread], ['/support', 'help', t('sup.title', 'Поддержка', 'Support')]]],
+    [tr('Безопасность', 'Safety'), [['/me/zone', 'zone', t('me.zone', 'Зона оповещений', 'Alert zone')], ['/me/family', 'users', t('me.family', 'Семья', 'Family')], ['/me/registry', 'gem', t('me.registry', 'Реестр ценностей', 'Valuables')]]],
+    [tr('Аккаунт', 'Account'), [['/me/profile', 'idcard', t('me.profile', 'Профиль', 'Profile')], ['/me/rewards', 'award', t('me.rewards', 'Баллы и статус', 'Points & status')], ['/me/payments', 'card', t('me.payments', 'Платежи', 'Payments')], ['/me/settings', 'settings', t('me.settings', 'Настройки', 'Settings')]]]
+  ];
+};
+const ME_PATHS = /^\/(me(\/[^/]+)?|chats|notifications|support(\/[^/]+)?)$/;
+const meActive = (path, href) => path === href || (href !== '/me' && path.startsWith(href + '/'));
+const cntBadge = (n) => (n ? h`<span class="cnt">${n > 99 ? '99+' : n}</span>` : '');
+const meNavHtml = (path) => h`${ME_GROUPS().map(([title, items]) => h`<div class="acc-grp">${title ? h`<div class="acc-grp-t">${title}</div>` : ''}
+  ${items.map(([href, ic, label, n]) => { const on = meActive(path, href); return h`<a href="#${href}" class="${on ? 'on' : ''}" ${on ? raw('aria-current="page"') : ''}>${icon(ic)}<span class="grow">${label}</span>${cntBadge(n)}</a>`; })}</div>`)}`;
+setShell((view, path) => {
+  if (!ME_PATHS.test(path) || !state.user) return null;
+  const u = state.user;
+  mount(view, h`<div class="wrap acc-wrap"><div class="me-layout">
+    <aside class="me-nav">
+      <a class="acc-me" href="#/me/profile">${avatar(u, 'ava-sm')}<span class="grow"><b>${u.name}</b><small>${levelName(u.level)} · ${u.points} ${tr(plural(u.points, 'балл', 'балла', 'баллов'), u.points === 1 ? 'point' : 'points')}</small></span></a>
+      <nav aria-label="${tr('Разделы кабинета', 'Account sections')}">${meNavHtml(path)}</nav>
+      ${['moderator', 'admin'].includes(u.role) ? h`<a class="acc-admin" href="#/admin">${icon('shield')}<span class="grow">${tr('Панель администратора', 'Admin panel')}</span>${icon('chevR', 'ic-sm')}</a>` : ''}
+    </aside>
+    <div class="me-main">
+      ${path === '/me' ? '' : h`<div class="acc-bar">
+        <a class="acc-back" href="#/me">${icon('chevL', 'ic-sm')}<span>${tr('Кабинет', 'Account')}</span></a>
+        <button type="button" class="acc-all" id="accAll" aria-haspopup="dialog">${icon('list', 'ic-sm')}<span>${tr('Разделы', 'Sections')}</span>${cntBadge((u.unreadChats || 0) + (u.unread || 0))}</button></div>`}
+      <div id="tab" class="acc-body"></div>
+    </div></div></div>`);
+  const all = $('#accAll', view);
+  if (all) all.onclick = () => {
+    const sh = sheet(h`${sheetHead(tr('Личный кабинет', 'My account'))}<nav class="acc-sheet" aria-label="${tr('Разделы кабинета', 'Account sections')}">${meNavHtml(path)}</nav>`);
+    $$('a', sh.el).forEach((a) => a.addEventListener('click', () => sh.close()));
+  };
+  return $('#tab', view);
+});
 route('/me', (view) => meView(view, ''), { auth: true });
 route('/me/:tab', (view, p) => meView(view, p.tab), { auth: true });
-async function meView(view, tab) {
+async function meView(el, tab) {
   await refreshMe();
-  const u = state.user;
-  // Навигация кабинета: на компьютере — колонка слева, на телефоне — одна кнопка текущего раздела,
-  // по нажатию открывается список всех разделов (без горизонтальной прокрутки).
-  const tabs = ME_TABS(), cur = tabs.find(([k]) => k === tab) || tabs[0];
-  const link = ([k, ic, l]) => h`<a href="#/me${k ? '/' + k : ''}" class="${tab === k ? 'on' : ''}" ${tab === k ? raw('aria-current="page"') : ''}>${icon(ic)}<span>${l}</span></a>`;
-  mount(view, h`<div class="wrap" style="padding-top:16px"><div class="me-layout">
-    <aside class="me-nav"><nav aria-label="${tr('Разделы кабинета', 'Account sections')}">${tabs.map(link)}</nav></aside>
-    <div class="me-main">
-      <button type="button" class="me-pick" id="mePick" aria-haspopup="dialog">
-        <span class="me-pick-ic">${icon(cur[1])}</span><span class="grow"><small>${tr('Личный кабинет', 'My account')}</small><b>${cur[2]}</b></span>
-        <span class="me-pick-all">${tr('Разделы', 'Sections')}${icon('chevR', 'ic-sm')}</span></button>
-      <div id="tab"></div>
-    </div></div></div>`);
-  $('#mePick', view).onclick = () => {
-    const s = sheet(h`${sheetHead(tr('Личный кабинет', 'My account'))}<nav class="me-sheet">${tabs.map(link)}</nav>`);
-    $$('a', s.el).forEach((a) => a.addEventListener('click', () => s.close()));
-  };
-  const el = $('#tab', view);
   const fn = { '': meOverview, apps: meApps, saved: meSaved, profile: meProfile, zone: meZone, family: meFamily, registry: meRegistry, payments: mePayments, rewards: meRewards, settings: meSettings }[tab];
   if (!fn) throw Object.assign(new Error(tr('Раздел не найден', 'Section not found')), { status: 404 });
-  await fn(el, u);
+  await fn(el, state.user);
   observeReveal(el);
 }
 function levelProgress(u) {
@@ -1337,13 +1351,31 @@ async function meOverview(el, u) {
   const lp = levelProgress(u);
   const none = { items: [] };
   const [apps, chats, saved, vals, notes] = await Promise.all([GET('/my/applications'), GET('/chats'), GET('/my/saved').catch(() => none), GET('/valuables').catch(() => none), GET('/notifications').catch(() => none)]);
+  const count = (n, one, few, many, en1, en) => `${n} ${tr(plural(n, one, few, many), n === 1 ? en1 : en)}`;
+  const sub = {
+    '/me/apps': apps.items.length ? count(apps.items.length, 'заявка', 'заявки', 'заявок', 'report', 'reports') : tr('пока нет', 'none yet'),
+    '/me/saved': saved.items.length ? count(saved.items.length, 'заявка', 'заявки', 'заявок', 'report', 'reports') : tr('пока нет', 'none yet'),
+    '/chats': u.unreadChats ? count(u.unreadChats, 'новое', 'новых', 'новых', 'new', 'new') : count(chats.items.length, 'диалог', 'диалога', 'диалогов', 'chat', 'chats'),
+    '/notifications': u.unread ? count(u.unread, 'новое', 'новых', 'новых', 'new', 'new') : tr('всё прочитано', 'all read'),
+    '/support': tr('ответим в чате', 'chat with us'),
+    '/me/zone': u.zone.enabled ? `${tr('включена', 'on')} · ${u.zone.radius} ${tr('км', 'km')}` : tr('выключена', 'off'),
+    '/me/family': u.family_id ? tr('подключена', 'on') : tr('не подключена', 'not set up'),
+    '/me/registry': count(vals.items.length, 'предмет', 'предмета', 'предметов', 'item', 'items'),
+    '/me/profile': u.email || u.phone || '',
+    '/me/rewards': `${levelName(u.level)} · ${u.points}`,
+    '/me/payments': tr('чеки и подписки', 'receipts and plans'),
+    '/me/settings': tr('язык, уведомления, выход', 'language, notifications, sign out')
+  };
+  const rows = h`<div class="acc-rows">${ME_GROUPS().map(([title, items]) => { const list = items.filter(([href]) => href !== '/me'); return h`<section class="acc-rgrp">${title ? h`<h3>${title}</h3>` : ''}
+    <div class="acc-rlist">${list.map(([href, ic, label, n]) => h`<a href="#${href}"><span class="acc-ric">${icon(ic)}</span><span class="grow"><b>${label}</b>${sub[href] ? h`<small>${sub[href]}</small>` : ''}</span>${cntBadge(n)}${icon('chevR', 'ic-sm acc-chev')}</a>`)}</div></section>`; })}</div>`;
   mount(el, h`<div class="profile-card rise">${avatar(u)}<div class="grow" style="min-width:0">
       <h2 style="font-size:22px">${u.name}</h2>
       <div class="row-wrap" style="margin-top:8px"><span class="lvl">${icon('award', 'ic-sm')}${levelName(u.level)} · ${u.points}</span><span class="lvl">${ROLE(u.role)}${u.org_name ? ' · ' + u.org_name : ''}</span></div>
       <div class="lvl-bar"><i style="width:${lp.pct}%"></i></div>
       <div class="xs" style="opacity:.6;margin-top:6px">${lp.next ? `${tr(`До статуса «${levelName(lp.next)}»`, `To “${levelName(lp.next)}”`)}: ${lp.next.min - u.points} ${tr(plural(lp.next.min - u.points, 'балл', 'балла', 'баллов'), lp.next.min - u.points === 1 ? 'point' : 'points')}` : tr('Максимальный статус', 'Top status')}</div></div></div>
     ${['moderator', 'admin'].includes(u.role) ? h`<a class="em-strip" style="margin-top:14px;background:linear-gradient(110deg,#0e0f13,#2a2c33)" href="#/admin">${icon('shield')}<div class="grow"><b>${tr('Панель администратора', 'Admin panel')}</b></div>${icon('chevR')}</a>` : ''}
-    <div class="tiles" style="margin-top:16px">
+    ${rows}
+    <div class="tiles acc-tiles" style="margin-top:16px">
       ${[['#/me/apps', 'file', t('me.apps', 'Мои заявки', 'My reports'), apps.items.length, apps.items.filter((a) => a.match_count).length],
         ['#/chats', 'chat', t('chats.title', 'Сообщения', 'Messages'), chats.items.length, u.unreadChats],
         ['#/me/saved', 'bookmark', t('me.saved', 'Сохранённые', 'Saved'), saved.items.length, 0],
@@ -1567,46 +1599,57 @@ function contactSheet(type, u, done) {
   };
   step1();
 }
+const ZONE_R = [1, 3, 5, 10, 20];
 async function meZone(el, u) {
-  const z = Object.assign({}, u.zone); if (!z.radius) z.radius = 3;
-  mount(el, h`<div class="grid-2" style="gap:18px;align-items:start">
-    <div class="stack">
-      <h2>${t('me.zone', 'Зона оповещений', 'Alert zone')}</h2>
-      <p class="muted">${t('me.zone_t', 'Район, где вы готовы помочь: дом, работа, маршрут. Если рядом начнётся экстренный поиск — придёт push.', 'Where you can help: home, work, your route. If an emergency search starts nearby, you get a push.')}</p>
-      <label class="card pad row between" style="cursor:pointer"><div><b>${t('me.zone_on', 'Получать экстренные оповещения', 'Receive emergency alerts')}</b><div class="xs muted">${t('me.zone_on_t', 'Push без персональных данных', 'Push without personal data')}</div></div><span class="switch"><input type="checkbox" id="zon" ${z.enabled ? 'checked' : ''}></span></label>
-      <div><div class="row between small"><span>${t('wiz.radius', 'Радиус', 'Radius')}</span><b id="zrv">${z.radius} ${tr('км', 'km')}</b></div><input class="range" type="range" min="1" max="20" step="1" value="${z.radius}" id="zr" aria-label="${tr('Радиус', 'Radius')}"></div>
-      <div id="pushHint"></div>
-      <button class="btn" id="zs">${tr('Сохранить зону', 'Save zone')}</button>
+  const z = Object.assign({}, u.zone);
+  // радиус — одна из кнопок; старое значение вне списка округляем до ближайшего
+  z.radius = ZONE_R.reduce((a, b) => (Math.abs(b - (z.radius || 3)) < Math.abs(a - (z.radius || 3)) ? b : a));
+  mount(el, h`<div class="zone stack">
+    <div><h2>${t('me.zone', 'Зона оповещений', 'Alert zone')}</h2>
+      <p class="muted" style="margin-top:8px">${t('me.zone_t', 'Район, где вы готовы помочь: дом, работа, маршрут. Если рядом начнётся экстренный поиск — придёт push.', 'Where you can help: home, work, your route. If an emergency search starts nearby, you get a push.')}</p></div>
+    <label class="card pad row between zone-on"><div><b>${t('me.zone_on', 'Получать экстренные оповещения', 'Receive emergency alerts')}</b><div class="xs muted">${t('me.zone_on_t', 'Push без персональных данных', 'Push without personal data')}</div></div><span class="switch"><input type="checkbox" id="zon" ${z.enabled ? 'checked' : ''}></span></label>
+    <div class="card pad zone-card">
+      <div class="zone-r-head"><b>${t('wiz.radius', 'Радиус', 'Radius')}</b><span class="small muted">${tr('Отметьте центр на карте — дом, работу или место, где часто бываете', 'Mark the centre on the map — home, work or a place you often visit')}</span></div>
+      <div class="rchips" role="radiogroup" aria-label="${t('wiz.radius', 'Радиус', 'Radius')}">${ZONE_R.map((r) => h`<button type="button" class="rchip ${r === z.radius ? 'on' : ''}" role="radio" aria-checked="${r === z.radius ? 'true' : 'false'}" data-r="${r}">${r} ${tr('км', 'km')}</button>`)}</div>
+      <div class="picker zone-map" id="zp"></div>
     </div>
-    <div class="picker" id="zp" style="height:420px"></div></div>`);
-  const pk = mapPicker($('#zp', el), z.lat ? { lat: z.lat, lng: z.lng } : null, (v) => { z.lat = v.lat; z.lng = v.lng; }, { radius: () => +$('#zr', el).value });
+    <div id="pushHint"></div>
+    <button class="btn btn-lg zone-save" id="zs">${icon('check')}${tr('Сохранить зону', 'Save zone')}</button>
+  </div>`);
+  const pk = mapPicker($('#zp', el), z.lat ? { lat: z.lat, lng: z.lng } : null, (v) => { z.lat = v.lat; z.lng = v.lng; }, { radius: () => z.radius });
   onLeave(() => pk.map.remove());
-  $('#zr', el).oninput = (e) => { $('#zrv', el).textContent = e.target.value + ' ' + tr('км', 'km'); pk.updateRadius(); };
+  $$('.rchip', el).forEach((b) => b.onclick = () => {
+    z.radius = +b.dataset.r;
+    $$('.rchip', el).forEach((x) => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); });
+    pk.updateRadius();
+  });
   const ps = await pushStatus();
   if (ps !== 'on') mount($('#pushHint', el), h`<div class="note note-amber small">${icon('bell')}<div>${t('me.push_off', 'Push-уведомления на этом устройстве выключены.', 'Push notifications are off on this device.')} <a class="link" href="#/me/settings">${tr('Включить', 'Enable')}</a></div></div>`);
   $('#zs', el).onclick = (e) => busy(e.currentTarget, async () => {
-    try { await PATCH('/me', { zone: { enabled: $('#zon', el).checked, lat: z.lat, lng: z.lng, radius: +$('#zr', el).value } }); await refreshMe(); toast(tr('Зона сохранена', 'Zone saved')); } catch (er) { toastErr(er); }
+    try { await PATCH('/me', { zone: { enabled: $('#zon', el).checked, lat: z.lat, lng: z.lng, radius: z.radius } }); await refreshMe(); toast(tr('Зона сохранена', 'Zone saved')); } catch (er) { toastErr(er); }
   });
 }
 async function meFamily(el) {
   const { family, invites } = await GET('/family');
-  mount(el, h`<div style="max-width:760px" class="stack-lg">
+  const PROS = [['file', tr('Общие заявки', 'Shared reports'), tr('Заявку о пропаже видят и редактируют все члены семьи — не нужно пересылать данные.', 'Every family member can see and edit a lost report — no forwarding needed.')],
+    ['chat', tr('Общая переписка', 'Shared chats'), tr('Ответы нашедших приходят всей семье, никто не пропустит важное сообщение.', 'Replies from finders reach the whole family, so nobody misses a message.')],
+    ['shield', tr('Приватно', 'Private'), tr('Участники видят только семейные заявки. Личные данные остаются закрытыми.', 'Members see only family reports. Personal data stays private.')]];
+  mount(el, h`<div class="fam stack-lg">
     <div><h2>${t('me.family', 'Семья', 'Family')}</h2><p class="muted" style="margin-top:8px">${t('me.family_t', 'Общие заявки и переписку по ним видят и ведут все члены семьи.', 'Shared reports and their chats are visible to and managed by the whole family.')}</p></div>
-    ${invites.length ? h`<div class="stack">${invites.map((i) => h`<div class="card pad row"><div class="grow"><b>${i.name}</b><div class="small muted">${tr('Приглашение от', 'Invitation from')} ${i.owner}</div></div><button class="btn btn-sm" data-acc="${i.id}">${tr('Принять', 'Accept')}</button><button class="btn btn-ghost btn-sm" data-dec="${i.id}">${tr('Отклонить', 'Decline')}</button></div>`)}</div>` : ''}
-    ${family ? h`<div class="card pad stack">
-        <div class="row between"><h3>${family.name}</h3>${family.is_owner ? h`<span class="chip">${tr('Вы владелец', 'Owner')}</span>` : ''}</div>
-        <div class="list">${family.members.map((m) => h`<div>${avatar(m, 'ava-sm')}<div class="grow"><b>${m.name}</b><div class="xs muted">${m.owner ? tr('владелец', 'owner') : tr('участник', 'member')}</div></div>${family.is_owner && !m.owner ? h`<button class="btn btn-ghost btn-xs" data-rm="${m.id}">${tr('Исключить', 'Remove')}</button>` : ''}</div>`)}
-          ${family.pending.map((p) => h`<div>${icon('mail')}<div class="grow"><b>${p.target}</b><div class="xs muted">${tr('приглашение отправлено', 'invitation sent')}</div></div></div>`)}</div>
-        ${family.is_owner ? h`<form class="row" id="inv"><input class="input grow" name="target" placeholder="${t('me.invite_ph', 'E-mail или телефон родственника', 'Relative\'s e-mail or phone')}" required><button class="btn">${tr('Пригласить', 'Invite')}</button></form>` : ''}
-        <button class="btn btn-danger btn-sm" id="leave" style="align-self:flex-start">${family.is_owner ? t('me.family_del', 'Удалить семейный аккаунт', 'Delete family account') : t('me.family_leave', 'Выйти из семьи', 'Leave family')}</button>
-      </div>`
-    : h`<form class="card pad stack" id="mk"><label class="field"><span>${t('me.family_name', 'Название', 'Name')}</span><input name="name" placeholder="${tr('Семья Ивановых', 'The Smiths')}" maxlength="60"></label><button class="btn">${icon('users')}${t('me.family_create', 'Создать семейный аккаунт', 'Create family account')}</button></form>
-      <div class="steps3" style="margin-top:0">
-        ${[['file', tr('Общие заявки', 'Shared reports'), tr('Заявку о пропаже видят и редактируют все члены семьи — не нужно пересылать данные.', 'Every family member can see and edit a lost report — no forwarding needed.')],
-          ['chat', tr('Общая переписка', 'Shared chats'), tr('Ответы нашедших приходят всей семье, никто не пропустит важное сообщение.', 'Replies from finders reach the whole family, so nobody misses a message.')],
-          ['shield', tr('Приватно', 'Private'), tr('Участники видят только семейные заявки. Личные данные остаются закрытыми.', 'Members see only family reports. Personal data stays private.')]]
-          .map(([ic, ti, tx], i) => h`<div class="step3"><span class="step3-n" data-n="0${i + 1}" aria-hidden="true"></span><span class="step3-ic">${icon(ic, '', 'duo')}</span><h4>${ti}</h4><p>${tx}</p></div>`)}
-      </div>`}
+    ${invites.length ? h`<div class="stack">${invites.map((i) => h`<div class="card pad fam-inv">${icon('mail')}<div class="grow"><b>${i.name}</b><div class="small muted">${tr('Приглашение от', 'Invitation from')} ${i.owner}</div></div>
+      <div class="fam-inv-act"><button class="btn btn-sm" data-acc="${i.id}">${tr('Принять', 'Accept')}</button><button class="btn btn-ghost btn-sm" data-dec="${i.id}">${tr('Отклонить', 'Decline')}</button></div></div>`)}</div>` : ''}
+    ${family ? h`<section class="card pad fam-card">
+        <div class="fam-top"><span class="fam-ic">${icon('users')}</span><div class="grow"><h3>${family.name}</h3><div class="small muted">${family.members.length} ${tr(plural(family.members.length, 'участник', 'участника', 'участников'), family.members.length === 1 ? 'member' : 'members')}</div></div>${family.is_owner ? h`<span class="chip">${tr('Вы владелец', 'Owner')}</span>` : ''}</div>
+        <div class="fam-grid">${[...family.members].sort((a, b) => (b.owner ? 1 : 0) - (a.owner ? 1 : 0)).map((m) => h`<div class="fam-m">${avatar(m, 'ava-sm')}<div class="grow"><b class="ellipsis">${m.name}</b><div class="xs muted">${m.owner ? tr('владелец', 'owner') : tr('участник', 'member')}</div></div>${family.is_owner && !m.owner ? h`<button class="btn btn-ghost btn-xs" data-rm="${m.id}" aria-label="${tr('Исключить', 'Remove')}: ${m.name}">${tr('Исключить', 'Remove')}</button>` : ''}</div>`)}
+          ${family.pending.map((p) => h`<div class="fam-m fam-pend"><span class="fam-pend-ic">${icon('mail')}</span><div class="grow"><b class="ellipsis">${p.target}</b><div class="xs muted">${tr('приглашение отправлено', 'invitation sent')}</div></div></div>`)}</div>
+        ${family.is_owner ? h`<form class="fam-invite" id="inv"><label class="field"><span>${tr('Пригласить родственника', 'Invite a relative')}</span><input class="input" name="target" placeholder="${t('me.invite_ph', 'E-mail или телефон родственника', 'Relative\'s e-mail or phone')}" required autocomplete="off"></label><button class="btn">${icon('send')}${tr('Пригласить', 'Invite')}</button></form>` : ''}
+        <div class="fam-foot"><button class="btn btn-danger btn-sm" id="leave">${family.is_owner ? t('me.family_del', 'Удалить семейный аккаунт', 'Delete family account') : t('me.family_leave', 'Выйти из семьи', 'Leave family')}</button></div>
+      </section>`
+    : h`<section class="card pad fam-card">
+        <div class="fam-top"><span class="fam-ic">${icon('users')}</span><div class="grow"><h3>${tr('Семейный аккаунт', 'Family account')}</h3><div class="small muted">${tr('Создайте его и пригласите близких по e-mail или телефону', 'Create it and invite relatives by e-mail or phone')}</div></div></div>
+        <ul class="fam-pros">${PROS.map(([ic, ti, tx]) => h`<li><span class="fam-pro-ic">${icon(ic)}</span><div><b>${ti}</b><span>${tx}</span></div></li>`)}</ul>
+        <form class="fam-invite" id="mk"><label class="field"><span>${t('me.family_name', 'Название', 'Name')}</span><input class="input" name="name" placeholder="${tr('Семья Ивановых', 'The Smiths')}" maxlength="60"></label><button class="btn">${icon('plus')}${t('me.family_create', 'Создать семейный аккаунт', 'Create family account')}</button></form>
+      </section>`}
   </div>`);
   const reload = () => meFamily(el).then(() => refreshMe());
   $$('[data-acc]', el).forEach((b) => b.onclick = async () => { try { await POST(`/family/invites/${b.dataset.acc}/accept`); toast(tr('Вы в семейном аккаунте', 'You joined the family')); reload(); } catch (e) { toastErr(e); } });
@@ -1621,7 +1664,7 @@ async function meRegistry(el) {
   const ST = { ok: [tr('В порядке', 'OK'), 'chip-ok'], stolen: [tr('Украдено', 'Stolen'), 'chip-lost'], lost: [tr('Утеряно', 'Lost'), 'chip-warn'] };
   mount(el, h`<div class="sec-head"><div><h2>${t('me.registry', 'Реестр ценностей', 'Valuables')}</h2><p>${t('me.reg_t', 'Фото, номера и приметы. При краже отметьте «украдено» — предмет появится в проверке.', 'Photos, serials and marks. If stolen, mark it — it will show up in the public check.')}</p></div>
     <button class="btn btn-sm" id="add">${icon('plus')}${tr('Добавить', 'Add')}</button></div>
-    <div class="note small" style="margin-bottom:14px">${icon('gem')}<div>${tr('Использовано', 'Used')} ${items.length} / ${limit}. ${limit < 100 ? h`<a class="link" href="#/tariffs">${t('me.reg_up', 'Расширить до 100 предметов', 'Extend to 100 items')}</a>` : ''} · ${t('me.reg_disclaimer', 'Реестр хранит сведения со слов владельца, экспертиза подлинности не проводится.', 'Data is as stated by the owner; authenticity is not verified.')}</div></div>
+    <div class="note small" style="margin-bottom:14px">${icon('gem')}<div><b>${tr('Использовано', 'Used')} ${items.length} / ${limit}</b>${limit < 100 ? h` · <a class="link" href="#/tariffs">${t('me.reg_up', 'Расширить до 100 предметов', 'Extend to 100 items')}</a>` : ''}<div class="xs muted" style="margin-top:4px">${t('me.reg_disclaimer', 'Реестр хранит сведения со слов владельца, экспертиза подлинности не проводится.', 'Data is as stated by the owner; authenticity is not verified.')}</div></div></div>
     ${items.length ? h`<div class="apps">${items.map((v, i) => h`<div class="app-card reg-card rise" style="--i:${i}"><div class="media ${v.photos[0] ? '' : 'no-photo'}">${v.photos[0] ? h`<img src="${v.photos[0]}" alt="">` : mediaPh('things', '', 'gem')}<div class="tags"><span class="chip ${ST[v.status][1]}">${ST[v.status][0]}</span></div></div>
       <div class="body"><h3>${v.title}</h3>${v.serials ? h`<div class="xs muted">№ ${v.serials}</div>` : ''}
       <div class="reg-acts"><div class="reg-st">${v.status === 'ok' ? h`<button class="btn btn-danger btn-xs" data-st="${v.id}" data-v="stolen">${tr('Украдено', 'Stolen')}</button><button class="btn btn-ghost btn-xs" data-st="${v.id}" data-v="lost">${tr('Утеряно', 'Lost')}</button>` : h`<button class="btn btn-ghost btn-xs" data-st="${v.id}" data-v="ok">${tr('Нашлось', 'Recovered')}</button>`}</div>
