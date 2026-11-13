@@ -58,66 +58,44 @@ const initials = (n) => String(n || '?').split(/\s+/).map((x) => x[0]).slice(0, 
 const avatar = (u, cls = '') => h`<div class="ava ${cls}" style="${u.avatar ? `background-image:url('${esc(u.avatar)}')` : ''}">${u.avatar ? '' : initials(u.name)}</div>`;
 
 /* =================== РЕКЛАМНАЯ СТРОКА =================== */
-// Тонкая полоса на всю ширину сразу под шапкой, над блоком «Поиск пропавших…». Объявления сменяют друг друга сами (плавно, не чаще раза в 6 с),
-// «›» или свайп — следующее. Текст, который не помещается (узкий экран), сначала спокойно проезжает до конца — как бегущая строка.
-// Пауза при наведении мыши, фокусе, в фоновой вкладке и вне экрана; при «уменьшить движение» — без автопрокрутки, только вручную.
+// Бегущая строка на всю ширину сразу под шапкой, над «Поиск пропавших…»: объявления непрерывно и плавно едут справа налево по кругу.
+// Пауза при наведении мыши и при фокусе с клавиатуры, вне экрана — тоже стоит; при «уменьшить движение» строка не едет, её можно пролистать пальцем.
 // Метка «Реклама», рекламодатель и токен erid — по закону о рекламе. Объявления задаёт администратор: админка → «Реклама».
-const AD_EVERY = 6000, AD_SPEED = 38; // мс на объявление; px/с бегущей строки
+const AD_SPEED = 42; // px/с — спокойно, текст легко читается на ходу
 function adLine() {
   const ads = state.config?.ads || [];
   if (!ads.length) return '';
   const who = (a) => [a.advertiser ? tr('Рекламодатель: ', 'Advertiser: ') + a.advertiser : '', a.erid ? 'erid: ' + a.erid : ''].filter(Boolean).join('. ');
-  return h`<aside class="adline" id="adLine" aria-label="${tr('Реклама', 'Advertising')}" ${ads.length > 1 ? raw(`aria-roledescription="${esc(tr('карусель', 'carousel'))}"`) : ''}><div class="wrap adline-in">
-    <span class="ad-tag" title="${who(ads[0])}">${tr('Реклама', 'Ad')}</span>
-    <div class="ad-vp">${ads.map((a, i) => h`<a class="ad-item ${i ? '' : 'on'}" href="${a.url}" target="_blank" rel="noopener sponsored" data-who="${who(a)}" ${i ? raw('tabindex="-1" aria-hidden="true"') : ''}>
-      <b>${a.host}</b><span class="ad-tx"><span>${state.lang === 'en' ? a.en : a.ru}</span></span>${icon('arrowUR', 'ic-sm ad-go')}</a>`)}</div>
-    ${ads.length > 1 ? h`<button type="button" class="ad-next" aria-label="${tr('Следующее объявление', 'Next ad')}"><span>${tr('Листать', 'Next')}</span>${icon('chevR', 'ic-sm')}</button>` : ''}
+  return h`<aside class="adline" id="adLine" aria-label="${tr('Реклама', 'Advertising')}"><div class="wrap adline-in">
+    <span class="ad-tag" title="${[...new Set(ads.map(who).filter(Boolean))].join('; ')}">${tr('Реклама', 'Ad')}</span>
+    <div class="ad-vp"><div class="ad-track"><div class="ad-run">${ads.map((a) => h`<a class="ad-item" href="${a.url}" target="_blank" rel="noopener sponsored" title="${who(a)}"><b>${a.host}</b><span class="ad-tx">${state.lang === 'en' ? a.en : a.ru}</span>${icon('arrowUR', 'ic-sm ad-go')}</a><i class="ad-sep" aria-hidden="true"></i>`)}</div></div></div>
   </div></aside>`;
 }
 function startAdLine(view) {
   const box = $('#adLine', view); if (!box) return;
-  const items = $$('.ad-item', box), tag = $('.ad-tag', box), many = items.length > 1;
-  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let cur = 0, timer = 0, runT = 0, dwell = 0, hover = false, focus = false, seen = true;
-  // бегущая строка для длинного текста: через секунду доезжает до конца; возвращает, сколько показывать объявление (0 — текст помещается)
-  const reset = (it) => { const tx = $('.ad-tx', it); tx.firstElementChild.style.transition = 'none'; tx.firstElementChild.style.transform = ''; tx.classList.remove('run'); return tx; };
-  const run = (it) => {
-    clearTimeout(runT); const tx = reset(it), line = tx.firstElementChild;
-    const over = still ? 0 : tx.scrollWidth - tx.clientWidth;
-    if (over <= 2) return 0;
-    tx.classList.add('run');
-    const dist = over + 20, dur = Math.max(2, dist / AD_SPEED);
-    runT = setTimeout(() => { line.style.transition = `transform ${dur}s linear`; line.style.transform = `translateX(${-dist}px)`; }, 1200);
-    return 1200 + dur * 1000 + 1800;
+  const vp = $('.ad-vp', box), track = $('.ad-track', box), run = $('.ad-run', box);
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { box.classList.add('still'); return; }
+  const base = run.innerHTML, count = run.querySelectorAll('.ad-item').length;
+  // повторы объявлений — только для глаз: вне Tab и скрыты от экранных дикторов
+  const quiet = (root, from = 0) => $$('.ad-item', root).forEach((a, i) => { if (i >= from) { a.tabIndex = -1; a.setAttribute('aria-hidden', 'true'); } });
+  const build = () => {
+    box.classList.remove('go');
+    $$('.ad-run.copy', track).forEach((e) => e.remove());
+    run.innerHTML = base;
+    // группа объявлений не короче видимой полосы — иначе в бегущей строке появятся пустоты
+    for (let n = 1; run.scrollWidth < vp.clientWidth + 40 && n < 12; n++) run.insertAdjacentHTML('beforeend', base);
+    quiet(run, count);
+    const copy = run.cloneNode(true); copy.classList.add('copy'); copy.setAttribute('aria-hidden', 'true'); quiet(copy); track.appendChild(copy);
+    track.style.setProperty('--ad-dur', (run.getBoundingClientRect().width / AD_SPEED).toFixed(1) + 's');
+    requestAnimationFrame(() => box.classList.add('go'));
   };
-  const show = (n) => {
-    const prev = items[cur]; cur = (n + items.length) % items.length; const next = items[cur];
-    if (prev === next) return;
-    prev.classList.remove('on', 'back'); prev.classList.add('out'); prev.setAttribute('aria-hidden', 'true'); prev.tabIndex = -1;
-    next.classList.remove('out', 'back'); next.classList.add('on'); next.removeAttribute('aria-hidden'); next.removeAttribute('tabindex');
-    setTimeout(() => { if (prev.classList.contains('out')) { prev.classList.replace('out', 'back'); reset(prev); } }, 600);
-    dwell = run(next);
-    tag.title = next.dataset.who || '';
-  };
-  const tick = () => {
-    clearTimeout(timer);
-    if (still || hover || focus || !seen || document.hidden || (!many && !dwell)) return;
-    timer = setTimeout(() => { if (many) show(cur + 1); else dwell = run(items[0]); tick(); }, Math.max(many ? AD_EVERY : 0, dwell));
-  };
-  if (many) $('.ad-next', box).onclick = () => { const had = document.activeElement?.classList.contains('ad-item'); show(cur + 1); if (had) items[cur].focus(); tick(); };
-  box.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') { hover = true; tick(); } });
-  box.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') { hover = false; tick(); } });
-  box.addEventListener('focusin', () => { focus = true; tick(); });
-  box.addEventListener('focusout', (e) => { if (!box.contains(e.relatedTarget)) { focus = false; tick(); } });
-  let x0 = null;
-  box.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; }, { passive: true });
-  box.addEventListener('touchend', (e) => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (many && Math.abs(dx) > 40) { show(cur + (dx < 0 ? 1 : -1)); tick(); } }, { passive: true });
-  const io = 'IntersectionObserver' in window ? new IntersectionObserver(([en]) => { seen = en.isIntersecting; tick(); }) : null;
+  build();
+  let w = vp.clientWidth;
+  const ro = 'ResizeObserver' in window ? new ResizeObserver(() => { if (Math.abs(vp.clientWidth - w) > 24) { w = vp.clientWidth; build(); } }) : null;
+  ro?.observe(vp);
+  const io = 'IntersectionObserver' in window ? new IntersectionObserver(([en]) => box.classList.toggle('off', !en.isIntersecting)) : null;
   io?.observe(box);
-  const vis = () => tick(); document.addEventListener('visibilitychange', vis);
-  onLeave(() => { clearTimeout(timer); clearTimeout(runT); io?.disconnect(); document.removeEventListener('visibilitychange', vis); });
-  dwell = run(items[0]);
-  tick();
+  onLeave(() => { ro?.disconnect(); io?.disconnect(); });
 }
 
 /* =================== ГЛАВНАЯ =================== */

@@ -700,28 +700,30 @@ describe('Навигация и права доступа', () => {
     assert.equal(r.smallColor, r.btnColor, 'значок в кнопке — цвета текста кнопки');
     await page.context().close();
   });
-  it('рекламная строка: тонкая, между шапкой и блоком поиска; «›» листает; ссылка рекламная; длинный текст на телефоне бежит', async () => {
+  it('рекламная строка: бегущая, на всю ширину сразу под шапкой, над «Поиск пропавших…»; рекламные ссылки; повторы вне Tab', async () => {
     for (const vp of [{ width: 1280, height: 800 }, { width: 360, height: 740 }]) {
       const page = await newPage({ viewport: vp, touch: vp.width < 600 });
       await open(page, '#/');
       const line = page.locator('#adLine');
       const box = await line.boundingBox(), hero = await page.locator('.hero-blk').boundingBox(), top = await page.locator('#top').boundingBox();
-      assert.ok(box.height <= 46, 'тонкая: ' + box.height);
+      assert.ok(box.height <= 44, 'тонкая: ' + box.height);
       assert.ok(Math.abs(box.y - (top.y + top.height)) <= 1 && box.y + box.height <= hero.y, 'сразу под шапкой, над «Поиск пропавших…»');
       assert.ok(Math.abs(box.width - vp.width) <= 1, 'на всю ширину: ' + box.width);
       assert.equal(await page.locator('#adLine .ad-tag').innerText(), 'Реклама');
-      const on = page.locator('#adLine .ad-item.on');
-      assert.equal(await on.locator('b').innerText(), 'kadryzdes.ru');
-      assert.equal(await on.getAttribute('target'), '_blank');
-      assert.match(await on.getAttribute('rel'), /sponsored/);
-      assert.match(await on.getAttribute('href'), /^https:\/\/kadryzdes\.ru\//);
-      assert.equal(await page.locator('#adLine .ad-item:not(.on)[tabindex="-1"]').count(), 2, 'скрытые объявления вне Tab');
-      const first = await on.locator('.ad-tx').innerText();
-      await page.locator('#adLine .ad-next').click();
-      await page.waitForFunction((t) => document.querySelector('#adLine .ad-item.on .ad-tx').textContent !== t, first);
-      if (vp.width < 600) { // текст не помещается — через ~1 с начинает плавно ехать влево
-        await page.waitForFunction(() => { const s = document.querySelector('#adLine .ad-item.on .ad-tx > span'); return new DOMMatrix(getComputedStyle(s).transform).m41 < -5; }, null, { timeout: 5000 });
-      }
+      const first = page.locator('#adLine .ad-run:not(.copy) .ad-item').first();
+      assert.equal(await first.locator('b').innerText(), 'kadryzdes.ru');
+      assert.equal(await first.getAttribute('target'), '_blank');
+      assert.match(await first.getAttribute('rel'), /sponsored/);
+      assert.match(await first.getAttribute('href'), /^https:\/\/kadryzdes\.ru\//);
+      // в Tab — каждое объявление один раз, повторы для бегущей строки скрыты
+      assert.equal(await page.locator('#adLine .ad-item:not([tabindex="-1"])').count(), 3);
+      assert.ok(await page.locator('#adLine .ad-run.copy[aria-hidden="true"]').count() === 1, 'копия для бесшовного круга');
+      // строка едет справа налево
+      await page.waitForSelector('#adLine.go');
+      const x0 = await page.evaluate(() => new DOMMatrix(getComputedStyle(document.querySelector('#adLine .ad-track')).transform).m41);
+      await page.waitForTimeout(700);
+      const x1 = await page.evaluate(() => new DOMMatrix(getComputedStyle(document.querySelector('#adLine .ad-track')).transform).m41);
+      assert.ok(x1 < x0 - 5, `строка движется: ${x0} → ${x1}`);
       await noOverflow(page, 'рекламная строка ' + vp.width);
       assert.deepEqual(page.errors, []);
       await page.context().close();

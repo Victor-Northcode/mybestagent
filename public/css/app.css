@@ -1920,33 +1920,6 @@ details.legal-sec[open]::details-content { block-size: auto; }
   .top .brand .brand-name { font-size: 12px; }
 }
 
-/* =========================================================
-   Рекламная строка на главной: тонко, спокойно, не мешает
-   ========================================================= */
-.adline { position: relative; display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 4px 0 12px; border-radius: 12px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font-size: 14px; line-height: 1.2; min-width: 0; overflow: hidden; }
-.ad-tag { flex: none; padding: 3px 7px; border-radius: 6px; font-size: 11.5px; font-weight: 600; color: var(--muted); background: var(--surface-2); cursor: help; }
-.ad-vp { position: relative; flex: 1; min-width: 0; height: 100%; overflow: hidden; }
-.ad-item { position: absolute; inset: 0; display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--muted); text-decoration: none; border-radius: 8px;
-  opacity: 0; transform: translateY(100%); transition: transform .55s cubic-bezier(.2, .7, .2, 1), opacity .45s ease; pointer-events: none; }
-.ad-item.on { opacity: 1; transform: none; pointer-events: auto; }
-.ad-item.out { opacity: 0; transform: translateY(-100%); }
-.ad-item.back { transition: none; }
-.ad-item b { flex: none; color: var(--ink); font-weight: 650; }
-.ad-tx { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ad-go { flex: none; opacity: .55; transition: opacity .2s, transform .2s; }
-.ad-item:hover .ad-tx { color: var(--ink); }
-.ad-item:hover .ad-go { opacity: 1; transform: translate(1px, -1px); }
-.ad-item:focus-visible { outline: 2px solid var(--blue-t); outline-offset: -2px; }
-.ad-next { flex: none; display: grid; place-items: center; width: 34px; height: 32px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); cursor: pointer; transition: background .2s, color .2s; }
-.ad-next:hover { background: var(--surface-2); color: var(--ink); }
-.ad-next:focus-visible { outline: 2px solid var(--blue-t); outline-offset: 0; }
-@media (max-width: 640px) { .adline { height: 38px; gap: 8px; padding-left: 10px; font-size: 13.5px; } .ad-tag { font-size: 11px; padding: 2px 6px; } }
-@media (max-width: 380px) { .ad-go { display: none; } }
-@media (prefers-reduced-motion: reduce) { .ad-item { transition: opacity .2s ease; transform: none !important; } }
-@media print { .adline { display: none; } }
-/* бегущая строка: длинный текст объявления плавно доезжает до конца, край мягко растворяется */
-.ad-tx.run { text-overflow: clip; -webkit-mask-image: linear-gradient(90deg, transparent, #000 8px, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(90deg, transparent, #000 8px, #000 calc(100% - 22px), transparent); }
-.ad-tx.run > span { display: inline-block; will-change: transform; }
 /* ноутбуки 1040–1099 px: название одной строкой, без подписи; уже 1040 px — только знак, как было (иначе не помещаются значки кабинета) */
 @media (min-width: 1040px) and (max-width: 1099px) {
   .top .brand > .brand-name { display: block; font-size: 16px; }
@@ -2032,21 +2005,6 @@ details.legal-sec[open]::details-content { block-size: auto; }
 @media (min-width: 760px) and (max-width: 859px) { .footer-grid > :first-child, .footer-grid > :last-child { grid-column: 1 / -1; } }
 .footer-grid a { overflow-wrap: break-word; }
 
-/* рекламная строка — полоса на всю ширину под шапкой: объявление по центру, справа «Листать ›» */
-.adline { height: auto; padding: 0; border-radius: 0; overflow: visible; display: block; font-size: 14.5px;
-  background: color-mix(in srgb, var(--search) 5%, var(--surface)); box-shadow: none; border-bottom: 1px solid var(--line); }
-.adline-in { display: flex; align-items: center; gap: 12px; height: 44px; min-width: 0; }
-.adline .ad-item { justify-content: center; }
-.adline .ad-next { width: auto; height: 32px; padding: 0 8px 0 12px; gap: 4px; display: inline-flex; align-items: center; font: 600 13.5px/1 var(--font); color: var(--muted); }
-.adline .ad-next:hover { background: color-mix(in srgb, var(--search) 9%, var(--surface)); color: var(--ink); }
-.adline .ad-next .ic { width: 16px; height: 16px; }
-@media (max-width: 640px) {
-  .adline { font-size: 13.5px; }
-  .adline-in { height: 42px; gap: 8px; }
-  .adline .ad-item { justify-content: flex-start; }
-  .adline .ad-next { padding: 0 6px; }
-  .adline .ad-next span { display: none; }
-}
 
 /* карта: источник данных — маленький значок «©», подпись по нажатию */
 .osm-attr { display: flex; align-items: center; gap: 4px; margin: 0 8px 8px 0 !important; font: 500 11px/1.2 var(--font); }
@@ -2055,7 +2013,6 @@ details.legal-sec[open]::details-content { block-size: auto; }
 .osm-i:focus-visible { outline: 2px solid var(--blue-t); outline-offset: 1px; }
 .osm-attr a { display: none; padding: 3px 7px; border-radius: 7px; color: var(--muted) !important; text-decoration: none; background: color-mix(in srgb, var(--surface) 90%, transparent); box-shadow: 0 0 0 1px var(--line); }
 .osm-attr.open a { display: inline-block; }
-.adline .ad-tag { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
 
 /* =========================================================
    Телефон: шапка и нижнее меню до самых краёв экрана
@@ -2106,3 +2063,35 @@ select[aria-expanded="true"] { border-color: var(--search) !important; }
 .sort-sel:has(select[aria-expanded="true"]) .chev { transform: translateY(-50%) rotate(-90deg); }
 .sort-sel .chev { transition: transform .2s var(--ease); }
 @media (prefers-reduced-motion: reduce) { .sel-pop { animation: none; } .opt-ck { transition: none; } }
+
+/* =========================================================
+   Рекламная строка: бегущая, на всю ширину под шапкой
+   ========================================================= */
+.adline { background: color-mix(in srgb, var(--search) 5%, var(--surface)); border-bottom: 1px solid var(--line); font-size: 14.5px; line-height: 1.2; }
+.adline-in { display: flex; align-items: center; gap: 12px; height: 42px; min-width: 0; }
+.ad-tag { flex: none; padding: 3px 8px; border-radius: 6px; font: 600 11.5px/1.2 var(--font); color: var(--muted); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); cursor: help; }
+.ad-vp { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent); }
+.ad-track { display: flex; width: max-content; will-change: transform; }
+.ad-run { display: flex; align-items: center; flex: none; }
+.adline.go .ad-track { animation: adRun var(--ad-dur, 30s) linear infinite; }
+.adline.off .ad-track { animation-play-state: paused; }
+@media (hover: hover) { .adline:hover .ad-track { animation-play-state: paused; } }
+.adline:focus-within .ad-track { animation-play-state: paused; }
+@keyframes adRun { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.ad-item { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 4px; border-radius: 8px; white-space: nowrap; color: var(--muted); text-decoration: none; }
+.ad-item b { color: var(--search-2); font-weight: 650; }
+.ad-go { flex: none; opacity: .5; transition: opacity .2s, transform .2s; }
+.ad-item:hover .ad-tx { color: var(--ink); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--ink) 30%, transparent); text-underline-offset: 3px; }
+.ad-item:hover .ad-go { opacity: 1; transform: translate(1px, -1px); }
+.ad-item:focus-visible { outline: 2px solid var(--blue-t); outline-offset: -2px; }
+.ad-sep { flex: none; width: 5px; height: 5px; margin: 0 24px; border-radius: 50%; background: color-mix(in srgb, var(--search) 40%, transparent); }
+.adline.still .ad-vp { overflow-x: auto; scrollbar-width: none; }
+.adline.still .ad-vp::-webkit-scrollbar { display: none; }
+@media (max-width: 640px) {
+  .adline { font-size: 13.5px; }
+  .adline-in { height: 40px; gap: 10px; }
+  .ad-tag { font-size: 11px; padding: 2px 6px; }
+  .ad-sep { margin: 0 18px; }
+}
+@media print { .adline { display: none; } }
