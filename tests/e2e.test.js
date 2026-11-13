@@ -727,6 +727,57 @@ describe('Навигация и права доступа', () => {
       await page.context().close();
     }
   });
+  it('выпадающие списки: на телефоне — лист с крупными строками и галочкой, на компьютере — меню под полем; выбор меняет значение', async () => {
+    // телефон: касание по сортировке → свой лист, системный список не нужен
+    let page = await newPage({ viewport: { width: 390, height: 844 }, touch: true });
+    await open(page, '#/map');
+    await page.locator('.map-seg [data-v="list"]').tap();
+    await page.locator('.sort-sel').tap();
+    await page.waitForSelector('.sheet .opt-list');
+    assert.equal(await page.locator('.sheet .opt.on').count(), 1, 'текущий вариант отмечен');
+    const h = await page.locator('.sheet .opt').first().evaluate((b) => b.getBoundingClientRect().height);
+    assert.ok(h >= 48, 'строка списка удобна для пальца: ' + h);
+    const pick = page.locator('.sheet .opt:not(.on)').first(), txt = (await pick.innerText()).trim();
+    await pick.tap();
+    await page.waitForFunction(() => !document.querySelector('.sheet .opt-list'));
+    assert.equal(await page.locator('select[data-sort]').evaluate((s) => s.options[s.selectedIndex].text.trim()), txt);
+    assert.deepEqual(page.errors, []);
+    await page.context().close();
+    // компьютер: клик → меню под полем; стрелка вниз + Enter выбирают; Esc закрывает
+    page = await newPage({ viewport: { width: 1366, height: 860 } });
+    await open(page, '#/map');
+    await page.locator('.sort-sel').click();
+    await page.waitForSelector('.sel-pop');
+    const sel = await page.locator('.sort-sel').boundingBox(), pop = await page.locator('.sel-pop').boundingBox();
+    assert.ok(pop.y >= sel.y + sel.height && pop.y - (sel.y + sel.height) < 12, 'меню сразу под полем');
+    const before = await page.locator('select[data-sort]').inputValue();
+    await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter');
+    await page.waitForFunction(() => !document.querySelector('.sel-pop'));
+    assert.notEqual(await page.locator('select[data-sort]').inputValue(), before, 'выбрано следующее');
+    await page.locator('.sort-sel').click(); await page.waitForSelector('.sel-pop');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('.sel-pop'));
+    assert.deepEqual(page.errors, []);
+    await page.context().close();
+  });
+  it('телефон: «Карта / Список» — две равные половины без наложения; шапка всегда наверху; нижнее меню у нижнего края', async () => {
+    const page = await newPage({ viewport: { width: 360, height: 740 }, touch: true });
+    await open(page, '#/map');
+    const m = await page.evaluate(() => {
+      const s = document.querySelector('.map-seg'), r = s.getBoundingClientRect(), bs = [...s.querySelectorAll('button')].map((b) => b.getBoundingClientRect());
+      return { left: r.left, right: innerWidth - r.right, w: bs.map((b) => Math.round(b.width)), gap: bs[1].left - bs[0].right, pill: parseFloat(getComputedStyle(s, '::before').width) };
+    });
+    assert.ok(Math.abs(m.left - m.right) <= 1, 'по центру');
+    assert.equal(m.w[0], m.w[1], 'кнопки одинаковой ширины');
+    assert.ok(m.gap >= -0.5, 'кнопки не налезают друг на друга');
+    assert.ok(Math.abs(m.pill - m.w[0]) <= 1.5, 'подложка ровно под кнопкой');
+    await open(page, '#/');
+    await page.evaluate(() => scrollTo(0, 1200)); await page.waitForTimeout(500);
+    assert.equal(await page.evaluate(() => Math.round(document.getElementById('top').getBoundingClientRect().top)), 0, 'шапка на месте при прокрутке');
+    assert.equal(await page.evaluate(() => Math.round(document.getElementById('tabbar').getBoundingClientRect().bottom)), 740, 'нижнее меню у края экрана');
+    assert.deepEqual(page.errors, []);
+    await page.context().close();
+  });
   it('кнопка SOS в шапке на любой ширине открывает окно служб: звонок в одно касание, «Разместить заявку» ведёт в мастер', async () => {
     for (const vp of [{ width: 1280, height: 800 }, { width: 360, height: 740 }]) {
       const page = await newPage({ viewport: vp });
@@ -749,7 +800,7 @@ describe('Навигация и права доступа', () => {
       assert.ok(brand.logoH >= 44 && brand.logoH > brand.nameH, 'логотип крупный, крупнее названия: ' + JSON.stringify(brand));
       if (vp.width < 600) {
         assert.equal(brand.nameLines, 3, 'на телефоне название ровно в три строки: ' + JSON.stringify(brand));
-        assert.ok(brand.fs <= 14, 'на телефоне название мелким шрифтом: ' + brand.fs);
+        assert.ok(brand.fs >= 14 && brand.fs <= 15.5, 'на телефоне название чуть крупнее, но в три строки: ' + brand.fs);
         assert.ok(!brand.sub, 'на телефоне подписи нет');
       } else assert.equal(brand.nameLines, 1, 'на компьютере название в одну строку, как было: ' + JSON.stringify(brand));
       await btn.click();

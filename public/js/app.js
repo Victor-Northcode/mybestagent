@@ -100,24 +100,13 @@ async function boot() {
   // глобальные обработчики
   document.addEventListener('submit', (e) => e.preventDefault(), true);
   document.addEventListener('click', (e) => { const b = e.target.closest('[data-back]'); if (b) { e.preventDefault(); if (history.length > 1) history.back(); else go('#/'); } });
-  // шапка: тень при прокрутке; на телефоне прячется при движении вниз и возвращается при движении вверх
-  // направление считаем от точки разворота, а не по одному событию: плавная прокрутка даёт много мелких шагов
-  let lastY = scrollY, turnY = scrollY, dir = 0;
-  addEventListener('scroll', () => {
-    const y = scrollY, top = $('#top'); top.classList.toggle('scrolled', y > 4);
-    const d = Math.sign(y - lastY); if (d && d !== dir) { dir = d; turnY = lastY; }
-    if (innerWidth < 980 && !document.querySelector('.overlay') && !document.body.classList.contains('kb')) {
-      if (y < 80 || (dir < 0 && turnY - y > 24)) top.classList.remove('up');
-      else if (dir > 0 && y > 160 && y - turnY > 24) top.classList.add('up');
-    }
-    lastY = y;
-  }, { passive: true });
-  addEventListener('hashchange', () => $('#top').classList.remove('up'));
+  // шапка всегда закреплена вверху экрана (и на телефоне); при прокрутке — только тень
+  addEventListener('scroll', () => { $('#top').classList.toggle('scrolled', scrollY > 4); }, { passive: true });
   // клавиатура на телефоне: прячем нижнее меню, чтобы оно не перекрывало поле ввода и кнопки
   const touch = matchMedia('(pointer: coarse)').matches;
   const typing = (el) => el && (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'range', 'file', 'button', 'submit'].includes(el.type)));
   if (touch) {
-    document.addEventListener('focusin', (e) => { if (typing(e.target)) { document.body.classList.add('kb'); $('#top').classList.remove('up'); } });
+    document.addEventListener('focusin', (e) => { if (typing(e.target)) { document.body.classList.add('kb'); } });
     document.addEventListener('focusout', () => setTimeout(() => { if (!typing(document.activeElement)) document.body.classList.remove('kb'); }, 120));
   }
   // реальная видимая высота (на iOS клавиатура не уменьшает 100dvh) — по ней строится экран чата

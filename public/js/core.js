@@ -222,6 +222,98 @@ export function sheet(tpl, { wide = false, onClose } = {}) {
 }
 export function closeAllSheets() { [...sheets].forEach((s) => s.close()); }
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const last = [...sheets].pop(); if (last) last.close(); } });
+/* ---------- выпадающие списки: свой список выбора вместо системного ---------- */
+// Сам <select> остаётся на месте (значение, формы, обработчики change) — меняется только окно выбора:
+// телефон — лист снизу с крупными строками и галочкой, компьютер — аккуратное меню под полем
+// (стрелки, Enter, Esc, Tab; клик мимо или прокрутка закрывают). <select data-native> — системный список.
+let selPop = null;
+const selOk = (s) => s instanceof HTMLSelectElement && !s.multiple && !(s.size > 1) && !s.disabled && !s.hasAttribute('data-native');
+const selFor = (t) => (selOk(t) ? t : t instanceof Element && t.closest('.sort-sel') ? t.closest('.sort-sel').querySelector('select') : null);
+const selLabel = (s) => (s.getAttribute('aria-label') || s.closest('label')?.querySelector(':scope > span')?.textContent || (s.id && document.querySelector(`label[for="${CSS.escape(s.id)}"]`)?.textContent) || s.title || tr('Выберите', 'Choose')).trim();
+const selRow = (o) => (o.hidden ? '' : h`<button type="button" class="opt ${o.selected ? 'on' : ''}" role="option" tabindex="-1" data-i="${o.index}" aria-selected="${o.selected ? 'true' : 'false'}" ${o.disabled ? raw('disabled') : ''}><span>${o.textContent.trim()}</span>${icon('check', 'ic-sm opt-ck')}</button>`);
+const selRows = (s) => [...s.children].map((c) => (c.tagName === 'OPTGROUP' ? h`<div class="opt-head" role="presentation">${c.label}</div>${[...c.children].map(selRow)}` : c.tagName === 'OPTION' ? selRow(c) : ''));
+function selChoose(s, o) {
+  if (!o || o.disabled || s.selectedIndex === o.index) return;
+  s.selectedIndex = o.index;
+  s.dispatchEvent(new Event('input', { bubbles: true }));
+  s.dispatchEvent(new Event('change', { bubbles: true }));
+}
+function closeSel(refocus = true) {
+  if (!selPop) return;
+  const { el, s, off } = selPop; selPop = null; off();
+  el.classList.add('out'); setTimeout(() => el.remove(), 130);
+  s.removeAttribute('aria-expanded');
+  if (refocus && s.isConnected) s.focus({ preventScroll: true });
+}
+function openSel(s) {
+  closeSel(false);
+  const label = selLabel(s), rows = selRows(s);
+  if (matchMedia('(max-width: 640px), (pointer: coarse)').matches) {
+    const sh = sheet(h`${sheetHead(label)}<div class="opt-list" role="listbox" aria-label="${label}">${rows}</div>`);
+    sh.el.classList.add('sheet-opts');
+    $$('.opt', sh.el).forEach((b) => { b.onclick = () => { selChoose(s, s.options[+b.dataset.i]); sh.close(); }; });
+    const on = $('.opt.on', sh.el); if (on) on.scrollIntoView({ block: 'center' });
+    return;
+  }
+  const el = document.createElement('div');
+  el.className = 'sel-pop'; el.setAttribute('role', 'listbox'); el.setAttribute('aria-label', label);
+  el.innerHTML = h`${rows}`.s;
+  document.body.appendChild(el);
+  const anchor = s.closest('.sort-sel') || s;
+  const r = anchor.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = innerHeight;
+  const w = Math.min(Math.max(r.width, 220), vw - 16);
+  el.style.minWidth = w + 'px'; el.style.maxWidth = Math.max(w, Math.min(380, vw - 16)) + 'px';
+  const below = vh - r.bottom - 14, above = r.top - 14, up = below < Math.min(260, el.scrollHeight) && above > below;
+  el.style.maxHeight = Math.max(150, Math.min(360, up ? above : below)) + 'px';
+  el.style.left = Math.max(8, Math.min(r.left, vw - el.offsetWidth - 8)) + 'px';
+  el.style.top = (up ? r.top - 6 - el.offsetHeight : r.bottom + 6) + 'px';
+  el.classList.toggle('up', up);
+  const opts = $$('.opt:not([disabled])', el);
+  let act = Math.max(0, opts.findIndex((b) => b.classList.contains('on')));
+  const mark = (i) => { if (!opts.length) return; act = Math.max(0, Math.min(opts.length - 1, i)); opts.forEach((b, j) => b.classList.toggle('act', j === act)); opts[act].scrollIntoView({ block: 'nearest' }); };
+  mark(act);
+  el.addEventListener('mousedown', (e) => e.preventDefault()); // фокус остаётся на поле
+  el.addEventListener('click', (e) => { const b = e.target.closest('.opt'); if (!b || b.disabled) return; selChoose(s, s.options[+b.dataset.i]); closeSel(); });
+  el.addEventListener('mousemove', (e) => { const b = e.target.closest('.opt:not([disabled])'); if (b && !b.classList.contains('act')) mark(opts.indexOf(b)); });
+  const outside = (e) => { if (!el.contains(e.target) && !anchor.contains(e.target)) closeSel(false); };
+  const away = (e) => { if (!el.contains(e.target)) closeSel(false); };
+  const blur = () => setTimeout(() => { if (selPop?.el === el && document.activeElement !== s) closeSel(false); }, 0);
+  document.addEventListener('mousedown', outside, true);
+  window.addEventListener('scroll', away, true); window.addEventListener('resize', away);
+  s.addEventListener('blur', blur);
+  s.setAttribute('aria-expanded', 'true');
+  const key = (e) => {
+    const k = e.key;
+    if (k === 'ArrowDown' || k === 'ArrowUp') mark(act + (k === 'ArrowDown' ? 1 : -1));
+    else if (k === 'Home' || k === 'PageUp') mark(0);
+    else if (k === 'End' || k === 'PageDown') mark(opts.length - 1);
+    else if (k === 'Enter' || k === ' ') { if (opts[act]) selChoose(s, s.options[+opts[act].dataset.i]); closeSel(); }
+    else if (k === 'Escape') closeSel();
+    else { if (k === 'Tab') closeSel(false); return; }
+    e.preventDefault(); e.stopImmediatePropagation();
+  };
+  selPop = { el, s, key, off: () => { document.removeEventListener('mousedown', outside, true); window.removeEventListener('scroll', away, true); window.removeEventListener('resize', away); s.removeEventListener('blur', blur); } };
+}
+let selTouch = null;
+document.addEventListener('mousedown', (e) => {
+  const s = e.button === 0 && selFor(e.target); if (!s) return;
+  e.preventDefault();
+  if (selPop?.s === s) return closeSel();
+  s.focus({ preventScroll: true }); openSel(s);
+}, true);
+// касание: системный список не открываем (preventDefault на touchend), открываем свой; прокрутка пальцем — не нажатие
+document.addEventListener('touchstart', (e) => { const s = selFor(e.target); selTouch = s ? { s, x: e.touches[0].clientX, y: e.touches[0].clientY } : null; }, { capture: true, passive: true });
+document.addEventListener('touchend', (e) => {
+  const t = selTouch; selTouch = null;
+  if (!t || selFor(e.target) !== t.s) return;
+  const p = e.changedTouches[0]; if (Math.hypot(p.clientX - t.x, p.clientY - t.y) > 10) return;
+  e.preventDefault(); openSel(t.s);
+}, true);
+document.addEventListener('keydown', (e) => {
+  const s = e.target; if (!selOk(s)) return;
+  if (selPop?.s === s) return selPop.key(e);
+  if (e.key === ' ' || e.key === 'Enter' || e.key === 'F4' || (e.altKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp'))) { e.preventDefault(); openSel(s); }
+}, true);
 export const sheetHead = (title, sub) => h`<div class="sheet-head"><div><h3>${title}</h3>${sub ? h`<p class="muted small" style="margin-top:6px">${sub}</p>` : ''}</div><button class="icon-btn" data-close aria-label="${tr('Закрыть', 'Close')}">${icon('x')}</button></div>`;
 
 export function confirmBox(title, text, { ok = tr('Подтвердить', 'Confirm'), danger = false, input = null } = {}) {

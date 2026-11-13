@@ -45,9 +45,9 @@ function dropStreams(userId) { const s = streams.get(userId); if (!s) return; st
 setInterval(() => { for (const s of streams.values()) for (const r of s) { try { r.write(': ping\n\n'); } catch (e) {} } }, 25000).unref();
 
 /* ---------- E-mail (SMTP) и SMS (SMS.ru) ---------- */
-// SMTP_URL, например: smtps://robot%40my-bestagent.ru:ПАРОЛЬ@smtp.yandex.ru:465 (подойдёт почта любого провайдера)
+// SMTP_URL, например: smtps://noreply%40my-bestagent.ru:ПАРОЛЬ@mail.hosting.reg.ru:465 (почта домена на reg.ru; подойдёт любой SMTP)
 const mailer = process.env.SMTP_URL ? nodemailer.createTransport(process.env.SMTP_URL, { pool: true, maxConnections: 3 }) : null;
-const MAIL_FROM = process.env.MAIL_FROM || '«Мой лучший агент» <robot@my-bestagent.ru>';
+const MAIL_FROM = process.env.MAIL_FROM || '«Мой лучший агент» <noreply@my-bestagent.ru>';
 const SMSRU = process.env.SMSRU_API_ID || '';
 const SMS_API = process.env.SMSRU_API_URL || 'https://sms.ru/sms/send';
 const channels = { email: mailer ? 'SMTP' : '', sms: SMSRU ? 'SMS.ru' : '' };
