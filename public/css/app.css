@@ -1902,18 +1902,19 @@ details.legal-sec[open]::details-content { block-size: auto; }
 .field.has-err .tpick span { border-color: var(--red-solid); }
 
 /* =========================================================
-   Шапка: акцент на логотипе — знак крупный, название мелко, ровно в три строки (каждое слово — своя строка)
+   Шапка: логотип крупный везде. Компьютер и планшет — название в одну строку с подписью, как было;
+   телефон (до 560 px) — название мелко, ровно в три строки, подпись скрыта
    ========================================================= */
-.top .brand { gap: 10px; flex: none; }
+.top .brand { gap: 12px; flex: none; }
 .top .brand img { width: 74px; height: 60px; object-fit: contain; }
-.top .brand .brand-name {
-  display: block; width: min-content; max-width: none; white-space: normal;
-  font: 700 14px/1.08 var(--display); letter-spacing: -.01em; color: var(--ink);
-}
-@media (max-width: 520px) {
+@media (max-width: 560px) {
   .top .brand { gap: 8px; }
   .top .brand img { width: 64px; height: 52px; }
-  .top .brand .brand-name { font-size: 13px; }
+  .top .brand .brand-name {
+    display: block; width: min-content; max-width: none; white-space: normal;
+    font: 700 13px/1.08 var(--display); letter-spacing: -.01em; color: var(--ink);
+  }
+  .top .brand .brand-name small { display: none; }
 }
 @media (max-width: 349px) {
   .top .brand { gap: 6px; }
@@ -1948,3 +1949,9 @@ details.legal-sec[open]::details-content { block-size: auto; }
 /* бегущая строка: длинный текст объявления плавно доезжает до конца, край мягко растворяется */
 .ad-tx.run { text-overflow: clip; -webkit-mask-image: linear-gradient(90deg, transparent, #000 8px, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(90deg, transparent, #000 8px, #000 calc(100% - 22px), transparent); }
 .ad-tx.run > span { display: inline-block; will-change: transform; }
+/* ноутбуки 1040–1099 px: название одной строкой, без подписи; уже 1040 px — только знак, как было (иначе не помещаются значки кабинета) */
+@media (min-width: 1040px) and (max-width: 1099px) {
+  .top .brand > .brand-name { display: block; font-size: 16px; }
+  .top .brand { gap: 8px; }
+  .top .brand img { width: 64px; height: 52px; }
+}

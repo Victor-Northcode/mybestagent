@@ -8,7 +8,7 @@ const chrome = () => {
   const on = (pre) => (pre === '/' ? p === '/' : p.startsWith(pre)) ? 'on' : '';
   mount($('#top'), h`<div class="wrap top-in">
     <button type="button" class="skip-link" id="skipBtn">${tr('К содержимому', 'Skip to content')}</button>
-    <a class="brand" href="#/" aria-label="${tr('Мой лучший агент — на главную', 'My Best Agent — home')}"><img src="/assets/logo-256.png" alt="" width="256" height="208"><span class="brand-name">${tr('Мой лучший агент', 'My Best Agent')}</span></a>
+    <a class="brand" href="#/" aria-label="${tr('Мой лучший агент — на главную', 'My Best Agent — home')}"><img src="/assets/logo-256.png" alt="" width="256" height="208"><span class="brand-name">${tr('Мой лучший агент', 'My Best Agent')}<small>${tr('поиск людей, животных и вещей', 'people, pets & things finder')}</small></span></a>
     <nav class="nav">
       <a href="#/map" class="${on('/map')}">${t('nav.map', 'Карта и поиск', 'Map & search')}</a>
       <a href="#/new/lost" class="nav-new nav-lost ${on('/new/lost')}">${t('nav.lost', 'Потерял', 'Lost')}</a>

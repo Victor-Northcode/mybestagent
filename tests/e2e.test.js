@@ -697,11 +697,15 @@ describe('Навигация и права доступа', () => {
       assert.ok(await page.locator('#langBtn .ic').isVisible(), 'у языка значок глобуса');
       const brand = await page.locator('.top .brand').first().evaluate((a) => {
         const img = a.querySelector('img').getBoundingClientRect(), n = a.querySelector('.brand-name'), cs = getComputedStyle(n);
-        return { logoH: img.height, lines: Math.round(n.getBoundingClientRect().height / parseFloat(cs.lineHeight)), fs: parseFloat(cs.fontSize), textH: n.getBoundingClientRect().height };
+        const r = document.createRange(); r.selectNodeContents(n.firstChild); // только текст названия, без подписи
+        return { logoH: img.height, nameLines: r.getClientRects().length, nameH: r.getBoundingClientRect().height, fs: parseFloat(cs.fontSize), sub: n.querySelector('small')?.checkVisibility() };
       });
-      assert.equal(brand.lines, 3, 'название ровно в три строки: ' + JSON.stringify(brand));
-      assert.ok(brand.logoH >= 44 && brand.logoH > brand.textH, 'логотип крупнее названия: ' + JSON.stringify(brand));
-      assert.ok(brand.fs <= 14, 'название мелким шрифтом: ' + brand.fs);
+      assert.ok(brand.logoH >= 44 && brand.logoH > brand.nameH, 'логотип крупный, крупнее названия: ' + JSON.stringify(brand));
+      if (vp.width < 600) {
+        assert.equal(brand.nameLines, 3, 'на телефоне название ровно в три строки: ' + JSON.stringify(brand));
+        assert.ok(brand.fs <= 14, 'на телефоне название мелким шрифтом: ' + brand.fs);
+        assert.ok(!brand.sub, 'на телефоне подписи нет');
+      } else assert.equal(brand.nameLines, 1, 'на компьютере название в одну строку, как было: ' + JSON.stringify(brand));
       await btn.click();
       await page.waitForSelector('.sheet .svc-list');
       assert.deepEqual(await page.locator('.sheet a.svc[href^="tel:"]').evaluateAll((as) => as.map((a) => a.getAttribute('href'))),
