@@ -801,7 +801,7 @@ describe('Навигация и права доступа', () => {
       await open(page, '#/');
       const line = page.locator('#adLine');
       const box = await line.boundingBox(), hero = await page.locator('.hero-blk').boundingBox(), top = await page.locator('#top').boundingBox();
-      assert.ok(box.height <= 44, 'тонкая: ' + box.height);
+      assert.ok(box.height >= 40 && box.height <= 48, 'заметная, но не высокая: ' + box.height);
       assert.ok(Math.abs(box.y - (top.y + top.height)) <= 1 && box.y + box.height <= hero.y, 'сразу под шапкой, над «Поиск пропавших…»');
       assert.ok(Math.abs(box.width - vp.width) <= 1, 'на всю ширину: ' + box.width);
       assert.equal(await page.locator('#adLine .ad-tag').innerText(), 'Реклама');

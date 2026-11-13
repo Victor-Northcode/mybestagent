@@ -2067,9 +2067,9 @@ select[aria-expanded="true"] { border-color: var(--search) !important; }
 /* =========================================================
    Рекламная строка: бегущая, на всю ширину под шапкой
    ========================================================= */
-.adline { background: color-mix(in srgb, var(--search) 5%, var(--surface)); border-bottom: 1px solid var(--line); font-size: 14.5px; line-height: 1.2; }
-.adline-in { display: flex; align-items: center; gap: 12px; height: 42px; min-width: 0; }
-.ad-tag { flex: none; padding: 3px 8px; border-radius: 6px; font: 600 11.5px/1.2 var(--font); color: var(--muted); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); cursor: help; }
+.adline { background: linear-gradient(90deg, var(--search-2), var(--search) 55%, var(--search-2)); color: #fff; font-size: 15px; line-height: 1.2; box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .08); }
+.adline-in { display: flex; align-items: center; gap: 14px; height: 46px; min-width: 0; }
+.ad-tag { flex: none; padding: 3px 8px; border-radius: 6px; font: 600 11.5px/1.2 var(--font); color: #fff; background: rgba(255, 255, 255, .16); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .38); cursor: help; }
 .ad-vp { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; overflow: hidden;
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent); }
 .ad-track { display: flex; width: max-content; will-change: transform; }
@@ -2079,18 +2079,18 @@ select[aria-expanded="true"] { border-color: var(--search) !important; }
 @media (hover: hover) { .adline:hover .ad-track { animation-play-state: paused; } }
 .adline:focus-within .ad-track { animation-play-state: paused; }
 @keyframes adRun { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-.ad-item { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 4px; border-radius: 8px; white-space: nowrap; color: var(--muted); text-decoration: none; }
-.ad-item b { color: var(--search-2); font-weight: 650; }
-.ad-go { flex: none; opacity: .5; transition: opacity .2s, transform .2s; }
-.ad-item:hover .ad-tx { color: var(--ink); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--ink) 30%, transparent); text-underline-offset: 3px; }
+.ad-item { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 4px; border-radius: 8px; white-space: nowrap; color: rgba(255, 255, 255, .9); text-decoration: none; }
+.ad-item b { color: #fff; font-weight: 700; }
+.ad-go { flex: none; opacity: .75; transition: opacity .2s, transform .2s; }
+.ad-item:hover .ad-tx { color: #fff; text-decoration: underline; text-decoration-color: rgba(255, 255, 255, .55); text-underline-offset: 3px; }
 .ad-item:hover .ad-go { opacity: 1; transform: translate(1px, -1px); }
-.ad-item:focus-visible { outline: 2px solid var(--blue-t); outline-offset: -2px; }
-.ad-sep { flex: none; width: 5px; height: 5px; margin: 0 24px; border-radius: 50%; background: color-mix(in srgb, var(--search) 40%, transparent); }
+.ad-item:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+.ad-sep { flex: none; width: 5px; height: 5px; margin: 0 24px; border-radius: 50%; background: rgba(255, 255, 255, .6); }
 .adline.still .ad-vp { overflow-x: auto; scrollbar-width: none; }
 .adline.still .ad-vp::-webkit-scrollbar { display: none; }
 @media (max-width: 640px) {
-  .adline { font-size: 13.5px; }
-  .adline-in { height: 40px; gap: 10px; }
+  .adline { font-size: 14px; }
+  .adline-in { height: 44px; gap: 10px; }
   .ad-tag { font-size: 11px; padding: 2px 6px; }
   .ad-sep { margin: 0 18px; }
 }
