@@ -117,8 +117,14 @@ function headTags(m, o) {
 }
 
 // Вставляет теги в index.html вместо блока <!--seo-->…<!--/seo-->
+// и подставляет в <noscript> заголовок и описание именно этой страницы — у каждой страницы свой H1, а не общий
 function render(html, m, o) {
-  return html.replace(/<!--seo-->[\s\S]*?<!--\/seo-->/, `<!--seo-->\n${headTags(m, o)}\n<!--/seo-->`);
+  let out = html.replace(/<!--seo-->[\s\S]*?<!--\/seo-->/, `<!--seo-->\n${headTags(m, o)}\n<!--/seo-->`);
+  if (m.path !== '/') {
+    const heading = m.h1 || String(m.title || '').replace(` — ${BRAND}`, '');
+    out = out.replace(/<!--ns-->[\s\S]*?<!--\/ns-->/, `<!--ns--><h1>${esc(heading)}</h1>\n<p>${esc(m.description)}</p><!--/ns-->`);
+  }
+  return out;
 }
 
 function sectionMeta(p) {
@@ -145,6 +151,7 @@ function appMeta(d, site) {
     title: `${clip(d.title, 70)} — ${kind}${place ? ', ' + clip(place, 40) : ''} — ${BRAND}`,
     ogTitle: `${d.emergency ? 'Срочно! ' : ''}${clip(d.title, 90)}`,
     description: clip(`${facts}. ${text ? text + ' ' : ''}${reward ? reward.trim() + ' ' : ''}Если видели или знаете что-то — напишите в анонимный чат.`, 300),
+    h1: `${d.emergency ? 'Срочно! ' : ''}${d.title}`,
     ogType: 'article',
     image: photo && site ? { url: /^https?:/.test(photo) ? photo : site + photo, alt: d.title } : null,
     // в поиске — только активные заявки; найденные и закрытые остаются доступны по ссылке, но не индексируются

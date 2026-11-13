@@ -262,7 +262,7 @@ route('/map', async (view) => {
   const desk = matchMedia('(min-width: 980px)');
   const CATS = ['people', 'animals', 'things'];
 
-  mount(view, h`<div class="map-page" data-view="map">
+  mount(view, h`<div class="map-page" data-view="map"><h1 class="sr-only">${tr('Карта поиска: пропавшие и найденные рядом', 'Search map: missing and found nearby')}</h1>
     <div class="map-side">
       <div class="map-filters">
         <form class="search-box map-search" id="sform" role="search">${icon('search')}

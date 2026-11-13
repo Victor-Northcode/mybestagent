@@ -82,6 +82,15 @@ describe('SEO: главная и разделы', () => {
     }
     assert.equal((await page(S, '/map/')).status, 200, 'trailing slash');
   });
+  it('у каждой страницы свой H1 (в <noscript> для поисковиков), он один; на главной — общий', async () => {
+    const h1s = (html) => [...html.matchAll(/<h1>([^<]*)<\/h1>/g)].map((x) => x[1]);
+    assert.deepEqual(h1s((await page(S, '/')).html), ['Мой лучший агент — поиск пропавших людей, животных и вещей']);
+    for (const [p, want] of [['/map', 'Карта поиска: пропавшие и найденные рядом'], ['/registry', 'Реестр ценностей: проверить, не краденая ли вещь'], ['/community', 'Волонтёры и партнёры поиска'], ['/tariffs', 'Тарифы'], ['/legal/terms', 'Пользовательское соглашение']]) {
+      const { html } = await page(S, p);
+      assert.deepEqual(h1s(html), [want], p);
+      assert.ok(html.includes(`<p>${meta(html, 'name', 'description')}</p>`), p + ': описание страницы под заголовком');
+    }
+  });
   it('личные разделы — noindex; несуществующие адреса — 404 и noindex; поиск ведёт на карту', async () => {
     for (const p of ['/me', '/me/apps', '/chats', '/login', '/new/lost', '/admin/support/3']) {
       const { status, html } = await page(S, p);
@@ -108,6 +117,7 @@ describe('SEO: страницы заявок', () => {
     assert.match(meta(html, 'name', 'robots'), /^index/);
     assert.match(meta(html, 'name', 'description'), /анонимный чат/);
     const j = ld(html); assert.ok(types(j).includes('BreadcrumbList'));
+    assert.ok(html.includes(SEO.esc(a.title) + '</h1>'), 'H1 — заголовок заявки');
   });
   it('заявка на проверке — 404 без персональных данных; неизвестный номер — 404', async () => {
     const p = apps.find((x) => x.status === 'pending' && x.category === 'people' && x.person_name);
