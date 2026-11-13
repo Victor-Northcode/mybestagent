@@ -430,7 +430,7 @@ label:has(> input[type=file]:focus-visible) { outline: 2px solid var(--blue); ou
 .step3 h4 { font-size: 16px; margin-bottom: 6px; }
 .step3 p { font-size: 13.5px; color: var(--muted); }
 .footer-grid { display: grid; gap: 22px; grid-template-columns: 1fr 1fr; }
-@media (min-width: 760px) { .footer-grid { grid-template-columns: 2fr 1fr 1fr 1fr; } }
+@media (min-width: 860px) { .footer-grid { grid-template-columns: 2fr 1fr 1fr 1fr; } }
 .footer h5 { margin: 0 0 10px; font: 700 13px var(--font); color: var(--ink); }
 .footer a { display: block; padding: 3px 0; }
 .footer a:hover { color: var(--ink); }
@@ -2030,3 +2030,7 @@ details.legal-sec[open]::details-content { block-size: auto; }
 .field input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):hover { border-color: var(--line-2); }
 .field input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):focus { background-color: var(--surface); border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
 .field.err input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), .field.err textarea, .field.err select { border-color: var(--red); }
+
+/* подвал на 760–859 px: в четыре колонки длинные названия документов не помещаются — две колонки, описание и документы на всю ширину */
+@media (min-width: 760px) and (max-width: 859px) { .footer-grid > :first-child, .footer-grid > :last-child { grid-column: 1 / -1; } }
+.footer-grid a { overflow-wrap: break-word; }

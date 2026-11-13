@@ -805,6 +805,17 @@ describe('Навигация и права доступа', () => {
     assert.deepEqual(page.errors, []);
     await page.context().close();
   });
+  it('подвал на планшетной ширине (760–860 px): длинные названия документов не вылезают за экран', async () => {
+    for (const width of [760, 800, 840, 860]) {
+      const page = await newPage({ viewport: { width, height: 800 } });
+      await open(page, '#/registry');
+      await page.waitForSelector('#foot .footer-grid');
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), 0, 'нет сдвига вбок на ' + width);
+      await noOverflow(page, 'подвал ' + width);
+      assert.deepEqual(page.errors, []);
+      await page.context().close();
+    }
+  });
   it('«Рейтинг» в подвале ведёт к рейтингу волонтёров; адрес со слешем на конце открывается', async () => {
     const page = await newPage({ viewport: { width: 1280, height: 800 } });
     await open(page, '#/');
