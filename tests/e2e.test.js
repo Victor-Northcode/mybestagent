@@ -639,6 +639,22 @@ describe('Навигация и права доступа', () => {
       await page.context().close();
     }
   });
+  it('пустой блок «Пока нет заявок»: крупный серый значок только у самого блока, у «+» и «✓» в кнопках — обычный размер и цвет кнопки', async () => {
+    const page = await newPage({ viewport: { width: 390, height: 844 } });
+    await open(page, '#/');
+    const r = await page.evaluate(() => {
+      const box = document.createElement('div'); box.className = 'empty';
+      box.innerHTML = '<svg class="ic"></svg><b>Пусто</b><div><a class="btn btn-lost" href="#"><svg class="ic ic-sm"></svg>Сообщить о пропаже</a></div>';
+      document.querySelector('#view').appendChild(box);
+      const [big, small] = box.querySelectorAll('svg'); const btn = box.querySelector('.btn');
+      const out = { big: big.getBoundingClientRect().width, small: small.getBoundingClientRect().width, smallColor: getComputedStyle(small).color, btnColor: getComputedStyle(btn).color };
+      box.remove(); return out;
+    });
+    assert.equal(r.big, 42);
+    assert.ok(r.small <= 20, 'значок в кнопке ' + r.small + ' px');
+    assert.equal(r.smallColor, r.btnColor, 'значок в кнопке — цвета текста кнопки');
+    await page.context().close();
+  });
   it('кнопка SOS в шапке на любой ширине открывает окно служб: звонок в одно касание, «Разместить заявку» ведёт в мастер', async () => {
     for (const vp of [{ width: 1280, height: 800 }, { width: 360, height: 740 }]) {
       const page = await newPage({ viewport: vp });

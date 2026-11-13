@@ -768,7 +768,7 @@ table.t { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 
 /* ---------- состояния ---------- */
 .empty { text-align: center; padding: 44px 20px; color: var(--muted); border-radius: var(--r-lg); border: 1.5px dashed var(--line-2); }
-.empty .ic { width: 42px; height: 42px; margin: 0 auto 12px; color: var(--muted-2); }
+.empty > .ic { width: 42px; height: 42px; margin: 0 auto 12px; color: var(--muted-2); } /* только значок пустого блока, не иконки в кнопках */
 .empty b { display: block; color: var(--ink); font-size: 16px; margin-bottom: 4px; }
 .sk { background: linear-gradient(90deg, var(--bg-2) 25%, var(--surface-2) 50%, var(--bg-2) 75%); background-size: 200% 100%; animation: sk 1.3s infinite; border-radius: var(--r-lg); }
 .sk-card { height: 300px; }
