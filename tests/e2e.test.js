@@ -74,7 +74,7 @@ async function noOverflow(page, label) {
 
 before(async () => {
   dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mba-e2e-'));
-  srv = spawn(process.execPath, ['--no-warnings', path.join(ROOT, 'server', 'index.js')], { cwd: ROOT, env: Object.assign({}, process.env, { PORT: String(PORT), DATA_DIR: dataDir, NODE_ENV: 'test' }), stdio: 'ignore' });
+  srv = spawn(process.execPath, ['--no-warnings', path.join(ROOT, 'server', 'index.js')], { cwd: ROOT, env: Object.assign({}, process.env, { PORT: String(PORT), DATA_DIR: dataDir, NODE_ENV: 'test', OTP_IP_MAX: '500', OTP_TARGET_MAX: '100' }), stdio: 'ignore' });
   await waitUp();
   browser = await chromium.launch({ headless: true });
 });

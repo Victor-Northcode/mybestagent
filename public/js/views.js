@@ -1298,7 +1298,13 @@ async function chatPane(el, id, onChange) {
   const toBottom = (smooth) => { box.scrollTo({ top: box.scrollHeight, behavior: smooth ? 'smooth' : 'auto' }); down.classList.add('hide'); };
   box.addEventListener('scroll', () => { if (nearBottom()) down.classList.add('hide'); }, { passive: true });
   down.onclick = () => toBottom(true);
-  const tick = (m) => (m.mine && !mod ? h`<span class="tick ${m.read ? 'read' : ''}" title="${m.pending ? tr('Отправляется', 'Sending') : m.read ? tr('Прочитано', 'Read') : tr('Доставлено', 'Delivered')}">${m.pending ? icon('clock') : raw(m.read ? TICK2 : TICK1)}</span>` : '');
+  // собеседник прочитал всё до этого номера (событие «прочитано» может обогнать ответ на нашу отправку)
+  let readUpTo = 0;
+  const tick = (m) => {
+    if (!m.mine || mod) return '';
+    const rd = !m.pending && (m.read || (m.id && m.id <= readUpTo));
+    return h`<span class="tick ${rd ? 'read' : ''}" title="${m.pending ? tr('Отправляется', 'Sending') : rd ? tr('Прочитано', 'Read') : tr('Доставлено', 'Delivered')}">${m.pending ? icon('clock') : raw(rd ? TICK2 : TICK1)}</span>`;
+  };
   const bubble = (m, cont) => h`<div class="msg ${m.mine ? 'mine' : ''} ${cont ? 'cont' : ''} ${m.pending ? 'pending' : ''} ${m.photo && !m.text ? 'photo-only' : ''}">${m.photo ? h`<img src="${m.photo}" alt="${tr('Фото', 'Photo')}" data-zoom="${m.photo}">` : ''}${m.lat != null ? h`<a class="loc" href="#" data-lat="${m.lat}" data-lng="${m.lng}">${icon('pin')}<span>${tr('Точка на карте', 'Location on map')}</span></a>` : ''}${m.text ? h`<span class="msg-text">${m.text}</span>` : ''}<span class="msg-meta"><time>${timeOf(m.created_at)}</time>${tick(m)}</span></div>`;
   let lastDay = '', lastMsg = null;
   const bindMsg = (x) => {
@@ -1372,7 +1378,10 @@ async function chatPane(el, id, onChange) {
       if (!d.mine) GET('/chats/' + chat.id).then(() => { refreshMe().catch(() => {}); onChange(); }).catch(() => {});
     }
     // собеседник прочитал — галочки становятся двойными
-    if (type === 'chat_read' && d.chat_id === chat.id) $$('.msg.mine .tick:not(.read)', box).forEach((x) => { x.classList.add('read'); x.title = tr('Прочитано', 'Read'); x.innerHTML = TICK2; });
+    if (type === 'chat_read' && d.chat_id === chat.id) {
+      readUpTo = Math.max(readUpTo, Number(d.upto) || Number.MAX_SAFE_INTEGER);
+      $$('.msg.mine:not(.pending) .tick:not(.read)', box).forEach((x) => { x.classList.add('read'); x.title = tr('Прочитано', 'Read'); x.innerHTML = TICK2; });
+    }
   }));
 }
 

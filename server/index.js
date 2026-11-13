@@ -87,6 +87,10 @@ function audit(req, action, target = '', meta = '') {
   run('INSERT INTO audit (user_id, action, target, meta, ip) VALUES (?,?,?,?,?)', N(req.user && req.user.id), action, String(target), typeof meta === 'string' ? meta : JSON.stringify(meta), req.ip || '');
 }
 const rl = new Map();
+// Лимиты запросов кода в час: с одного IP и на один адрес. Поднять можно только в тестовом режиме (e2e много раз входит одними и теми же пользователями с 127.0.0.1)
+const TEST_ENV = process.env.NODE_ENV === 'test';
+const OTP_IP_MAX = (TEST_ENV && Number(process.env.OTP_IP_MAX)) || 20;
+const OTP_TARGET_MAX = (TEST_ENV && Number(process.env.OTP_TARGET_MAX)) || 5;
 function rateLimit(key, max, windowMs) {
   const t = Date.now(); const arr = (rl.get(key) || []).filter((x) => t - x < windowMs);
   if (arr.length >= max) fail(429, 'rate_limited', 'Слишком много запросов, попробуйте позже');
@@ -180,8 +184,8 @@ app.post('/api/auth/request', h(async (req, res) => {
   otpChannelReady(t);
   const last = get('SELECT created_at FROM otp WHERE target = ? ORDER BY id DESC LIMIT 1', t.otpKey);
   if (last && Date.now() - last.created_at < 60e3) fail(429, 'otp_wait', 'Повторно код можно запросить через минуту');
-  rateLimit('otpip:' + req.ip, 20, 3600e3);
-  rateLimit('otp:' + t.otpKey, 5, 3600e3);
+  rateLimit('otpip:' + req.ip, OTP_IP_MAX, 3600e3);
+  rateLimit('otp:' + t.otpKey, OTP_TARGET_MAX, 3600e3);
   const code = String(crypto.randomInt(100000, 1000000));
   run('INSERT INTO otp (target, code, expires_at, created_at) VALUES (?,?,?,?)', t.otpKey, hashCode(t.otpKey, code), Date.now() + 10 * 60e3, Date.now());
   if (!PUBLIC_DEMO) await deliverCode(t, 'login', `Код входа в «Мой лучший агент»: ${code}. Никому не сообщайте его.`, code, reqLang(req));
@@ -787,7 +791,8 @@ app.get('/api/chats/:id', needAuth, h((req, res) => {
   if (c.side !== 'moderator') {
     const ch = run('UPDATE messages SET read = 1 WHERE chat_id = ? AND sender_id != ? AND read = 0', c.id, myId);
     // собеседник видит «прочитано» у своих сообщений сразу
-    if (ch && ch.changes) S.emit(c.side === 'owner' ? c.other_id : c.owner_id, 'chat_read', { chat_id: c.id });
+    // upto — до какого сообщения прочитано: ответ на отправку может прийти к автору позже этого события
+    if (ch && ch.changes) S.emit(c.side === 'owner' ? c.other_id : c.owner_id, 'chat_read', { chat_id: c.id, upto: get('SELECT MAX(id) m FROM messages WHERE chat_id = ?', c.id).m });
   }
   const msgs = all('SELECT id, sender_id, text, photo, lat, lng, read, created_at FROM messages WHERE chat_id = ? ORDER BY id', c.id)
     .map((m) => ({ id: m.id, mine: m.sender_id === myId || (c.side === 'owner' && m.sender_id !== c.other_id), text: m.text, photo: m.photo, lat: m.lat, lng: m.lng, read: !!m.read, created_at: m.created_at, from: m.sender_id === c.other_id ? 'other' : 'owner' }));
