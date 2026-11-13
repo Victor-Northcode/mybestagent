@@ -58,7 +58,7 @@ const initials = (n) => String(n || '?').split(/\s+/).map((x) => x[0]).slice(0, 
 const avatar = (u, cls = '') => h`<div class="ava ${cls}" style="${u.avatar ? `background-image:url('${esc(u.avatar)}')` : ''}">${u.avatar ? '' : initials(u.name)}</div>`;
 
 /* =================== РЕКЛАМНАЯ СТРОКА =================== */
-// Тонкая строка между шапкой и первым блоком главной. Объявления сменяют друг друга сами (плавно, не чаще раза в 6 с),
+// Тонкая полоса на всю ширину сразу под шапкой, над блоком «Поиск пропавших…». Объявления сменяют друг друга сами (плавно, не чаще раза в 6 с),
 // «›» или свайп — следующее. Текст, который не помещается (узкий экран), сначала спокойно проезжает до конца — как бегущая строка.
 // Пауза при наведении мыши, фокусе, в фоновой вкладке и вне экрана; при «уменьшить движение» — без автопрокрутки, только вручную.
 // Метка «Реклама», рекламодатель и токен erid — по закону о рекламе. Объявления задаёт администратор: админка → «Реклама».
@@ -67,12 +67,12 @@ function adLine() {
   const ads = state.config?.ads || [];
   if (!ads.length) return '';
   const who = (a) => [a.advertiser ? tr('Рекламодатель: ', 'Advertiser: ') + a.advertiser : '', a.erid ? 'erid: ' + a.erid : ''].filter(Boolean).join('. ');
-  return h`<aside class="adline" id="adLine" aria-label="${tr('Реклама', 'Advertising')}" ${ads.length > 1 ? raw(`aria-roledescription="${esc(tr('карусель', 'carousel'))}"`) : ''}>
+  return h`<aside class="adline" id="adLine" aria-label="${tr('Реклама', 'Advertising')}" ${ads.length > 1 ? raw(`aria-roledescription="${esc(tr('карусель', 'carousel'))}"`) : ''}><div class="wrap adline-in">
     <span class="ad-tag" title="${who(ads[0])}">${tr('Реклама', 'Ad')}</span>
     <div class="ad-vp">${ads.map((a, i) => h`<a class="ad-item ${i ? '' : 'on'}" href="${a.url}" target="_blank" rel="noopener sponsored" data-who="${who(a)}" ${i ? raw('tabindex="-1" aria-hidden="true"') : ''}>
       <b>${a.host}</b><span class="ad-tx"><span>${state.lang === 'en' ? a.en : a.ru}</span></span>${icon('arrowUR', 'ic-sm ad-go')}</a>`)}</div>
-    ${ads.length > 1 ? h`<button type="button" class="ad-next" aria-label="${tr('Следующее объявление', 'Next ad')}" title="${tr('Листать', 'Next')}">${icon('chevR', 'ic-sm')}</button>` : ''}
-  </aside>`;
+    ${ads.length > 1 ? h`<button type="button" class="ad-next" aria-label="${tr('Следующее объявление', 'Next ad')}"><span>${tr('Листать', 'Next')}</span>${icon('chevR', 'ic-sm')}</button>` : ''}
+  </div></aside>`;
 }
 function startAdLine(view) {
   const box = $('#adLine', view); if (!box) return;
@@ -123,8 +123,8 @@ function startAdLine(view) {
 /* =================== ГЛАВНАЯ =================== */
 route('/', async (view) => {
   mount(view, h`
+  ${adLine()}
   <div class="wrap home">
-    ${adLine()}
     <section class="blk hero-blk">
       <div class="hb-top">
         <div class="hb-text">

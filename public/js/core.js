@@ -302,8 +302,17 @@ export function makeMap(el, { center, zoom = 12, interactive = true } = {}) {
   const c = center || state.config?.map?.center || [55.7558, 37.6173];
   const m = window.L.map(el, { zoomControl: interactive, attributionControl: false, dragging: interactive, scrollWheelZoom: interactive, doubleClickZoom: interactive, touchZoom: interactive, keyboard: interactive, tap: interactive }).setView(c, zoom);
   m.lib = window.L;
-  // на самой карте подписей нет; источник картографических данных указан в подвале сайта
   tiles().addTo(m);
+  // источник данных карты — по правилам OpenStreetMap; на карте только маленький значок «©», подпись открывается по нажатию
+  const attr = window.L.control({ position: 'bottomright' });
+  attr.onAdd = () => {
+    const d = window.L.DomUtil.create('div', 'osm-attr');
+    d.innerHTML = `<button type="button" class="osm-i" aria-expanded="false" aria-label="${esc(tr('Источник данных карты', 'Map data source'))}" title="${esc(tr('Источник данных карты', 'Map data source'))}">©</button><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">${esc(tr('© участники OpenStreetMap', '© OpenStreetMap contributors'))}</a>`;
+    window.L.DomEvent.disableClickPropagation(d);
+    const b = d.firstChild; b.onclick = () => { const on = d.classList.toggle('open'); b.setAttribute('aria-expanded', String(on)); };
+    return d;
+  };
+  attr.addTo(m);
   setTimeout(() => { if (m._mapPane) m.invalidateSize(); }, 60);
   return m;
 }

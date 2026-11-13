@@ -546,14 +546,20 @@ async function axeCheck(page, label) {
 }
 
 describe('Карта', () => {
-  it('на карте нет подписей (флага, названий); всё грузится с нашего сервера; источник данных — в подвале', async () => {
+  it('на карте нет подписей (флага, названий); всё грузится с нашего сервера; источник данных — значок «©» на карте, в подвале его нет', async () => {
     const page = await newPage({ viewport: { width: 1280, height: 800 } });
     await open(page, '#/map');
     await page.waitForSelector('#bigmap img.leaflet-tile');
     assert.equal(await page.locator('#bigmap .leaflet-control-attribution').count(), 0, 'подписи на карте нет');
     assert.equal(await page.locator('script[src^="http"], link[rel="stylesheet"][href^="http"]').count(), 0, 'скрипты и стили — только со своего сервера');
     await open(page, '#/');
-    assert.match(await page.locator('#foot').innerText(), /OpenStreetMap/);
+    assert.doesNotMatch(await page.locator('#foot').innerText(), /OpenStreetMap/, 'в подвале строки об OpenStreetMap нет');
+    await open(page, '#/map');
+    await page.waitForSelector('#bigmap .osm-attr');
+    assert.equal(await page.locator('#bigmap .osm-attr a').isVisible(), false, 'на карте только значок «©»');
+    await page.locator('#bigmap .osm-i').click();
+    assert.equal(await page.locator('#bigmap .osm-attr a').getAttribute('href'), 'https://www.openstreetmap.org/copyright');
+    assert.ok(await page.locator('#bigmap .osm-attr a').isVisible(), 'по нажатию — подпись источника');
     assert.deepEqual(page.errors, []);
     await page.context().close();
   });
@@ -700,8 +706,9 @@ describe('Навигация и права доступа', () => {
       await open(page, '#/');
       const line = page.locator('#adLine');
       const box = await line.boundingBox(), hero = await page.locator('.hero-blk').boundingBox(), top = await page.locator('#top').boundingBox();
-      assert.ok(box.height <= 42, 'тонкая: ' + box.height);
-      assert.ok(box.y >= top.y + top.height - 1 && box.y + box.height <= hero.y, 'между шапкой и «Поиск пропавших…»');
+      assert.ok(box.height <= 46, 'тонкая: ' + box.height);
+      assert.ok(Math.abs(box.y - (top.y + top.height)) <= 1 && box.y + box.height <= hero.y, 'сразу под шапкой, над «Поиск пропавших…»');
+      assert.ok(Math.abs(box.width - vp.width) <= 1, 'на всю ширину: ' + box.width);
       assert.equal(await page.locator('#adLine .ad-tag').innerText(), 'Реклама');
       const on = page.locator('#adLine .ad-item.on');
       assert.equal(await on.locator('b').innerText(), 'kadryzdes.ru');
