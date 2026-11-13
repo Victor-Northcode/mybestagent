@@ -264,7 +264,8 @@ route('/map', async (view) => {
   if (!CAT[f.category]) f.category = '';
   if (!['lost', 'found'].includes(f.kind)) f.kind = '';
   if (!['active', 'found', 'all'].includes(f.status)) f.status = 'active';
-  const desk = matchMedia('(min-width: 980px)');
+  // список рядом с картой: на компьютере и на телефоне боком (низкий широкий экран) — как в CSS для .map-page
+  const desk = matchMedia('(min-width: 980px), (min-width: 540px) and (max-height: 500px) and (orientation: landscape)');
   const CATS = ['people', 'animals', 'things'];
 
   mount(view, h`<div class="map-page" data-view="map"><h1 class="sr-only">${tr('Карта поиска: пропавшие и найденные рядом', 'Search map: missing and found nearby')}</h1>

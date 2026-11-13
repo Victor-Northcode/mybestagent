@@ -2469,3 +2469,100 @@ select[aria-expanded="true"] { border-color: var(--search) !important; }
 /* время и галочки в пузырях — контраст не ниже 4.5:1 */
 .msg .msg-meta { opacity: 1; color: var(--muted); }
 .msg.mine .msg-meta { color: rgba(255, 255, 255, .92); }
+
+/* =========================================================
+   Шапка сама подстраивается под ширину (классы ставит fitTop в app.js — по шагам, пока всё не поместится в строку)
+   ========================================================= */
+.top-in { min-width: 0; }
+.top-in.fit1 .brand small { display: none; }
+.top-in.fit2 .nav { margin-left: 2px; gap: 0; }
+.top-in.fit2 .nav a { padding-left: 8px; padding-right: 8px; }
+.top-in.fit2 .top-act { gap: 2px; }
+.top-in.fit3 .brand > span { display: none; }
+.top-in.fit4 .lang-btn span { display: none; }
+.top-in.fit4 .lang-btn { padding: 0 9px; }
+
+/* =========================================================
+   Низкий экран (телефон боком, низкое окно браузера): тоньше шапка, нижнее меню и рекламная строка —
+   чтобы под содержимое оставалось больше места
+   ========================================================= */
+@media (max-height: 500px) and (orientation: landscape) {
+  :root { --top-h: 56px; --tab-h: 54px; }
+  .brand img { width: 40px; height: 33px; }
+  .brand small { display: none; }
+  .sos-btn { height: 38px; }
+  .top-act .btn-sm, .top-act .btn { min-height: 38px; height: 38px; }
+  .adline-in { height: 38px; }
+  .tab { flex-direction: row; gap: 6px; font-size: 13px; padding: 0; }
+  .tab-ic { width: 40px; height: 30px; }
+  .tab.on .tab-ic { transform: none; }
+  .tab .dotbadge { top: 2px; right: auto; left: calc(50% + 2px); }
+  .tab-fab { margin-top: 0; }
+  .tab-fab .fab { width: 46px; height: 40px; border-radius: 14px; }
+  .tab-fab .fab .ic { width: 24px; height: 24px; }
+  .m-cta { bottom: calc(var(--tab-h) + var(--safe-b) + 12px); }
+}
+
+/* Карта на телефоне боком (и на любом низком широком окне): как на компьютере — фильтры и список слева, карта справа */
+@media (max-width: 979px) and (min-width: 540px) and (max-height: 500px) and (orientation: landscape) {
+  .map-page { grid-template-columns: minmax(280px, 40%) 1fr; grid-template-rows: minmax(0, 1fr); }
+  .map-page[data-view] .map-list, .map-page[data-view] .map-box { display: grid; }
+  .map-page[data-view] .map-box { display: block; }
+  .map-page[data-view] .map-side { grid-row: auto; border-right: 1px solid var(--line); }
+  .map-seg { display: none; }
+  .map-filters { padding: 10px 12px; gap: 8px; }
+  .map-list { padding: 10px 12px 16px; }
+  .peek { left: 12px; right: auto; width: min(360px, calc(100% - 24px)); }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .top .brand img { width: 54px; height: 44px; }
+  /* мастер заявки: карточки выбора — в строку, чтобы все три были видны над кнопкой «Далее» */
+  .pick { flex-direction: row; align-items: center; padding: 12px 14px; gap: 12px; }
+  .pick .cat-ic { width: 40px; height: 40px; border-radius: 12px; }
+  .wiz-foot { padding: 10px 0; margin-top: 12px; }
+}
+
+/* Быстрые фильтры карты подстраиваются под ширину своей колонки (телефон 320 px, узкая колонка рядом с картой):
+   ни одна подпись не обрезается многоточием — на узкой колонке убираем значки и лишние отступы */
+.map-filters { container-type: inline-size; }
+.mq-row .kind-seg { grid-template-columns: minmax(min-content, .8fr) minmax(min-content, 1fr) minmax(min-content, 1fr); }
+.mq-row .kind-seg button { text-overflow: clip; }
+@container (max-width: 380px) {
+  .cat-seg .filter-chip .ic { display: none; }
+  .cat-seg .filter-chip { padding: 0 4px; }
+  .mq-row { gap: 6px; }
+  .mq-row .kind-seg button { padding: 0 7px; }
+  .mq-row .sos { padding: 0 10px; gap: 5px; }
+}
+@container (max-width: 300px) {
+  .mq-row .kind-seg button { padding: 0 5px; font-size: 12.5px; }
+  .mq-row .sos .ic { display: none; }
+  .cat-seg { gap: 6px; }
+  .cat-seg .filter-chip { font-size: 13px; }
+}
+
+/* Заголовок списка заявок: число слева, сортировка справа — всегда в одну строку (в узкой колонке сортировка сжимается, а не наезжает на первую карточку) */
+.list-head { flex-wrap: nowrap; }
+.list-head > b { flex: none; }
+.sort-sel { min-width: 0; flex: 0 1 auto; max-width: 70%; }
+.sort-sel select { width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Кнопки: если подпись не помещается (узкий телефон, узкая колонка), она переносится на вторую строку, а не обрезается.
+   В строках кнопок с переносом (flex-wrap) кнопка сначала уходит на новую строку целиком — переносится текст только у той, что уже во всю ширину */
+.btn { white-space: normal; text-align: center; line-height: 1.2; padding-top: 6px; padding-bottom: 6px; min-width: 0; text-wrap: balance; }
+.btn > .ic { flex: none; }
+/* Пара кнопок в строке: если обе не помещаются целиком — каждая уходит на свою строку во всю ширину, а не сжимается */
+.row:has(> .btn + .btn) { flex-wrap: wrap; }
+.row:has(> .btn + .btn) > .btn { flex: 1 1 auto; }
+/* самые узкие телефоны: подписи нижнего меню чуть мельче, чтобы «Кабинет» не упирался в край */
+@media (max-width: 350px) { .tab { font-size: 11px; } .tab-ic { width: 46px; } }
+/* админка на широком экране: меню разделов шире — длинные названия («Волонтёры и партнёры», «Запросы на удаление») в одну строку */
+@media (min-width: 1180px) { .admin { grid-template-columns: 272px minmax(0, 1fr); } }
+/* в шапке кнопки всегда в одну строку — если места мало, шапка сама убирает второстепенное (fitTop) */
+.top .btn { white-space: nowrap; flex: none; }
+/* узкие телефоны: главные кнопки («Сообщить о пропаже», «Я видел этого человека») — в одну строку */
+@media (max-width: 380px) {
+  .btn-lg { font-size: 16px; padding-left: 14px; padding-right: 14px; gap: 6px; }
+  .btn { padding-left: 14px; padding-right: 14px; }
+}
+@media (max-width: 380px) { .actions-row .btn { padding: 0 2px; } }

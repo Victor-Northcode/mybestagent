@@ -1169,3 +1169,53 @@ describe('Навигация и права доступа', () => {
     await page.context().close();
   });
 });
+
+describe('Любой размер окна', () => {
+  it('шапка помещается в строку на любой ширине — гость, пользователь, админ; русский и английский', async () => {
+    for (const [who, lang] of [[null, 'ru'], ['anna@example.com', 'ru'], ['admin@mba.local', 'ru'], ['admin@mba.local', 'en']]) {
+      const page = await newPage({ viewport: { width: 1280, height: 400 }, locale: lang === 'en' ? 'en-US' : 'ru-RU' });
+      if (who) await login(page, who);
+      await open(page, '#/');
+      if (lang === 'en' && (await page.evaluate(() => document.documentElement.lang)) !== 'en') { await page.click('#langBtn'); await page.waitForTimeout(400); }
+      const bad = [];
+      for (let w = 320; w <= 1600; w += 20) {
+        await page.setViewportSize({ width: w, height: 400 }); await page.waitForTimeout(60);
+        const m = await page.evaluate(() => { const row = document.querySelector('#top .top-in'); return { row: row.scrollWidth - row.clientWidth, page: document.documentElement.scrollWidth - innerWidth }; });
+        if (m.row > 1 || m.page > 0) bad.push(`${w}: +${Math.max(m.row, m.page)}`);
+      }
+      assert.deepEqual(bad, [], `${who || 'гость'}/${lang}: шапка не помещается`);
+      assert.deepEqual(page.errors, []);
+      await page.context().close();
+    }
+  });
+
+  it('телефон боком (844×390): тонкие шапка и меню, на карте список слева и карта справа, заголовок списка в одну строку', async () => {
+    const page = await newPage({ viewport: { width: 844, height: 390 }, touch: true });
+    await open(page, '#/map');
+    await page.waitForSelector('#list .mrow');
+    const m = await page.evaluate(() => {
+      const r = (s) => document.querySelector(s).getBoundingClientRect();
+      return { top: r('#top').height, tab: r('#tabbar').height, map: r('.map-box'), side: r('.map-side'), head: r('#list .list-head'), first: r('#list .mrow'), seg: getComputedStyle(document.querySelector('.map-seg')).display };
+    });
+    assert.ok(m.top <= 57 && m.tab <= 55, `шапка ${m.top}, меню ${m.tab}`);
+    assert.ok(m.map.width > 400 && m.map.height > 250, 'карта занимает место: ' + JSON.stringify(m.map));
+    assert.ok(m.side.right <= m.map.left + 1, 'список слева от карты');
+    assert.equal(m.seg, 'none', 'переключатель «Карта/Список» не нужен');
+    assert.ok(m.head.height <= 36 && m.first.top >= m.head.bottom, 'сортировка не наезжает на первую карточку');
+    await noOverflow(page, 'карта боком');
+    assert.deepEqual(page.errors, []);
+    await page.context().close();
+  });
+
+  it('узкий телефон (320 px): подписи кнопок и фильтров не обрезаются', async () => {
+    const page = await newPage({ viewport: { width: 320, height: 640 }, touch: true });
+    const cut = () => page.evaluate(() => [...document.querySelectorAll('.btn, .kind-seg button, .cat-seg .filter-chip, .cat-seg .filter-chip span')]
+      .filter((e) => e.getBoundingClientRect().width && e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent.trim()));
+    await open(page, '#/map');
+    assert.deepEqual(await cut(), [], 'фильтры карты');
+    await login(page, 'anna@example.com');
+    for (const r of ['#/me', '#/me/settings', '#/me/family', '#/a/3']) { await open(page, r); assert.deepEqual(await cut(), [], r); }
+    assert.deepEqual(page.errors, []);
+    await page.context().close();
+  });
+});

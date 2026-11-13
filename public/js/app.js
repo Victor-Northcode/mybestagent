@@ -44,7 +44,19 @@ const chrome = () => {
   $('#foot').classList.toggle('hide', hideFoot);
   if (!hideFoot) footer();
   const pt = pageTitle(p); if (pt) document.title = pt;
+  fitTop();
 };
+// Шапка подстраивается под ширину окна сама: если всё не помещается в строку (админ-меню, длинный перевод, промежуточная ширина),
+// по шагам убираем второстепенное — подпись под названием, лишние отступы меню, название у логотипа, подпись у кнопки языка.
+const FIT = ['fit1', 'fit2', 'fit3', 'fit4'];
+function fitTop() {
+  const row = $('#top .top-in'); if (!row) return;
+  row.classList.remove(...FIT);
+  for (const c of FIT) { if (row.scrollWidth <= row.clientWidth + 1) break; row.classList.add(c); }
+}
+let fitW = 0;
+if ('ResizeObserver' in window) new ResizeObserver(([e]) => { const w = Math.round(e.contentRect.width); if (w !== fitW) { fitW = w; fitTop(); } }).observe(document.getElementById('top'));
+document.fonts?.ready.then(fitTop);
 function footer() {
   mount($('#foot'), h`<div class="wrap"><div class="footer-grid">
     <div><a class="brand" href="#/"><img src="/assets/logo-256.png" alt=""><span>${tr('Мой лучший агент', 'My Best Agent')}</span></a><p style="margin-top:12px;max-width:340px">${t('foot.about2', 'Поиск людей, животных и вещей. Платформа не заменяет полицию и экстренные службы.', 'Finding people, pets and things. The platform does not replace the police or emergency services.')}</p>${emergencyPhones('mini')}</div>
