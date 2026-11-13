@@ -466,7 +466,7 @@ export function connectStream() {
   if (es) { es.close(); es = null; }
   if (!state.user || !('EventSource' in window)) return;
   es = new EventSource('/api/stream');
-  ['notification', 'message'].forEach((type) => es.addEventListener(type, (e) => { const d = JSON.parse(e.data); listeners.forEach((f) => f(type, d)); }));
+  ['notification', 'message', 'chat_read', 'ticket'].forEach((type) => es.addEventListener(type, (e) => { const d = JSON.parse(e.data); listeners.forEach((f) => f(type, d)); }));
 }
 
 /* ---------- push-уведомления ---------- */

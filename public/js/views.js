@@ -1204,90 +1204,177 @@ export function complain(type, id) {
 }
 
 /* =================== ЧАТЫ =================== */
-route('/chats', async (view) => {
-  mount(view, h`<div class="wrap"><div class="page-head"><h1>${t('chats.title', 'Сообщения', 'Messages')}</h1><p>${t('chats.sub', 'Анонимная переписка по заявкам. Контакты не раскрываются.', 'Anonymous conversations. Contacts stay private.')}</p></div><div id="cl"><div class="spinner"></div></div></div>`);
-  const load = async () => {
+// Как в мессенджере: на компьютере — диалоги слева, переписка справа; на телефоне — список, затем переписка на весь экран.
+const pDate = (s) => new Date(/^\d{4}-\d\d-\d\d \d/.test(s || '') ? s.replace(' ', 'T') + 'Z' : s);
+const sameDay = (a, b) => a.toDateString() === b.toDateString();
+const loc = () => (state.lang === 'en' ? 'en-GB' : 'ru-RU');
+function dayLabel(s) {
+  const d = pDate(s), now = new Date(), y = new Date(now); y.setDate(now.getDate() - 1);
+  if (sameDay(d, now)) return tr('Сегодня', 'Today');
+  if (sameDay(d, y)) return tr('Вчера', 'Yesterday');
+  return fmtDate(s);
+}
+// время в списке: сегодня — часы, на этой неделе — день недели, раньше — дата
+export function listTime(s) {
+  if (!s) return '';
+  const d = pDate(s), now = new Date();
+  if (isNaN(d)) return '';
+  if (sameDay(d, now)) return timeOf(s);
+  if (now - d < 6 * 86400e3) return d.toLocaleDateString(loc(), { weekday: 'short' });
+  return d.toLocaleDateString(loc(), { day: 'numeric', month: 'short', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+}
+const isDesk = () => matchMedia('(min-width: 980px)').matches;
+const TICK1 = '<svg viewBox="0 0 18 12" aria-hidden="true"><path d="M2 6.6l3.4 3.4L12.6 2.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const TICK2 = '<svg viewBox="0 0 18 12" aria-hidden="true"><path d="M1.2 6.6l3.4 3.4L11.8 2.6M8.6 9.4l.6.6L16.4 2.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const chatAva = (c) => h`<span class="chat-ava ${c.application.kind === 'lost' ? 'lost' : 'found'}" aria-hidden="true">${icon(CAT[c.application.category]?.icon || 'chat')}</span>`;
+const lastLine = (l) => !l ? h`<span class="muted">${tr('Нет сообщений', 'No messages')}</span>`
+  : h`${l.mine ? h`<span class="you">${tr('Вы: ', 'You: ')}</span>` : ''}${l.text || (l.photo ? '📷 ' + tr('Фото', 'Photo') : '📍 ' + tr('Точка на карте', 'Location'))}`;
+// Enter — отправить, Shift+Enter — новая строка (на сенсорных экранах Enter переносит строку, отправка — кнопкой)
+function bindComposer(form, ta, btn) {
+  const sync = () => { ta.style.height = 'auto'; ta.style.height = Math.min(140, ta.scrollHeight) + 'px'; btn.disabled = !ta.value.trim(); };
+  ta.addEventListener('input', sync);
+  ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && matchMedia('(pointer: fine)').matches) { e.preventDefault(); if (ta.value.trim()) form.requestSubmit(); } });
+  sync();
+  return sync;
+}
+
+async function chatShell(view, activeId) {
+  mount(view, h`<div class="chat-shell ${activeId ? 'has-chat' : ''}">
+    <aside class="chat-side" aria-label="${tr('Диалоги', 'Conversations')}">
+      <div class="chat-side-head"><h1>${t('chats.title', 'Сообщения', 'Messages')}</h1><p>${t('chats.sub', 'Анонимная переписка по заявкам. Контакты не раскрываются.', 'Anonymous conversations. Contacts stay private.')}</p></div>
+      <div class="chat-list" id="cl"><div class="spinner"></div></div>
+      <a class="chat-support" href="#/support">${icon('help')}<span><b>${tr('Поддержка', 'Support')}</b><small>${tr('Вопрос по работе сайта — ответим здесь', 'A question about the site — we reply here')}</small></span>${icon('chevR', 'ic-sm')}</a>
+    </aside>
+    <section class="chat-main" id="cm">${activeId ? h`<div class="spinner" style="margin:auto"></div>` : h`<div class="chat-pick">${icon('chat')}<b>${tr('Выберите диалог', 'Choose a conversation')}</b><span>${tr('Переписка откроется здесь', 'It will open here')}</span></div>`}</section>
+  </div>`);
+  const listEl = $('#cl', view);
+  const loadList = async () => {
     const { items } = await GET('/chats');
-    mount($('#cl', view), items.length ? h`<div class="stack">${items.map((c, i) => h`<a class="chat-item rise" style="--i:${i}" href="#/chat/${c.id}">
-      <div class="chat-ava" style="background:${c.application.kind === 'lost' ? 'var(--red)' : 'var(--blue)'};color:#fff">${icon(CAT[c.application.category].icon)}</div>
-      <div class="grow" style="min-width:0"><div class="row between"><b style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${aliasOf(c)}</b><span class="xs muted">${c.last ? ago(c.last.created_at) : ''}</span></div>
-      <div class="small muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.application.title}</div>
-      <div class="small" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">${c.last ? (c.last.mine ? tr('Вы: ', 'You: ') : '') + (c.last.text || (c.last.photo ? '📷 ' + tr('Фото', 'Photo') : '📍 ' + tr('Точка на карте', 'Location'))) : h`<span class="muted">${tr('Нет сообщений', 'No messages')}</span>`}</div></div>
-      ${c.unread ? h`<span class="unread-dot">${c.unread}</span>` : ''}${c.blocked ? icon('ban') : ''}</a>`)}</div>`
+    if (!listEl.isConnected) return;
+    mount(listEl, items.length ? h`${items.map((c) => h`<a class="chat-item ${c.id === activeId ? 'on' : ''} ${c.unread ? 'unread' : ''}" href="#/chat/${c.id}" ${c.id === activeId ? raw('aria-current="page"') : ''}>
+      ${chatAva(c)}
+      <span class="ci-body"><span class="ci-top"><b>${aliasOf(c)}</b><time>${listTime(c.last ? c.last.created_at : c.created_at)}</time></span>
+      <span class="ci-app">${c.application.title}</span>
+      <span class="ci-last"><span class="ci-text">${lastLine(c.last)}</span>${c.blocked ? icon('ban', 'ic-sm') : c.unread ? h`<span class="unread-dot" aria-label="${tr('Непрочитанных', 'Unread')}: ${c.unread}">${c.unread > 99 ? '99+' : c.unread}</span>` : ''}</span></span></a>`)}`
       : empty('chat', t('chats.empty', 'Пока нет переписок', 'No conversations yet'), t('chats.empty_t', 'Откройте заявку и нажмите «написать», чтобы связаться анонимно.', 'Open a report and tap “message” to contact anonymously.'), h`<a class="btn btn-sm" href="#/map">${t('home.all', 'Карта и поиск', 'Map & search')}</a>`));
   };
-  await load();
-  onLeave(onEvent((type) => { if (type === 'message') load(); }));
-}, { auth: true });
+  // на телефоне открытая переписка занимает весь экран — список не нужен
+  const listShown = () => !activeId || isDesk();
+  if (listShown()) await loadList();
+  onLeave(onEvent((type) => { if ((type === 'message' || type === 'chat_read') && listShown()) loadList().catch(() => {}); }));
+  if (activeId) await chatPane($('#cm', view), activeId, () => { if (isDesk()) loadList().catch(() => {}); });
+}
+route('/chats', (view) => chatShell(view, null), { auth: true });
+route('/chat/:id', (view, p) => chatShell(view, Number(p.id)), { auth: true, full: true });
 
-route('/chat/:id', async (view, p) => {
-  let { chat, messages } = await GET('/chats/' + p.id);
+async function chatPane(el, id, onChange) {
+  const { chat, messages } = await GET('/chats/' + id);
   refreshMe().catch(() => {});
-  mount(view, h`<div class="chat-page">
+  const mod = chat.side === 'moderator';
+  mount(el, h`<div class="chat-page">
     <div class="chat-head">
-      <a class="icon-btn" href="#/chats" aria-label="${tr('Назад', 'Back')}">${icon('chevL')}</a>
-      <div class="chat-ava" style="background:${chat.application.kind === 'lost' ? 'var(--red)' : 'var(--blue)'};color:#fff">${icon(CAT[chat.application.category].icon)}</div>
-      <a class="grow" style="min-width:0" href="#/a/${chat.application.id}"><b style="display:block">${aliasOf(chat)}</b><div class="xs muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${chat.application.title}</div></a>
-      <button class="icon-btn" id="menu" aria-label="${tr('Меню', 'Menu')}">${icon('more')}</button>
+      <a class="icon-btn chat-back" href="#/chats" aria-label="${tr('К списку диалогов', 'Back to conversations')}">${icon('chevL')}</a>
+      ${chatAva(chat)}
+      <a class="chat-title" href="#/a/${chat.application.id}" title="${tr('Открыть заявку', 'Open report')}"><b>${aliasOf(chat)}</b><span>${chat.application.title}</span></a>
+      ${mod ? '' : h`<button type="button" class="icon-btn" id="menu" aria-label="${tr('Действия с перепиской', 'Conversation actions')}" aria-haspopup="dialog">${icon('more')}</button>`}
     </div>
-    <div class="chat-warn">${icon('alert')}<div>${t('chat.fraud', 'Не платите заранее и не называйте коды из SMS. Встречайтесь в людных местах. Модераторы не просят денег в чате.', 'Don’t pay in advance or share SMS codes. Meet in public places. Moderators never ask for money in chat.')}</div></div>
-    <div class="msgs" id="msgs" tabindex="0" role="log" aria-live="polite" aria-label="${t('chat.msgs', 'Сообщения', 'Messages')}"></div>
-    ${chat.side === 'moderator' ? '' : chat.blocked ? h`<div class="composer"><div class="grow center small muted" style="padding:12px">${icon('ban', 'ic-sm')} ${chat.blocked_by_me ? t('chat.blocked_me', 'Вы заблокировали собеседника', 'You blocked this user') : t('chat.blocked', 'Переписка заблокирована', 'Conversation blocked')}</div></div>` : h`
-    <form class="composer" id="cf">
-      <label class="icon-btn" title="${tr('Фото', 'Photo')}">${icon('image')}<input type="file" accept="image/*" hidden id="cph"></label>
-      <button type="button" class="icon-btn" id="cloc" title="${tr('Точка на карте', 'Location')}" aria-label="${tr('Отправить точку на карте', 'Send a location')}">${icon('pin')}</button>
-      <textarea id="ct" rows="1" placeholder="${t('chat.ph', 'Сообщение', 'Message')}" maxlength="2000" enterkeyhint="send"></textarea>
-      <button class="icon-btn send" aria-label="${tr('Отправить', 'Send')}">${icon('send')}</button>
+    <div class="msgs" id="msgs" tabindex="0" role="log" aria-live="polite" aria-label="${t('chat.msgs', 'Сообщения', 'Messages')}">
+      <div class="chat-warn">${icon('shield', 'ic-sm')}<span>${t('chat.fraud', 'Не платите заранее и не называйте коды из SMS. Встречайтесь в людных местах. Модераторы не просят денег в чате.', 'Don’t pay in advance or share SMS codes. Meet in public places. Moderators never ask for money in chat.')}</span></div>
+    </div>
+    <button type="button" class="msgs-down hide" id="down" aria-label="${tr('К новым сообщениям', 'To new messages')}">${icon('chevR')}</button>
+    ${mod ? h`<div class="composer composer-note">${icon('shield', 'ic-sm')}${tr('Вы видите переписку как модератор — писать в неё нельзя', 'You are viewing as a moderator — you cannot write here')}</div>`
+    : chat.blocked ? h`<div class="composer composer-note">${icon('ban', 'ic-sm')}${chat.blocked_by_me ? t('chat.blocked_me', 'Вы заблокировали собеседника', 'You blocked this user') : t('chat.blocked', 'Переписка заблокирована', 'Conversation blocked')}</div>`
+    : h`<form class="composer" id="cf">
+      <div class="composer-box">
+        <label class="icon-btn cb-btn" tabindex="0" role="button" title="${tr('Отправить фото', 'Send a photo')}" aria-label="${tr('Отправить фото', 'Send a photo')}">${icon('image')}<input type="file" accept="image/*" hidden id="cph"></label>
+        <textarea id="ct" rows="1" placeholder="${t('chat.ph', 'Сообщение', 'Message')}" maxlength="2000" aria-label="${t('chat.ph', 'Сообщение', 'Message')}"></textarea>
+        <button type="button" class="icon-btn cb-btn" id="cloc" title="${tr('Точка на карте', 'Location')}" aria-label="${tr('Отправить точку на карте', 'Send a location')}">${icon('pin')}</button>
+      </div>
+      <button class="send" id="csend" aria-label="${tr('Отправить', 'Send')}" disabled>${icon('send')}</button>
     </form>`}
   </div>`);
-  const box = $('#msgs', view);
-  const bubble = (m) => h`<div class="msg ${m.mine ? 'mine' : ''}">${m.photo ? h`<img src="${m.photo}" alt="${tr('Фото', 'Photo')}" data-zoom="${m.photo}">` : ''}${m.lat != null ? h`<a class="loc" href="#" data-lat="${m.lat}" data-lng="${m.lng}">${icon('pin')}${tr('Точка на карте', 'Location on map')}</a>` : ''}${m.text}<time>${timeOf(m.created_at)}</time></div>`;
-  let lastDay = '';
-  const dayOf = (s) => fmtDate(s);
-  const append = (m) => {
-    const d = dayOf(m.created_at); let out = '';
-    if (d !== lastDay) { out += h`<div class="msg-day">${d}</div>`.s; lastDay = d; }
-    box.insertAdjacentHTML('beforeend', out + bubble(m).s);
-    bindMsg(box.lastElementChild);
-    box.scrollTop = box.scrollHeight;
+  const box = $('#msgs', el), down = $('#down', el);
+  const nearBottom = () => box.scrollHeight - box.scrollTop - box.clientHeight < 140;
+  const toBottom = (smooth) => { box.scrollTo({ top: box.scrollHeight, behavior: smooth ? 'smooth' : 'auto' }); down.classList.add('hide'); };
+  box.addEventListener('scroll', () => { if (nearBottom()) down.classList.add('hide'); }, { passive: true });
+  down.onclick = () => toBottom(true);
+  const tick = (m) => (m.mine && !mod ? h`<span class="tick ${m.read ? 'read' : ''}" title="${m.pending ? tr('Отправляется', 'Sending') : m.read ? tr('Прочитано', 'Read') : tr('Доставлено', 'Delivered')}">${m.pending ? icon('clock') : raw(m.read ? TICK2 : TICK1)}</span>` : '');
+  const bubble = (m, cont) => h`<div class="msg ${m.mine ? 'mine' : ''} ${cont ? 'cont' : ''} ${m.pending ? 'pending' : ''} ${m.photo && !m.text ? 'photo-only' : ''}">${m.photo ? h`<img src="${m.photo}" alt="${tr('Фото', 'Photo')}" data-zoom="${m.photo}">` : ''}${m.lat != null ? h`<a class="loc" href="#" data-lat="${m.lat}" data-lng="${m.lng}">${icon('pin')}<span>${tr('Точка на карте', 'Location on map')}</span></a>` : ''}${m.text ? h`<span class="msg-text">${m.text}</span>` : ''}<span class="msg-meta"><time>${timeOf(m.created_at)}</time>${tick(m)}</span></div>`;
+  let lastDay = '', lastMsg = null;
+  const bindMsg = (x) => {
+    $$('[data-zoom]', x).forEach((i) => { i.onclick = () => lightbox(i.dataset.zoom); i.addEventListener('load', () => { if (box.scrollHeight - box.scrollTop - box.clientHeight < 420) toBottom(); }); });
+    $$('[data-lat]', x).forEach((a) => a.onclick = (e) => { e.preventDefault(); const s = sheet(h`${sheetHead(tr('Точка на карте', 'Location'))}<div class="mini-map" style="height:340px" id="lm"></div>`); const mm = makeMap($('#lm', s.el), { center: [+a.dataset.lat, +a.dataset.lng], zoom: 16 }); mm.lib.marker([+a.dataset.lat, +a.dataset.lng], { icon: pinIcon({ kind: 'found', category: 'things' }), interactive: false, keyboard: false }).addTo(mm); });
   };
-  const bindMsg = (el) => {
-    $$('[data-zoom]', el).forEach((i) => i.onclick = () => lightbox(i.dataset.zoom));
-    $$('[data-lat]', el).forEach((a) => a.onclick = (e) => { e.preventDefault(); const s = sheet(h`${sheetHead(tr('Точка на карте', 'Location'))}<div class="mini-map" style="height:340px" id="lm"></div>`); const mm = makeMap($('#lm', s.el), { center: [+a.dataset.lat, +a.dataset.lng], zoom: 16 }); mm.lib.marker([+a.dataset.lat, +a.dataset.lng], { icon: pinIcon({ kind: 'found', category: 'things' }), interactive: false, keyboard: false }).addTo(mm); });
+  const append = (m, force) => {
+    $('.chat-empty', box)?.remove();
+    const near = nearBottom();
+    const d = dayLabel(m.created_at); let out = '';
+    if (d !== lastDay) { out += h`<div class="msg-day"><span>${d}</span></div>`.s; lastDay = d; lastMsg = null; }
+    const cont = !!lastMsg && lastMsg.mine === m.mine && Math.abs(pDate(m.created_at) - pDate(lastMsg.created_at)) < 5 * 60e3;
+    box.insertAdjacentHTML('beforeend', out + bubble(m, cont).s);
+    lastMsg = m;
+    const x = box.lastElementChild; bindMsg(x);
+    if (force || near || m.mine) toBottom(!force); else down.classList.remove('hide');
+    return x;
   };
-  if (!messages.length) box.innerHTML = `<div class="empty" style="margin:auto">${icon('lock').s}<b>${esc(t('chat.start', 'Начните переписку', 'Start the conversation'))}</b>${esc(t('chat.start_t', 'Спросите о деталях, которые знает только владелец. Контакты скрыты.', 'Ask about details only the owner would know. Contacts stay hidden.'))}</div>`;
-  messages.forEach(append);
-  const send = async (payload) => {
-    try { const r = await POST(`/chats/${chat.id}/messages`, payload); if (box.querySelector('.empty')) box.innerHTML = ''; append(r.message); } catch (e) { toastErr(e); }
+  if (!messages.length) box.insertAdjacentHTML('beforeend', h`<div class="chat-empty">${icon('lock')}<b>${t('chat.start', 'Начните переписку', 'Start the conversation')}</b><span>${t('chat.start_t', 'Спросите о деталях, которые знает только владелец. Контакты скрыты.', 'Ask about details only the owner would know. Contacts stay hidden.')}</span></div>`.s);
+  messages.forEach((m) => append(m, true));
+  requestAnimationFrame(() => toBottom());
+  const post = async (payload, tmp) => {
+    try {
+      const r = await POST(`/chats/${chat.id}/messages`, payload);
+      if (tmp && tmp.isConnected) { const cont = tmp.classList.contains('cont'); tmp.insertAdjacentHTML('afterend', bubble(r.message, cont).s); const x = tmp.nextElementSibling; tmp.remove(); bindMsg(x); lastMsg = r.message; }
+      else append(r.message);
+      onChange();
+      return true;
+    } catch (e) { tmp?.remove(); toastErr(e); return false; }
   };
-  const form = $('#cf', view);
+  const form = $('#cf', el);
   if (form) {
-    const ta = $('#ct', view);
-    ta.oninput = () => { ta.style.height = 'auto'; ta.style.height = Math.min(140, ta.scrollHeight) + 'px'; };
-    ta.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey && matchMedia('(pointer: fine)').matches) { e.preventDefault(); form.requestSubmit(); } };
-    form.onsubmit = (e) => { e.preventDefault(); const text = ta.value.trim(); if (!text) return; ta.value = ''; ta.style.height = ''; send({ text }); };
-    $('#cph', view).onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { toast(tr('Загружаем фото…', 'Uploading photo…'), 'info'); const url = await upload(f); send({ photo: url }); } catch (er) { toastErr(er); } e.target.value = ''; };
-    $('#cloc', view).onclick = () => {
+    const ta = $('#ct', el), btn = $('#csend', el);
+    const sync = bindComposer(form, ta, btn);
+    form.onsubmit = async (e) => {
+      e.preventDefault(); const text = ta.value.trim(); if (!text) return;
+      ta.value = ''; sync(); if (matchMedia('(pointer: fine)').matches) ta.focus();
+      const tmp = append({ mine: true, pending: true, text, created_at: new Date().toISOString() });
+      if (!(await post({ text }, tmp)) && !ta.value) { ta.value = text; sync(); }
+    };
+    const photoBtn = $('label.cb-btn', el);
+    photoBtn.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#cph', el).click(); } };
+    $('#cph', el).onchange = async (e) => {
+      const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+      const tmp = append({ mine: true, pending: true, text: tr('Загружаем фото…', 'Uploading photo…'), created_at: new Date().toISOString() });
+      try { const url = await upload(f); await post({ photo: url }, tmp); } catch (er) { tmp.remove(); toastErr(er); }
+    };
+    $('#cloc', el).onclick = () => {
       let pt = null;
       const s = sheet(h`${sheetHead(t('chat.loc', 'Отправить точку на карте', 'Send a location'), t('chat.loc_t', 'Например, место встречи или где замечена находка.', 'E.g. a meeting point or where the item was seen.'))}<div class="picker" id="lp"></div><button class="btn btn-block" style="margin-top:14px" data-ok>${icon('send')}${tr('Отправить', 'Send')}</button>`);
       const pk = mapPicker($('#lp', s.el), null, (v) => { pt = v; }, { full: false });
-      $('[data-ok]', s.el).onclick = () => { if (!pt) return toast(tr('Отметьте точку', 'Pick a point'), 'err'); s.close(); pk.map.remove(); send(pt); };
+      $('[data-ok]', s.el).onclick = () => { if (!pt) return toast(tr('Отметьте точку', 'Pick a point'), 'err'); s.close(); pk.map.remove(); post(pt); };
     };
   }
-  $('#menu', view).onclick = () => {
-    if (chat.side === 'moderator') return;
-    const s = sheet(h`${sheetHead(aliasOf(chat))}<div class="list">
+  const menu = $('#menu', el);
+  if (menu) menu.onclick = () => {
+    const s = sheet(h`${sheetHead(aliasOf(chat), chat.application.title)}<div class="list">
       <a href="#/a/${chat.application.id}">${icon('file')}<span class="grow">${tr('Открыть заявку', 'Open report')}</span>${icon('chevR')}</a>
       <a href="#" data-c>${icon('flag')}<span class="grow">${t('c.title', 'Пожаловаться', 'Report')}</span>${icon('chevR')}</a>
       ${!chat.blocked ? h`<a href="#" data-b style="color:var(--red)">${icon('ban')}<span class="grow">${t('chat.block', 'Заблокировать собеседника', 'Block user')}</span></a>` : chat.blocked_by_me ? h`<a href="#" data-u>${icon('refresh')}<span class="grow">${t('chat.unblock', 'Разблокировать', 'Unblock')}</span></a>` : ''}
     </div>`);
-    const on = (sel, fn) => { const el = $(sel, s.el); if (el) el.onclick = (e) => { e.preventDefault(); s.close(); fn(); }; };
+    $$('a[href^="#/"]', s.el).forEach((a) => a.addEventListener('click', () => s.close()));
+    const on = (sel, fn) => { const x = $(sel, s.el); if (x) x.onclick = (e) => { e.preventDefault(); s.close(); fn(); }; };
     on('[data-c]', () => complain('chat', chat.id));
     on('[data-b]', async () => { if (await confirmBox(t('chat.block', 'Заблокировать собеседника', 'Block user'), t('chat.block_t', 'Он не сможет писать вам в этом чате.', 'They will not be able to message you here.'), { danger: true, ok: tr('Заблокировать', 'Block') })) { await POST(`/chats/${chat.id}/block`, { block: true }); go(location.hash); } });
     on('[data-u]', async () => { await POST(`/chats/${chat.id}/block`, { block: false }); go(location.hash); });
   };
-  onLeave(onEvent((type, d) => { if (type === 'message' && d.chat_id === chat.id) { if (box.querySelector('.empty')) box.innerHTML = ''; append(d); GET('/chats/' + chat.id).catch(() => {}); } }));
-}, { auth: true, full: true });
+  onLeave(onEvent((type, d) => {
+    if (type === 'message' && d.chat_id === chat.id) {
+      append(d);
+      if (!d.mine) GET('/chats/' + chat.id).then(() => { refreshMe().catch(() => {}); onChange(); }).catch(() => {});
+    }
+    // собеседник прочитал — галочки становятся двойными
+    if (type === 'chat_read' && d.chat_id === chat.id) $$('.msg.mine .tick:not(.read)', box).forEach((x) => { x.classList.add('read'); x.title = tr('Прочитано', 'Read'); x.innerHTML = TICK2; });
+  }));
+}
 
 /* =================== УВЕДОМЛЕНИЯ =================== */
 const NIC = { match: 'match', emergency: 'siren', chat: 'chat', moderation: 'shield', status: 'check', points: 'award', payment: 'card', family: 'users', support: 'help', role: 'handshake', registry: 'gem' };
@@ -1904,23 +1991,101 @@ route('/community', async (view) => {
 });
 
 /* =================== ПОДДЕРЖКА =================== */
+// Обращение — это переписка с оператором в том же виде, что и чат. Статусы: открыто → есть ответ → решено.
+const TOPICS = () => [tr('Вход и аккаунт', 'Sign-in & account'), tr('Заявка и поиск', 'Report & search'), tr('Чат и безопасность', 'Chat & safety'), tr('Оплата и тарифы', 'Payments & plans'), tr('Предложение', 'Suggestion'), tr('Другое', 'Other')];
+export const tkStatus = (s, staff) => ({
+  open: [staff ? tr('Ждёт ответа', 'Awaiting reply') : tr('Открыто', 'Open'), 'chip-warn'],
+  answered: [staff ? tr('Отвечено', 'Answered') : tr('Есть ответ', 'Answered'), 'chip-ok'],
+  closed: [tr('Решено', 'Resolved'), 'chip-done']
+}[s] || [s, '']);
+function newTicketSheet() {
+  const s = sheet(h`${sheetHead(tr('Новое обращение', 'New request'), tr('Оператор ответит здесь, на сайте, — пришлём уведомление', 'An operator will reply here on the site — we will notify you'))}
+    <form class="stack" id="ntf" novalidate>
+      <fieldset class="tk-topics"><legend>${tr('О чём вопрос', 'Topic')}</legend><div class="tk-chips">${TOPICS().map((l) => h`<label class="tk-chip"><input type="radio" name="topic" value="${l}"><span>${l}</span></label>`)}</div></fieldset>
+      <label class="field"><span>${t('sup.subject', 'Тема', 'Subject')}</span><input name="subject" maxlength="160" autocomplete="off" placeholder="${tr('Коротко, например: не приходит код', 'In short, e.g. the code does not arrive')}"></label>
+      <label class="field"><span>${t('f.message', 'Сообщение', 'Message')}</span><textarea name="text" rows="5" maxlength="4000" placeholder="${tr('Что случилось и что вы уже попробовали', 'What happened and what you have already tried')}"></textarea></label>
+      <p class="tk-err hide" id="ntErr" role="alert"></p>
+      <button class="btn btn-block btn-lg">${icon('send')}${tr('Отправить', 'Send')}</button>
+    </form>`);
+  const f = $('#ntf', s.el), err = $('#ntErr', f);
+  const fail = (m, el) => { err.textContent = m; err.classList.remove('hide'); el.focus(); };
+  $$('input[name=topic]', f).forEach((r) => r.onchange = () => { const sj = f.elements.subject; if (!sj.value.trim() || sj.dataset.auto) { sj.value = r.value; sj.dataset.auto = '1'; } err.classList.add('hide'); });
+  f.elements.subject.oninput = (e) => { delete e.target.dataset.auto; err.classList.add('hide'); };
+  f.elements.text.oninput = () => err.classList.add('hide');
+  f.onsubmit = (e) => {
+    e.preventDefault();
+    const subject = f.elements.subject.value.trim(), text = f.elements.text.value.trim();
+    if (!subject) return fail(tr('Выберите тему выше или напишите её', 'Pick a topic above or type a subject'), f.elements.subject);
+    if (!text) return fail(tr('Опишите вопрос в сообщении', 'Describe your question in the message'), f.elements.text);
+    busy(e.submitter, async () => { try { const r = await POST('/tickets', { subject, text }); s.close(); go('#/support/' + r.id); } catch (er) { toastErr(er); } });
+  };
+}
 route('/support', async (view) => {
-  const { items } = await GET('/tickets');
-  const ST = { open: [tr('Открыто', 'Open'), 'chip-warn'], answered: [tr('Есть ответ', 'Answered'), 'chip-ok'], closed: [tr('Закрыто', 'Closed'), ''] };
-  mount(view, h`<div class="wrap" style="max-width:820px"><div class="page-head"><h1>${t('sup.title', 'Поддержка', 'Support')}</h1><p>${t('sup.sub', 'Опишите вопрос — оператор ответит здесь, а мы пришлём уведомление.', 'Describe your issue — an operator will reply here and we will notify you.')}</p></div>
-    <form class="card pad stack" id="tf"><label class="field"><span>${t('sup.subject', 'Тема', 'Subject')}</span><input name="subject" required maxlength="160"></label><label class="field"><span>${t('f.message', 'Сообщение', 'Message')}</span><textarea name="text" rows="4" required maxlength="4000"></textarea></label><button class="btn">${icon('send')}${tr('Отправить', 'Send')}</button></form>
-    <h3 style="margin:26px 0 12px">${t('sup.my', 'Мои обращения', 'My requests')}</h3>
-    ${items.length ? h`<div class="list">${items.map((x) => h`<a href="#/support/${x.id}">${icon('help')}<div class="grow"><b>${x.subject}</b><div class="xs muted">${ago(x.updated_at)} · ${x.msgs} ${tr('сообщ.', 'msgs')}</div></div><span class="chip ${ST[x.status][1]}">${ST[x.status][0]}</span></a>`)}</div>` : empty('help', t('sup.empty', 'Обращений пока нет', 'No requests yet'))}</div>`);
-  $('#tf', view).onsubmit = (e) => { e.preventDefault(); busy(e.submitter, async () => { try { const r = await POST('/tickets', formData(e.target)); go('#/support/' + r.id); } catch (er) { toastErr(er); } }); };
+  const draw = async () => {
+    const { items } = await GET('/tickets');
+    mount(view, h`<div class="wrap sup-wrap">
+      <div class="sup-head"><div><h1>${t('sup.title', 'Поддержка', 'Support')}</h1><p>${t('sup.sub', 'Опишите вопрос — оператор ответит здесь, а мы пришлём уведомление.', 'Describe your issue — an operator will reply here and we will notify you.')}</p></div>
+        <button type="button" class="btn" data-nt>${icon('plus')}${tr('Написать в поддержку', 'Contact support')}</button></div>
+      ${items.length ? h`<h2 class="sup-h2">${t('sup.my', 'Мои обращения', 'My requests')}</h2><div class="tk-list">${items.map((x) => { const [sl, sc] = tkStatus(x.status); return h`<a class="tk-item tk-${x.status}" href="#/support/${x.id}">
+        <span class="tk-ic">${icon(x.status === 'closed' ? 'check' : 'help')}</span>
+        <span class="tk-body"><span class="tk-top"><b>${x.subject}</b><time>${listTime(x.updated_at)}</time></span>
+        <span class="tk-last">${x.last_staff ? h`<span class="you">${tr('Поддержка: ', 'Support: ')}</span>` : ''}${x.last || ''}</span>
+        <span class="tk-meta"><span class="chip ${sc}">${sl}</span><span>№${x.id} · ${x.msgs} ${tr('сообщ.', 'msgs')}</span></span></span>${icon('chevR', 'ic-sm tk-go')}</a>`; })}</div>`
+      : h`<div class="empty sup-empty">${icon('help')}<b>${t('sup.empty', 'Обращений пока нет', 'No requests yet')}</b>${tr('Если что-то не получается — напишите, оператор ответит здесь.', 'If something does not work — write to us, an operator will reply here.')}<div style="margin-top:16px"><button type="button" class="btn" data-nt>${icon('plus')}${tr('Написать в поддержку', 'Contact support')}</button></div></div>`}
+      <p class="sup-mail">${icon('mail', 'ic-sm')}<span>${tr('Можно и на почту: ', 'Or by e-mail: ')}<a href="mailto:support@my-bestagent.ru">support@my-bestagent.ru</a></span></p>
+    </div>`);
+    $$('[data-nt]', view).forEach((b) => b.onclick = newTicketSheet);
+  };
+  await draw();
+  onLeave(onEvent((type) => { if (type === 'ticket') draw().catch(() => {}); }));
+  if (query().get('new')) newTicketSheet();
 }, { auth: true });
+
 export async function ticketView(view, id, staff) {
-  const { ticket, messages, user } = await GET('/tickets/' + id);
-  mount(view, h`<div class="wrap" style="max-width:820px;padding-top:16px">${back(staff ? '#/admin/support' : '#/support')}
-    <div class="row between" style="margin:8px 0 18px;align-items:flex-start"><div class="grow"><h2 style="overflow-wrap:anywhere">${ticket.subject}</h2>${user ? h`<div class="small muted" style="margin-top:6px">${user.name} · ${user.email || user.phone || ''}</div>` : ''}</div>${ticket.status !== 'closed' ? h`<button class="btn btn-ghost btn-sm" id="cl" style="flex:none">${tr('Закрыть', 'Close')}</button>` : h`<span class="chip">${tr('Закрыто', 'Closed')}</span>`}</div>
-    <div class="msgs" style="padding:0;overflow:visible">${messages.map((m) => h`<div class="msg ${(staff ? m.staff : !m.staff) ? 'mine' : ''}">${m.staff ? h`<b class="xs" style="display:block;opacity:.7">${tr('Поддержка', 'Support')}</b>` : ''}${m.text}<time>${fmtDate(m.created_at, true)}</time></div>`)}</div>
-    <form class="composer" id="mf" style="margin-top:16px;border:1px solid var(--line);border-radius:24px"><textarea name="text" rows="2" required placeholder="${t('chat.ph', 'Сообщение', 'Message')}"></textarea><button class="icon-btn send" aria-label="${tr('Отправить', 'Send')}">${icon('send')}</button></form></div>`);
-  $('#mf', view).onsubmit = (e) => { e.preventDefault(); busy(e.submitter, async () => { try { await POST(`/tickets/${id}/messages`, formData(e.target)); ticketView(view, id, staff); } catch (er) { toastErr(er); } }); };
-  const cl = $('#cl', view); if (cl) cl.onclick = async () => { await POST(`/tickets/${id}/close`); ticketView(view, id, staff); };
+  let data = await GET('/tickets/' + id);
+  const render = () => {
+    const { ticket, messages, user } = data;
+    const [sl, sc] = tkStatus(ticket.status, staff);
+    const draft = $('#tkt', view)?.value || '';
+    const hadFocus = document.activeElement?.id === 'tkt';
+    let lastDay = '', prev = null;
+    const rows = messages.map((m) => {
+      const mine = staff ? !!m.staff : !m.staff;
+      const d = dayLabel(m.created_at); let out = '';
+      if (d !== lastDay) { out = h`<div class="msg-day"><span>${d}</span></div>`.s; lastDay = d; prev = null; }
+      const cont = !!prev && !!prev.staff === !!m.staff && Math.abs(pDate(m.created_at) - pDate(prev.created_at)) < 5 * 60e3;
+      prev = m;
+      const who = m.staff ? tr('Поддержка', 'Support') : staff ? (user ? user.name : tr('Пользователь', 'User')) : '';
+      return out + h`<div class="msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}">${!mine && !cont && who ? h`<b class="msg-who">${m.staff ? icon('help', 'ic-sm') : ''}${who}</b>` : ''}<span class="msg-text">${m.text}</span><span class="msg-meta"><time>${timeOf(m.created_at)}</time></span></div>`.s;
+    }).join('');
+    mount(view, h`<div class="wrap tk-page">
+      <div class="tk-head">
+        <a class="icon-btn" href="${staff ? '#/admin/support' : '#/support'}" aria-label="${tr('К списку обращений', 'Back to requests')}">${icon('chevL')}</a>
+        <div class="tk-title"><b>${ticket.subject}</b><span>№${ticket.id} · ${fmtDate(ticket.created_at, true)}</span></div>
+        <span class="chip ${sc}">${sl}</span>
+      </div>
+      ${staff && user ? h`<div class="tk-user">${icon('user', 'ic-sm')}<b>${user.name}</b>${user.email || user.phone ? h`<span>${user.email || user.phone}</span>` : ''}${user.email ? h`<a class="link" href="mailto:${user.email}">${tr('Написать на почту', 'E-mail')}</a>` : ''}</div>` : ''}
+      <div class="tk-msgs" id="tkm" role="log" aria-live="polite" aria-label="${tr('Переписка', 'Conversation')}">${raw(rows)}</div>
+      <div class="tk-actions">${ticket.status === 'closed'
+        ? h`<span>${icon('check', 'ic-sm')}${staff ? tr('Решено. Новое сообщение откроет обращение снова.', 'Resolved. A new message reopens it.') : tr('Вопрос решён. Если нет — напишите, и обращение откроется снова.', 'Resolved. If not — just write, and it reopens.')}</span><button type="button" class="btn btn-ghost btn-sm" id="reo">${icon('refresh', 'ic-sm')}${tr('Открыть снова', 'Reopen')}</button>`
+        : h`<button type="button" class="btn btn-ghost btn-sm" id="cl">${icon('check', 'ic-sm')}${staff ? tr('Отметить решённым', 'Mark resolved') : tr('Мой вопрос решён', 'My issue is resolved')}</button>`}</div>
+      <form class="composer tk-composer" id="mf"><div class="composer-box"><textarea id="tkt" rows="1" maxlength="4000" aria-label="${tr('Сообщение', 'Message')}" placeholder="${staff ? tr('Ответ пользователю', 'Reply to the user') : t('chat.ph', 'Сообщение', 'Message')}"></textarea></div><button class="send" aria-label="${tr('Отправить', 'Send')}" disabled>${icon('send')}</button></form>
+    </div>`);
+    const form = $('#mf', view), ta = $('#tkt', view);
+    ta.value = draft;
+    const sync = bindComposer(form, ta, $('.send', form));
+    if (hadFocus) ta.focus();
+    form.onsubmit = (e) => {
+      e.preventDefault(); const text = ta.value.trim(); if (!text) return;
+      busy($('.send', form), async () => { try { await POST(`/tickets/${id}/messages`, { text }); ta.value = ''; sync(); data = await GET('/tickets/' + id); render(); toEnd(); } catch (er) { toastErr(er); } });
+    };
+    const act = async (path, ok) => { try { await POST(`/tickets/${id}/${path}`); data = await GET('/tickets/' + id); render(); toast(ok); } catch (er) { toastErr(er); } };
+    const cl = $('#cl', view); if (cl) cl.onclick = () => act('close', tr('Обращение отмечено решённым', 'Marked as resolved'));
+    const reo = $('#reo', view); if (reo) reo.onclick = () => act('reopen', tr('Обращение открыто снова', 'Request reopened'));
+  };
+  const toEnd = () => requestAnimationFrame(() => { const last = $('#tkm', view)?.lastElementChild; if (last) last.scrollIntoView({ block: 'end' }); });
+  render(); toEnd();
+  onLeave(onEvent(async (type, d) => { if (type === 'ticket' && Number(d.ticket_id) === Number(id)) { try { data = await GET('/tickets/' + id); render(); toEnd(); } catch (e) { /* обращение недоступно */ } } }));
 }
 route('/support/:id', (view, p) => ticketView(view, p.id, false), { auth: true });
 

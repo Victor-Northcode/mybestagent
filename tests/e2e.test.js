@@ -28,7 +28,7 @@ async function waitUp() {
 }
 
 async function newPage(opts = {}) {
-  const ctx = await browser.newContext({ viewport: opts.viewport || MOBILE, locale: opts.locale || 'ru-RU', deviceScaleFactor: 1, hasTouch: !!opts.touch, bypassCSP: !!opts.bypassCSP });
+  const ctx = await browser.newContext({ viewport: opts.viewport || MOBILE, locale: opts.locale || 'ru-RU', deviceScaleFactor: 1, hasTouch: !!opts.touch, bypassCSP: !!opts.bypassCSP, storageState: opts.state });
   const page = await ctx.newPage();
   page.errors = [];
   page.on('pageerror', (e) => page.errors.push('pageerror: ' + e.message));
@@ -492,6 +492,96 @@ describe('Личный кабинет (Анна)', () => {
     await page.waitForSelector('#mk');
     assert.deepEqual(page.errors, []);
     await page.setViewportSize(MOBILE);
+  });
+});
+
+describe('Чаты и поддержка', () => {
+  // вход по коду ограничен по числу попыток — каждый входит один раз, дальше сессия переиспользуется
+  const states = {};
+  const as = async (email, opts = {}) => {
+    if (!states[email]) { const p = await newPage(); await login(p, email); states[email] = await p.context().storageState(); await p.context().close(); }
+    return newPage(Object.assign({ state: states[email] }, opts));
+  };
+  it('компьютер: диалоги слева, переписка справа; Shift+Enter — новая строка, Enter — отправить', async () => {
+    const page = await as('anna@example.com', { viewport: { width: 1366, height: 860 } });
+    await open(page, '#/chats');
+    assert.ok(await page.locator('.chat-side').isVisible());
+    assert.ok(await page.locator('.chat-pick').isVisible(), 'справа — «Выберите диалог»');
+    await page.locator('.chat-item').first().click();
+    await page.waitForSelector('.chat-main #ct');
+    assert.ok(await page.locator('.chat-side').isVisible(), 'список остаётся слева');
+    assert.equal(await page.locator('.chat-item.on').count(), 1, 'открытый диалог подсвечен');
+    assert.equal(await page.locator('.chat-back').isVisible(), false, 'на компьютере «назад» не нужна');
+    assert.ok(await page.locator('#csend').isDisabled(), 'пустое не отправить');
+    const ta = page.locator('#ct');
+    await ta.fill('Первая строка'); await ta.press('Shift+Enter'); await ta.pressSequentially('вторая');
+    assert.equal(await ta.inputValue(), 'Первая строка\nвторая');
+    await ta.press('Enter');
+    await page.waitForFunction(() => [...document.querySelectorAll('#msgs .msg.mine:not(.pending) .msg-text')].some((x) => x.textContent === 'Первая строка\nвторая'));
+    assert.equal(await ta.inputValue(), '', 'поле очищено');
+    await noOverflow(page, 'чат на компьютере');
+    assert.deepEqual(page.errors, []);
+    await page.context().close();
+  });
+  it('телефон: список → переписка на весь экран; сообщение собеседника приходит само, у автора — «прочитано»', async () => {
+    const a = await as('anna@example.com', { viewport: { width: 390, height: 844 }, touch: true });
+    await open(a, '#/chats');
+    assert.equal(await a.locator('.chat-main').isVisible(), false, 'на телефоне сначала только список');
+    await open(a, '#/chat/1');
+    await a.waitForSelector('#ct');
+    assert.equal(await a.locator('.top').isVisible(), false, 'шапка сайта скрыта — место переписке');
+    assert.equal(await a.locator('.tabbar').isVisible(), false);
+    assert.ok(await a.locator('.chat-back').isVisible(), '«‹» назад к списку');
+    const cb = await a.locator('#cf').boundingBox();
+    assert.ok(Math.abs(cb.y + cb.height - 844) <= 2, 'поле ввода у нижнего края: ' + (cb.y + cb.height));
+    for (const s of ['.chat-back', '#menu', '#csend', '#cloc']) { const b = await a.locator(s).boundingBox(); assert.ok(b.width >= 40 && b.height >= 40, s + ' ≥ 40 px'); }
+    await noOverflow(a, 'чат на телефоне');
+    const m = await as('max@example.com', { viewport: { width: 1366, height: 860 } });
+    await open(m, '#/chat/1');
+    await m.waitForSelector('#ct');
+    const text = 'Живое сообщение ' + Date.now();
+    await m.locator('#ct').fill(text);
+    await m.locator('#csend').click();
+    await a.waitForFunction((t) => document.querySelector('#msgs').innerText.includes(t), text, { timeout: 8000 });
+    // Анна прочитала — у Максима две галочки
+    await m.waitForFunction(() => { const t = [...document.querySelectorAll('#msgs .msg.mine .tick')].pop(); return t && t.classList.contains('read'); }, null, { timeout: 8000 });
+    assert.deepEqual(a.errors, []); assert.deepEqual(m.errors, []);
+    await a.context().close(); await m.context().close();
+  });
+  it('поддержка: тема кнопкой → обращение; оператор видит его в «Ждут ответа» и отвечает — у пользователя ответ появляется сам; «Решено»', async () => {
+    const u = await as('max@example.com', { viewport: { width: 390, height: 844 } });
+    await open(u, '#/support');
+    await u.locator('[data-nt]').first().click();
+    await u.waitForSelector('#ntf');
+    await u.locator('#ntf button.btn').click();
+    assert.ok(await u.locator('#ntErr').isVisible(), 'без темы — подсказка');
+    await u.locator('.tk-chip', { hasText: 'Оплата и тарифы' }).click();
+    assert.equal(await u.locator('#ntf input[name=subject]').inputValue(), 'Оплата и тарифы');
+    await u.locator('#ntf textarea[name=text]').fill('Не вижу оплату тарифа ' + Date.now());
+    await u.locator('#ntf button.btn').click();
+    await u.waitForFunction(() => /#\/support\/\d+$/.test(location.hash));
+    const tid = await u.evaluate(() => location.hash.split('/').pop());
+    await u.waitForSelector('.tk-msgs .msg.mine');
+    assert.match(await u.locator('.tk-head').innerText(), /Открыто/);
+    const adm = await as('admin@mba.local', { viewport: { width: 1366, height: 860 } });
+    await open(adm, '#/admin/support');
+    assert.equal(await adm.locator('.tk-f.on').getAttribute('data-f'), 'open', 'сначала — ждущие ответа');
+    await adm.locator(`a[href="#/admin/support/${tid}"]`).click();
+    await adm.waitForSelector('#tkt');
+    assert.match(await adm.locator('.tk-user').innerText(), /max@example\.com/);
+    const reply = 'Проверили — оплата прошла ' + Date.now();
+    await adm.locator('#tkt').fill(reply);
+    await adm.locator('#mf .send').click();
+    await adm.waitForFunction((t) => document.querySelector('.tk-msgs').innerText.includes(t), reply);
+    await u.waitForFunction((t) => (document.querySelector('.tk-msgs') || {}).innerText?.includes(t), reply, { timeout: 8000 });
+    assert.match(await u.locator('.tk-head').innerText(), /Есть ответ/);
+    await adm.locator('#cl').click();
+    await adm.waitForSelector('#reo');
+    await u.waitForSelector('#reo', { timeout: 8000 });
+    assert.match(await u.locator('.tk-head').innerText(), /Решено/);
+    await noOverflow(u, 'обращение на телефоне');
+    assert.deepEqual(u.errors, []); assert.deepEqual(adm.errors, []);
+    await u.context().close(); await adm.context().close();
   });
 });
 

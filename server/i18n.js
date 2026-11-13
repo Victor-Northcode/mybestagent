@@ -24,6 +24,7 @@ const EXACT = {
   'Заявка инвестора': 'Investor application',
   'Заявка партнёра (с сайта)': 'Partner application (website)',
   'Новое обращение в поддержку': 'New support request',
+  'Обращение решено': 'Request resolved',
   'Ответ поддержки': 'Support reply',
   'Новое сообщение в обращении': 'New message in a support request',
   'Заявка опубликована': 'Report published',

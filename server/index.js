@@ -784,9 +784,13 @@ app.get('/api/chats', needAuth, h((req, res) => {
 app.get('/api/chats/:id', needAuth, h((req, res) => {
   const c = chatFor(Number(req.params.id), req.user);
   const myId = c.side === 'owner' ? c.owner_id : c.other_id;
-  if (c.side !== 'moderator') run('UPDATE messages SET read = 1 WHERE chat_id = ? AND sender_id != ?', c.id, myId);
-  const msgs = all('SELECT id, sender_id, text, photo, lat, lng, created_at FROM messages WHERE chat_id = ? ORDER BY id', c.id)
-    .map((m) => ({ id: m.id, mine: m.sender_id === myId || (c.side === 'owner' && m.sender_id !== c.other_id), text: m.text, photo: m.photo, lat: m.lat, lng: m.lng, created_at: m.created_at, from: m.sender_id === c.other_id ? 'other' : 'owner' }));
+  if (c.side !== 'moderator') {
+    const ch = run('UPDATE messages SET read = 1 WHERE chat_id = ? AND sender_id != ? AND read = 0', c.id, myId);
+    // собеседник видит «прочитано» у своих сообщений сразу
+    if (ch && ch.changes) S.emit(c.side === 'owner' ? c.other_id : c.owner_id, 'chat_read', { chat_id: c.id });
+  }
+  const msgs = all('SELECT id, sender_id, text, photo, lat, lng, read, created_at FROM messages WHERE chat_id = ? ORDER BY id', c.id)
+    .map((m) => ({ id: m.id, mine: m.sender_id === myId || (c.side === 'owner' && m.sender_id !== c.other_id), text: m.text, photo: m.photo, lat: m.lat, lng: m.lng, read: !!m.read, created_at: m.created_at, from: m.sender_id === c.other_id ? 'other' : 'owner' }));
   res.json({ chat: chatDto(c, req.user), messages: msgs });
 }));
 app.post('/api/chats/:id/messages', needAuth, h((req, res) => {
@@ -799,7 +803,7 @@ app.post('/api/chats/:id/messages', needAuth, h((req, res) => {
   if (!text && !photo && lat == null) fail(400, 'empty', 'Пустое сообщение');
   const id = run('INSERT INTO messages (chat_id, sender_id, text, photo, lat, lng) VALUES (?,?,?,?,?,?)', c.id, req.user.id, text, photo, N(lat), N(lng)).lastInsertRowid;
   const to = c.side === 'owner' ? c.other_id : c.owner_id;
-  const msg = { id, chat_id: c.id, text, photo, lat, lng, created_at: now() };
+  const msg = { id, chat_id: c.id, text, photo, lat, lng, read: false, created_at: now() };
   S.emit(to, 'message', Object.assign({ mine: false, from: c.side }, msg));
   // семья владельца тоже видит переписку
   if (c.family_id) for (const m of all('SELECT id FROM users WHERE family_id = ? AND id != ?', c.family_id, req.user.id)) if (m.id !== to) S.emit(m.id, 'message', Object.assign({ mine: c.side === 'owner', from: c.side }, msg));
@@ -1138,7 +1142,15 @@ app.post('/api/leads', h((req, res) => {
 }));
 
 /* ---------- поддержка ---------- */
-app.get('/api/tickets', needAuth, h((req, res) => res.json({ items: all('SELECT t.*, (SELECT COUNT(*) FROM ticket_messages m WHERE m.ticket_id = t.id) msgs FROM tickets t WHERE user_id = ? ORDER BY updated_at DESC', req.user.id) })));
+app.get('/api/tickets', needAuth, h((req, res) => res.json({ items: all(`SELECT t.*, (SELECT COUNT(*) FROM ticket_messages m WHERE m.ticket_id = t.id) msgs,
+  (SELECT text FROM ticket_messages m WHERE m.ticket_id = t.id ORDER BY id DESC LIMIT 1) last,
+  (SELECT staff FROM ticket_messages m WHERE m.ticket_id = t.id ORDER BY id DESC LIMIT 1) last_staff
+  FROM tickets t WHERE user_id = ? ORDER BY t.status = 'closed', updated_at DESC`, req.user.id) })));
+// живое обновление обращения: автору и всем модераторам
+function ticketPing(t) {
+  const ids = new Set([t.user_id, ...all("SELECT id FROM users WHERE role IN ('moderator','admin') AND blocked = 0").map((r) => r.id)]);
+  for (const id of ids) S.emit(id, 'ticket', { ticket_id: t.id });
+}
 app.post('/api/tickets', needAuth, h((req, res) => {
   rateLimit('tk:' + req.user.id, 10, 3600e3);
   const subject = str(req.body.subject, 160), text = str(req.body.text, 4000);
@@ -1146,6 +1158,7 @@ app.post('/api/tickets', needAuth, h((req, res) => {
   const id = run('INSERT INTO tickets (user_id, subject) VALUES (?,?)', req.user.id, subject).lastInsertRowid;
   run('INSERT INTO ticket_messages (ticket_id, user_id, text) VALUES (?,?,?)', id, req.user.id, text);
   notifyMods('Новое обращение в поддержку', subject, '#/admin/support');
+  ticketPing({ id, user_id: req.user.id });
   res.json({ id });
 }));
 function ticketFor(id, u) {
@@ -1166,11 +1179,20 @@ app.post('/api/tickets/:id/messages', needAuth, h((req, res) => {
   run("UPDATE tickets SET updated_at = datetime('now'), status = ? WHERE id = ?", staff ? 'answered' : 'open', t.id);
   if (staff) { S.notify(t.user_id, { type: 'support', title: 'Ответ поддержки', body: t.subject, link: `#/support/${t.id}`, pushTitle: 'Ответ поддержки', pushBody: 'Откройте обращение' }); audit(req, 'support.reply', 'ticket:' + t.id); }
   else notifyMods('Новое сообщение в обращении', t.subject, '#/admin/support');
+  ticketPing(t);
   res.json({ ok: true });
 }));
 app.post('/api/tickets/:id/close', needAuth, h((req, res) => {
   const t = ticketFor(Number(req.params.id), req.user);
-  run("UPDATE tickets SET status = 'closed', updated_at = datetime('now') WHERE id = ?", t.id); res.json({ ok: true });
+  run("UPDATE tickets SET status = 'closed', updated_at = datetime('now') WHERE id = ?", t.id);
+  if (isMod(req.user) && t.user_id !== req.user.id) S.notify(t.user_id, { type: 'support', title: 'Обращение решено', body: t.subject, link: `#/support/${t.id}`, email: false });
+  ticketPing(t); res.json({ ok: true });
+}));
+app.post('/api/tickets/:id/reopen', needAuth, h((req, res) => {
+  const t = ticketFor(Number(req.params.id), req.user);
+  const last = get('SELECT staff FROM ticket_messages WHERE ticket_id = ? ORDER BY id DESC LIMIT 1', t.id);
+  run("UPDATE tickets SET status = ?, updated_at = datetime('now') WHERE id = ?", last && last.staff ? 'answered' : 'open', t.id);
+  ticketPing(t); res.json({ ok: true });
 }));
 
 /* =================== ПАНЕЛЬ АДМИНИСТРАТОРА =================== */
@@ -1330,7 +1352,11 @@ A.post('/deletion/:id', h((req, res) => {
   audit(req, 'deletion.' + req.body.action, 'application:' + d.application_id);
   res.json({ ok: true });
 }));
-A.get('/tickets', h((req, res) => res.json({ items: all("SELECT t.*, u.name, (SELECT text FROM ticket_messages m WHERE m.ticket_id = t.id ORDER BY id DESC LIMIT 1) last FROM tickets t JOIN users u ON u.id = t.user_id ORDER BY t.status = 'open' DESC, t.updated_at DESC LIMIT 300") })));
+A.get('/tickets', h((req, res) => res.json({ items: all(`SELECT t.*, u.name, u.email, u.phone,
+  (SELECT text FROM ticket_messages m WHERE m.ticket_id = t.id ORDER BY id DESC LIMIT 1) last,
+  (SELECT staff FROM ticket_messages m WHERE m.ticket_id = t.id ORDER BY id DESC LIMIT 1) last_staff,
+  (SELECT COUNT(*) FROM ticket_messages m WHERE m.ticket_id = t.id) msgs
+  FROM tickets t JOIN users u ON u.id = t.user_id ORDER BY t.status = 'open' DESC, t.status = 'closed', t.updated_at DESC LIMIT 300`) })));
 A.get('/leads', h((req, res) => res.json({ items: all('SELECT * FROM leads ORDER BY id DESC LIMIT 300') })));
 A.post('/leads/:id', h((req, res) => { run('UPDATE leads SET status = ? WHERE id = ?', str(req.body.status, 20) || 'done', Number(req.params.id)); res.json({ ok: true }); }));
 A.get('/audit', h((req, res) => res.json({ items: all('SELECT l.*, u.name FROM audit l LEFT JOIN users u ON u.id = l.user_id ORDER BY l.id DESC LIMIT 500') })));

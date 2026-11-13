@@ -40,7 +40,7 @@ const chrome = () => {
   $('#fab').onclick = newSheet;
   $('#topNew').onclick = newSheet;
   $('#sosBtn').onclick = sosSheet;
-  const hideFoot = ['map', 'chat', 'admin', 'pay', 'new', 'edit'].includes(document.body.dataset.route);
+  const hideFoot = ['map', 'chat', 'chats', 'admin', 'pay', 'new', 'edit'].includes(document.body.dataset.route);
   $('#foot').classList.toggle('hide', hideFoot);
   if (!hideFoot) footer();
   const pt = pageTitle(p); if (pt) document.title = pt;

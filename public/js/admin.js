@@ -1,9 +1,9 @@
 // Панель администратора и модератора.
 import {
   state, tr, h, raw, mount, $, $$, icon, CAT, catName, kindName, statusName, statusChip, fmtDate, ago, money,
-  GET, POST, PATCH, DEL, mediaPh, route, go, toast, toastErr, sheet, sheetHead, confirmBox, makeMap, pinIcon, onLeave, formData, busy, esc
+  GET, POST, PATCH, DEL, mediaPh, route, go, toast, toastErr, sheet, sheetHead, confirmBox, makeMap, pinIcon, onLeave, onEvent, formData, busy, esc
 } from './core.js';
-import { ticketView, optName } from './views.js';
+import { ticketView, optName, tkStatus, listTime } from './views.js';
 
 const isAdmin = () => state.user && state.user.role === 'admin';
 const SECTIONS = () => [
@@ -261,8 +261,23 @@ sec('deletion', () => tr('Запросы на удаление', 'Removal reques
 
 /* ---------- поддержка ---------- */
 sec('support', () => tr('Обращения в поддержку', 'Support tickets'), async (el) => {
-  const { items } = await GET('/admin/tickets');
-  mount(el, items.length ? h`<div class="list">${items.map((x) => h`<a href="#/admin/support/${x.id}">${icon('help')}<div class="grow" style="min-width:0"><b>${x.subject}</b><div class="xs muted">${x.name} · ${ago(x.updated_at)}</div>${x.last ? h`<div class="xs muted ellipsis">${x.last}</div>` : ''}</div><span class="chip ${x.status === 'open' ? 'chip-warn' : x.status === 'answered' ? 'chip-ok' : ''}">${x.status === 'open' ? tr('Ждёт ответа', 'Needs reply') : x.status === 'answered' ? tr('Отвечено', 'Answered') : tr('Закрыто', 'Closed')}</span></a>`)}</div>` : emptyBox(tr('Обращений нет', 'No tickets')));
+  const F = [['open', tr('Ждут ответа', 'Awaiting reply')], ['answered', tr('Отвечено', 'Answered')], ['closed', tr('Решено', 'Resolved')], ['all', tr('Все', 'All')]];
+  let items = [], cur = null;
+  const draw = () => {
+    const list = cur === 'all' ? items : items.filter((x) => x.status === cur);
+    const n = (k) => (k === 'all' ? items.length : items.filter((x) => x.status === k).length);
+    mount(el, h`<div class="tk-filters" role="group" aria-label="${tr('Фильтр обращений', 'Filter requests')}">${F.map(([k, l]) => h`<button type="button" class="tk-f ${k === cur ? 'on' : ''}" data-f="${k}" aria-pressed="${k === cur}">${l}<span>${n(k)}</span></button>`)}</div>
+      ${list.length ? h`<div class="tk-list">${list.map((x) => { const [sl, sc] = tkStatus(x.status, true); return h`<a class="tk-item tk-${x.status}" href="#/admin/support/${x.id}">
+        <span class="tk-ic">${icon(x.status === 'closed' ? 'check' : x.status === 'open' ? 'inbox' : 'help')}</span>
+        <span class="tk-body"><span class="tk-top"><b>${x.subject}</b><time>${listTime(x.updated_at)}</time></span>
+        <span class="tk-last">${x.last_staff ? h`<span class="you">${tr('Поддержка: ', 'Support: ')}</span>` : ''}${x.last || ''}</span>
+        <span class="tk-meta"><span class="chip ${sc}">${sl}</span><span>${x.name}${x.email || x.phone ? ' · ' + (x.email || x.phone) : ''}</span></span></span>${icon('chevR', 'ic-sm tk-go')}</a>`; })}</div>`
+      : emptyBox(cur === 'open' ? tr('Все обращения отвечены', 'All requests answered') : tr('Здесь пусто', 'Nothing here'))}`);
+    $$('[data-f]', el).forEach((b) => b.onclick = () => { cur = b.dataset.f; draw(); });
+  };
+  const load = async () => { items = (await GET('/admin/tickets')).items; if (!cur) cur = items.some((x) => x.status === 'open') ? 'open' : 'all'; if (el.isConnected) draw(); };
+  await load();
+  onLeave(onEvent((type) => { if (type === 'ticket') load().catch(() => {}); }));
 });
 route('/admin/support/:id', (view, p) => ticketView(view, p.id, true), { auth: true, mod: true });
 sec('leads', () => tr('Партнёры и инвесторы', 'Partner & investor leads'), async (el) => {

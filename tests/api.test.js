@@ -826,6 +826,8 @@ describe('Анонимный чат', () => {
     assert.equal(open.body.messages[0].mine, false);
     assert.ok(!('sender_id' in open.body.messages[0]), 'идентификаторы собеседников не раскрываются');
     assert.equal((await anna.get('/api/chats')).body.items.find((c) => c.id === st.chatId).unread, 0, 'прочитано');
+    const seen = (await igor.get(`/api/chats/${st.chatId}`)).body.messages.filter((m) => m.mine);
+    assert.ok(seen.length && seen.every((m) => m.read === true), 'автор видит «прочитано» у своих сообщений');
     assert.equal((await anna.get('/api/me')).body.user.unreadChats, meBefore);
 
     await anna.post(`/api/chats/${st.chatId}/messages`, { text: 'Спасибо! Иду туда' });
@@ -1196,7 +1198,12 @@ describe('Поддержка', () => {
     assert.equal((await anna.post(`/api/tickets/${id}/messages`, { text: 'Спасибо, помогло' })).status, 200);
     assert.equal((await anna.get('/api/tickets/' + id)).body.ticket.status, 'open');
     assert.equal((await anna.post(`/api/tickets/${id}/close`)).status, 200);
-    assert.equal((await anna.get('/api/tickets')).body.items.find((x) => x.id === id).status, 'closed');
+    const closed = (await anna.get('/api/tickets')).body.items.find((x) => x.id === id);
+    assert.equal(closed.status, 'closed');
+    assert.equal(closed.last, 'Спасибо, помогло', 'в списке — последнее сообщение');
+    assert.equal((await igor.post(`/api/tickets/${id}/reopen`)).status, 404, 'чужое не открыть');
+    assert.equal((await anna.post(`/api/tickets/${id}/reopen`)).status, 200);
+    assert.equal((await anna.get('/api/tickets/' + id)).body.ticket.status, 'open', 'последнее сообщение от пользователя — снова «открыто»');
   });
 });
 
