@@ -1955,3 +1955,77 @@ details.legal-sec[open]::details-content { block-size: auto; }
   .top .brand { gap: 8px; }
   .top .brand img { width: 64px; height: 52px; }
 }
+
+/* =========================================================
+   Мобильная полировка: плотнее, ровнее, понятный отклик на касание
+   ========================================================= */
+/* касание: нажатая карточка чуть «проседает» — видно, что нажатие сработало */
+.app-card .media { transition: transform .15s var(--ease); }
+.app-card:active .media { transform: scale(.97); }
+.ctile:active, .chat-item:active { background: var(--fill); }
+.pick:active, .tile:active { transform: scale(.98); transition-duration: .12s; }
+/* на сенсорных экранах эффекты наведения не «залипают» после касания */
+@media (hover: none) {
+  .app-card:hover .media img, .ctile:hover img { transform: none; }
+  .app-card:hover h3 { color: inherit; }
+  .tile:hover, .pick:hover, .step3:hover { transform: none; box-shadow: none; }
+  .pick:hover { border-color: var(--line); }
+}
+/* мелкие ссылки-действия: область нажатия не меньше 40 px, вид прежний */
+@media (pointer: coarse) {
+  .blk-more, #view a.link { display: inline-flex; align-items: center; min-height: 40px; }
+  .blk-more { padding: 0 6px; margin: -8px -6px; }
+}
+/* заголовок раздела с кнопкой справа — по центру строки, а не по нижнему краю */
+.sec-head:not(:has(p)) { align-items: center; }
+
+@media (max-width: 639px) {
+  /* «Как это работает» и шаги волонтёра: номер слева от текста — в 1,6 раза короче */
+  .step { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 14px; align-items: start; padding: 16px; }
+  .step::before { grid-row: 1 / span 2; }
+  .step h4 { margin: 0 0 4px; font-size: 17px; align-self: center; min-height: 40px; display: flex; align-items: center; }
+  .step p { grid-column: 2; font-size: 15px; line-height: 1.45; margin: 0; }
+  /* реестр: значок слева, номер шага прячем — порядок и так виден */
+  .step3 { display: grid; grid-template-columns: 48px minmax(0, 1fr); column-gap: 14px; padding: 16px; align-items: start; }
+  .step3-n { display: none; }
+  .step3-ic { grid-row: 1 / span 2; margin: 0; }
+  .step3 h4 { margin: 2px 0 4px; }
+  .step3 p { grid-column: 2; }
+  /* заявка без фото: заглушка ниже, сразу видно заголовок и кнопки */
+  .gallery > .media-ph, .gallery .media-ph { aspect-ratio: 2 / 1; }
+  /* карточка экстренной заявки: «Экстренно» — только значком, чипы не наезжают друг на друга */
+  .apps-latest .app-card .tags .chip-em { font-size: 0; gap: 0; padding: 0 7px; }
+  .apps-latest .app-card .tags .chip-em .ic { width: 14px; height: 14px; }
+}
+@media (max-width: 759px) {
+  /* подвал: документы на всю ширину — названия не рвутся на 4 строки */
+  .footer-grid > :last-child { grid-column: 1 / -1; }
+  /* лента телефонов и вкладки документов прокручиваются вбок — край мягко гаснет */
+  .hero-blk .sos-phones, .legal-tabs { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+  .hero-blk .sos-phones { padding-right: 28px; }
+}
+/* длинные заголовки документов не режутся дефисом посреди слова */
+.legal-wrap .page-head h1 { hyphens: manual; overflow-wrap: break-word; }
+
+/* мастер заявки на телефоне: нижняя панель скрыта, кнопки «Назад / Далее» прижаты к низу экрана */
+@media (max-width: 979px) {
+  body[data-route="new"] .tabbar, body[data-route="edit"] .tabbar { display: none; }
+  body[data-route="new"] main, body[data-route="edit"] main { padding-bottom: var(--safe-b); }
+  body[data-route="new"] .wiz-foot, body[data-route="edit"] .wiz-foot { bottom: 0; padding-bottom: calc(12px + var(--safe-b)); }
+}
+/* пустой выпадающий список («Выберите») — серым, как подсказка в поле */
+.field select:has(option[value=""]:checked) { color: var(--muted); }
+/* стрелка ▾ у выпадающих списков (её стирало правило фона полей выше) */
+.field select, .field select:focus, .field select:hover { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%236a6d78' stroke-width='2'%3E%3Cpath d='M1 1l5 5 5-5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 16px center; padding-right: 40px; }
+/* телефон: отступ под нижнюю панель — у подвала (последнего блока), а не у содержимого.
+   Без этого между страницей и подвалом пустая полоса, а низ подвала прячется под панелью */
+@media (max-width: 979px) {
+  main:has(+ .footer:not(.hide)) { padding-bottom: 28px; }
+  .footer { padding-bottom: calc(var(--tab-h) + var(--safe-b) + 20px); }
+}
+/* однострочные поля — того же вида, что многострочные и списки: заливка без рамки, рамка при наведении и фокусе
+   (старое правило с :not() перебивало новое по специфичности, и поля в одной форме были разного цвета) */
+.field input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]) { background-color: var(--fill); border-color: transparent; }
+.field input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):hover { border-color: var(--line-2); }
+.field input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):focus { background-color: var(--surface); border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+.field.err input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), .field.err textarea, .field.err select { border-color: var(--red); }

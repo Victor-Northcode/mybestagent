@@ -86,7 +86,7 @@ const TITLES = [
   ['/map', 'Карта поиска', 'Search map'], ['/registry', 'Реестр ценностей', 'Valuables registry'], ['/community', 'Волонтёры и партнёры', 'Volunteers & partners'],
   ['/tariffs', 'Тарифы', 'Plans'], ['/legal', 'Документы и согласия', 'Legal documents'], ['/new/lost', 'Сообщить о пропаже', 'Report a loss'],
   ['/new/found', 'Сообщить о находке', 'Report a find'], ['/login', 'Вход и регистрация', 'Sign in'], ['/me', 'Личный кабинет', 'My account'],
-  ['/chat', 'Чаты', 'Chats'], ['/notifications', 'Уведомления', 'Notifications'], ['/support', 'Поддержка', 'Support'], ['/admin', 'Админ-панель', 'Admin panel']
+  ['/chats', 'Чаты', 'Chats'], ['/chat', 'Чат', 'Chat'], ['/pay', 'Оплата', 'Payment'], ['/notifications', 'Уведомления', 'Notifications'], ['/support', 'Поддержка', 'Support'], ['/admin', 'Админ-панель', 'Admin panel']
 ];
 function pageTitle(p) {
   if (p.startsWith('/a/')) return null; // заголовок заявки ставит её экран

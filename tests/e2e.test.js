@@ -127,6 +127,30 @@ describe('Мобильная вёрстка (360 px) — публичные ст
       await page.context().close();
     });
   }
+  it('низ страницы: подвал не уходит под нижнюю панель и не отделён пустой полосой', async () => {
+    const page = await newPage();
+    for (const hash of ['#/', '#/registry', '#/a/1']) {
+      await open(page, hash);
+      await page.evaluate(() => { document.querySelectorAll('.reveal').forEach((e) => e.classList.add('in')); window.scrollTo(0, 1e6); });
+      await page.waitForTimeout(300);
+      const r = await page.evaluate(() => {
+        const foot = document.querySelector('#foot');
+        const last = [...foot.querySelectorAll('span, a, p')].pop().getBoundingClientRect().bottom;
+        const gap = foot.getBoundingClientRect().top - [...document.querySelectorAll('#view > *')].pop().getBoundingClientRect().bottom;
+        return { last, tab: document.querySelector('.tabbar').getBoundingClientRect().top, gap };
+      });
+      assert.ok(r.last <= r.tab, `${hash}: последняя строка подвала (${r.last}) под панелью (${r.tab})`);
+      assert.ok(r.gap <= 48, `${hash}: пустая полоса перед подвалом ${r.gap}px`);
+    }
+    await page.context().close();
+  });
+  it('«Как это работает»: номер шага слева от текста, шаги компактные', async () => {
+    const page = await newPage();
+    await open(page, '#/');
+    const s = await page.locator('.steps .step').first().evaluate((e) => ({ h: e.getBoundingClientRect().height, cols: getComputedStyle(e).gridTemplateColumns.split(' ').length }));
+    assert.equal(s.cols, 2); assert.ok(s.h < 150, 'высота шага ' + s.h);
+    await page.context().close();
+  });
   it('карта показывает метки заявок', async () => {
     const page = await newPage();
     await open(page, '#/map');
@@ -319,6 +343,21 @@ describe('Личный кабинет (Анна)', () => {
 });
 
 describe('Мастер заявки', () => {
+  it('на телефоне: нижней панели нет, «Далее» прижата к низу экрана; у списков есть стрелка и подсказка «Выберите»', async () => {
+    const page = await newPage();
+    await login(page, 'anna@example.com');
+    await open(page, '#/new/lost');
+    assert.equal(await page.locator('.tabbar').isVisible(), false, 'нижняя панель скрыта');
+    await page.locator('.pick[data-cat=people]').click();
+    await page.waitForSelector('select[name=relation]');
+    const next = await page.locator('#next').boundingBox();
+    assert.ok(next.y + next.height > 780 - 80, '«Далее» у нижнего края: ' + JSON.stringify(next));
+    const sel = page.locator('select[name=relation]');
+    assert.equal(await sel.locator('option[value=""]').innerText(), 'Выберите');
+    assert.match(await sel.evaluate((e) => getComputedStyle(e).backgroundImage), /svg/, 'стрелка ▾ у списка');
+    assert.deepEqual(page.errors, []);
+    await page.context().close();
+  });
   it('«Я нашёл → Животные» проходит все 5 шагов и публикуется сразу', async () => {
     const page = await newPage();
     await login(page, 'lisa@example.com');

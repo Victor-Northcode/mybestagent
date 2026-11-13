@@ -641,7 +641,7 @@ const DETAIL_KEYS = ['sex', 'height', 'weight', 'build', 'skin', 'hair_color', '
 const speciesRu = (v) => { const e = (state.config?.dicts?.species || []).find((x) => x.ru === v || x.en === v); return e ? e.ru : v; };
 const PARK_OTHER = '__other';
 export const optName = (k, v) => { const o = OPT[k] && OPT[k][v]; return o ? tr(o[0], o[1]) : v; };
-const optSelect = (name, cur) => h`<select name="${name}"><option value="">—</option>${Object.keys(OPT[name]).map((v) => h`<option value="${v}" ${cur === v ? 'selected' : ''}>${optName(name, v)}</option>`)}</select>`;
+const optSelect = (name, cur) => h`<select name="${name}"><option value="">${tr('Выберите', 'Choose')}</option>${Object.keys(OPT[name]).map((v) => h`<option value="${v}" ${cur === v ? 'selected' : ''}>${optName(name, v)}</option>`)}</select>`;
 const fld = (label, control) => h`<label class="field"><span>${label}</span>${control}</label>`;
 const txt = (d, name, max, ph = '') => h`<input name="${name}" value="${d[name] ?? ''}" maxlength="${max}" placeholder="${ph}" autocomplete="off">`;
 // Вещи: тип и уточнения к нему (тот же список — в server/things.js). В форме уточнения называются th_<поле>.
@@ -800,7 +800,7 @@ async function wizard(view, kind, existing) {
           <label class="field"><span>${t('wiz.fio', 'ФИО', 'Full name')} <em>*</em></span><input name="person_name" value="${d.person_name || ''}" maxlength="120" autocomplete="off"></label>
           <div class="grid-pair"><label class="field"><span>${t('wiz.age', 'Возраст', 'Age')} <em>*</em></span><input name="person_age" type="number" min="0" max="120" inputmode="numeric" value="${d.person_age ?? ''}"></label>
           <label class="field"><span>${t('wiz.sex', 'Пол', 'Sex')} <em>*</em></span>${optSelect('sex', d.sex)}</label></div>
-          <label class="field"><span>${t('wiz.relation', 'Кем вы приходитесь', 'Your relation')} <em>*</em></span><select name="relation"><option value="">—</option><option value="relative" ${d.relation === 'relative' ? 'selected' : ''}>${t('wiz.rel_rel', 'Родственник', 'Relative')}</option><option value="legal_rep" ${d.relation === 'legal_rep' ? 'selected' : ''}>${t('wiz.rel_legal', 'Законный представитель', 'Legal representative')}</option></select></label>
+          <label class="field"><span>${t('wiz.relation', 'Кем вы приходитесь', 'Your relation')} <em>*</em></span><select name="relation"><option value="">${tr('Выберите', 'Choose')}</option><option value="relative" ${d.relation === 'relative' ? 'selected' : ''}>${t('wiz.rel_rel', 'Родственник', 'Relative')}</option><option value="legal_rep" ${d.relation === 'legal_rep' ? 'selected' : ''}>${t('wiz.rel_legal', 'Законный представитель', 'Legal representative')}</option></select></label>
           <div id="minorNote"></div>
           <label class="field"><span>${t('wiz.title_opt', 'Заголовок (необязательно)', 'Title (optional)')}</span><input name="title" value="${d.title || ''}" maxlength="140"><p class="hint">${tr('Если не заполнить — сформируется автоматически', 'Generated automatically if empty')}</p></label>`
         : c === 'things' ? h`
@@ -814,7 +814,7 @@ async function wizard(view, kind, existing) {
             <div class="grid-pair"><label class="field"><span>${t('wiz.approx_age', 'Примерный возраст', 'Approximate age')}</span><input name="person_age" type="number" min="0" max="120" inputmode="numeric" value="${d.person_age ?? ''}"></label>
             <label class="field"><span>${t('wiz.sex', 'Пол', 'Sex')}</span>${optSelect('sex', d.sex)}</label></div>` : ''}
           ${c === 'animals' ? h`
-          <label class="field"><span>${t('wiz.species', 'Вид животного', 'Species')}</span><select name="species"><option value="">—</option>${dict('species').map((v) => h`<option ${d.species === v ? 'selected' : ''}>${v}</option>`)}</select></label>
+          <label class="field"><span>${t('wiz.species', 'Вид животного', 'Species')}</span><select name="species"><option value="">${tr('Выберите', 'Choose')}</option>${dict('species').map((v) => h`<option ${d.species === v ? 'selected' : ''}>${v}</option>`)}</select></label>
           <div class="grid-2">
             ${fld(t('wiz.breed', 'Порода', 'Breed'), h`<input name="breed" value="${d.breed || ''}" maxlength="80" list="breedList" autocomplete="off" placeholder="${tr('Начните вводить или выберите', 'Start typing or pick')}"><datalist id="breedList">${(BREEDS[speciesRu(d.species)] || []).map((v) => h`<option value="${v}">`)}</datalist>`)}
             ${fld(t('wiz.color', 'Окрас', 'Colour'), h`<input name="color" value="${d.color || ''}" maxlength="80" list="colorList" autocomplete="off" placeholder="${tr('Рыжий, чёрно-белый…', 'Ginger, black and white…')}"><datalist id="colorList">${COLORS.map((v) => h`<option value="${v}">`)}</datalist>`)}
