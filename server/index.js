@@ -158,8 +158,11 @@ function otpChannelReady(t) {
   if (DEV || S.channels[t.type === 'email' ? 'email' : 'sms']) return;
   fail(503, 'channel_unavailable', t.type === 'phone' ? 'Вход по номеру телефона временно недоступен. Войдите по e-mail.' : 'Вход по e-mail временно недоступен. Войдите по номеру телефона.');
 }
-async function deliverCode(t, subject, text, code) {
-  const r = await (t.type === 'email' ? S.sendEmail(t.value, subject, text, code) : S.sendSms(t.value, text, code));
+const reqLang = (req, u) => (req.get('X-Lang') === 'en' || (!req.get('X-Lang') && u && u.lang === 'en') ? 'en' : 'ru');
+// по e-mail уходит оформленное письмо (server/mail.js), по SMS — короткий текст
+async function deliverCode(t, purpose, text, code, lang) {
+  const m = t.type === 'email' ? S.MAIL.codeMail(lang, purpose, code) : null;
+  const r = await (m ? S.sendEmail(t.value, m.subject, m, code) : S.sendSms(t.value, text, code));
   if (r === 'failed') {
     run('DELETE FROM otp WHERE target = ? AND id = (SELECT MAX(id) FROM otp WHERE target = ?)', t.value, t.value);
     fail(502, 'send_failed', t.type === 'email' ? 'Не удалось отправить письмо с кодом. Проверьте адрес и попробуйте ещё раз.' : 'Не удалось отправить SMS с кодом. Проверьте номер и попробуйте ещё раз.');
@@ -174,7 +177,7 @@ app.post('/api/auth/request', h(async (req, res) => {
   rateLimit('otp:' + t.otpKey, 5, 3600e3);
   const code = String(crypto.randomInt(100000, 1000000));
   run('INSERT INTO otp (target, code, expires_at, created_at) VALUES (?,?,?,?)', t.otpKey, hashCode(t.otpKey, code), Date.now() + 10 * 60e3, Date.now());
-  if (!PUBLIC_DEMO) await deliverCode(t, 'Код входа', `Код входа в «Мой лучший агент»: ${code}. Никому не сообщайте его.`, code);
+  if (!PUBLIC_DEMO) await deliverCode(t, 'login', `Код входа в «Мой лучший агент»: ${code}. Никому не сообщайте его.`, code, reqLang(req));
   const exists = !!get(`SELECT 1 FROM users WHERE ${t.type} = ?`, t.value);
   res.json({ ok: true, type: t.type, target: t.value, isNew: !exists, devCode: showCode(req) ? code : undefined });
 }));
@@ -293,7 +296,7 @@ app.post('/api/me/contact/request', needAuth, h(async (req, res) => {
   rateLimit('otp:' + t.value, 5, 3600e3);
   const code = String(crypto.randomInt(100000, 1000000));
   run('INSERT INTO otp (target, code, expires_at, created_at) VALUES (?,?,?,?)', t.value, hashCode(t.value, code), Date.now() + 10 * 60e3, Date.now());
-  await deliverCode(t, 'Подтверждение e-mail', `Код подтверждения контакта в «Мой лучший агент»: ${code}. Если вы не меняли контакт — просто проигнорируйте сообщение.`, code);
+  await deliverCode(t, 'contact', `Код подтверждения контакта в «Мой лучший агент»: ${code}. Если вы не меняли контакт — просто проигнорируйте сообщение.`, code, reqLang(req));
   res.json({ ok: true, type: t.type, target: t.value, devCode: showCode(req) ? code : undefined });
 }));
 app.post('/api/me/contact/verify', needAuth, h((req, res) => {
@@ -307,7 +310,7 @@ app.post('/api/me/contact/verify', needAuth, h((req, res) => {
   run(`UPDATE users SET ${t.type} = ? WHERE id = ?`, t.value, u.id);
   run('DELETE FROM otp WHERE target = ?', t.value);
   // предупреждаем старый адрес — если смену сделал не владелец, он узнает об этом
-  if (old) { const msg = `В аккаунте «Мой лучший агент» ${t.type === 'email' ? 'e-mail' : 'телефон'} для входа изменён. Если это были не вы — напишите в поддержку.`; if (t.type === 'email') S.sendEmail(old, 'Контакт для входа изменён', msg); else S.sendSms(old, msg); }
+  if (old) { const msg = `В аккаунте «Мой лучший агент» ${t.type === 'email' ? 'e-mail' : 'телефон'} для входа изменён. Если это были не вы — напишите в поддержку.`; if (t.type === 'email') { const m = S.MAIL.contactChangedMail(reqLang(req, u), t.type); S.sendEmail(old, m.subject, m); } else S.sendSms(old, msg); }
   audit(req, 'user.contact', 'user:' + u.id, t.type);
   res.json({ user: meDto(get('SELECT * FROM users WHERE id = ?', u.id)) });
 }));
@@ -1033,7 +1036,7 @@ app.post('/api/family/invite', needAuth, h((req, res) => {
   rateLimit('finvt:' + t.value, 3, 24 * 3600e3);
   run('INSERT INTO family_invites (family_id, target, user_id) VALUES (?,?,?)', f.id, t.value, u ? u.id : null);
   if (u) S.notify(u.id, { type: 'family', title: 'Приглашение в семейный аккаунт', body: `${req.user.name} приглашает вас в «${f.name}»`, link: '#/me/family', pushTitle: 'Приглашение в семью', pushBody: 'Откройте личный кабинет' });
-  else if (t.type === 'email') S.sendEmail(t.value, 'Приглашение в «Мой лучший агент»', `${req.user.name} приглашает вас в семейный аккаунт. Зарегистрируйтесь: ${S.BASE_URL}`);
+  else if (t.type === 'email') { const m = S.MAIL.familyInviteMail(reqLang(req), req.user.name); S.sendEmail(t.value, m.subject, m); }
   else S.sendSms(t.value, `${req.user.name} приглашает вас в семейный аккаунт «Мой лучший агент»: ${S.BASE_URL}`);
   audit(req, 'family.invite', 'family:' + f.id); res.json({ ok: true });
 }));

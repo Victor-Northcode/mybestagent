@@ -9,6 +9,7 @@ const webpush = require('web-push');
 const nodemailer = require('nodemailer');
 const { all, get, run, DATA_DIR } = require('./db');
 const { toEn } = require('./i18n');
+const MAIL = require('./mail');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
@@ -55,12 +56,15 @@ const channels = { email: mailer ? 'SMTP' : '', sms: SMSRU ? 'SMS.ru' : '' };
 const masked = (body, secret) => (secret ? body.split(secret).join('••••••') : body);
 const logOut = (channel, to, subject, body, status) => run('INSERT INTO outbox (channel, target, subject, body, status) VALUES (?,?,?,?,?)', channel, to, subject, body, status).lastInsertRowid;
 const setOut = (id, status, error = '') => run('UPDATE outbox SET status = ?, error = ? WHERE id = ?', status, String(error).slice(0, 300), id);
-// Возвращает Promise: 'sent' — доставлено провайдеру, 'failed' — ошибка, 'logged' — провайдер не подключён
+// Возвращает Promise: 'sent' — доставлено провайдеру, 'failed' — ошибка, 'logged' — провайдер не подключён.
+// body — простой текст или готовое письмо { text, html } из server/mail.js (тогда уходит HTML + текстовая версия)
 function sendEmail(to, subject, body, secret) {
   if (!to) return Promise.resolve('failed');
-  if (!mailer) { logOut('email', to, subject, masked(body, secret), 'logged'); return Promise.resolve('logged'); }
-  const id = logOut('email', to, subject, masked(body, secret), 'queued');
-  return mailer.sendMail({ from: MAIL_FROM, to, subject, text: body })
+  const text = typeof body === 'string' ? body : body.text, html = typeof body === 'string' ? undefined : body.html;
+  const logSubject = masked(subject, secret), logBody = masked(text, secret);
+  if (!mailer) { logOut('email', to, logSubject, logBody, 'logged'); return Promise.resolve('logged'); }
+  const id = logOut('email', to, logSubject, logBody, 'queued');
+  return mailer.sendMail({ from: MAIL_FROM, to, subject, text, ...(html ? { html } : {}) })
     .then(() => { setOut(id, 'sent'); return 'sent'; }, (e) => { setOut(id, 'failed', e.message); console.error('E-mail не отправлен:', e.message); return 'failed'; });
 }
 function sendSms(to, body, secret) {
@@ -102,7 +106,7 @@ function notify(userId, { type, title, body = '', link = '', pushTitle, pushBody
   const en = user.lang === 'en', L = en ? toEn : (x) => x; // в БД — русский текст, получателю — на его языке
   emit(userId, 'notification', { id, type, title: L(title), body: L(body), link });
   if (user.notify_push) sendPush(userId, { title: L(pushTitle || 'Мой лучший агент'), body: L(pushBody || 'Новое уведомление'), url: '/' + (link || '') }).catch(() => {});
-  if (email && user.notify_email && user.email) sendEmail(user.email, L(title), `${L(body)}\n\n${en ? 'Open' : 'Открыть'}: ${BASE_URL}/${link || ''}`);
+  if (email && user.notify_email && user.email) { const m = MAIL.notifyMail(en ? 'en' : 'ru', { type, title: L(title), body: L(body), link }); sendEmail(user.email, m.subject, m); }
 }
 
 /* ---------- Гео ---------- */
@@ -230,6 +234,6 @@ function addPoints(userId, delta, reason) {
 }
 
 module.exports = {
-  vapidPublic: vapid.publicKey, addStream, dropStreams, emit, notify, sendEmail, sendSms, sendPush, channels,
+  vapidPublic: vapid.publicKey, addStream, dropStreams, emit, notify, sendEmail, sendSms, sendPush, channels, MAIL,
   distKm, matchScore, runMatching, broadcastEmergency, LEVELS, levelOf, addPoints, BASE_URL
 };

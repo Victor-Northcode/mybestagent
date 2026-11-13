@@ -1306,6 +1306,7 @@ describe('Панель администратора', () => {
     assert.equal(r.status, 200);
     const mail = r.body.items.find((m) => m.channel === 'email' && m.target === 'newbie.api@example.com');
     assert.ok(mail && mail.body.includes('••••••') && !/\d{6}/.test(mail.body), 'код замаскирован');
+    assert.ok(!/\d{6}/.test(mail.subject), 'в теме письма код тоже замаскирован: ' + mail.subject);
     assert.ok(r.body.items.some((m) => m.channel === 'sms' && m.target === '+79990000003'));
     assert.equal((await mod.get('/api/admin/outbox')).status, 403, 'модератор не видит исходящие');
   });
