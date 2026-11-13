@@ -562,7 +562,7 @@ describe('Админ-панель', () => {
   it('все разделы открываются без ошибок', async () => {
     const page = await newPage({ viewport: { width: 1440, height: 900 } });
     await login(page, 'admin@mba.local');
-    for (const sec of ['', 'moderation', 'emergency', 'complaints', 'applications', 'users', 'roles', 'support', 'deletion', 'leads', 'payments', 'tariffs', 'dicts', 'translations', 'stories', 'system', 'outbox', 'audit']) {
+    for (const sec of ['', 'moderation', 'emergency', 'complaints', 'applications', 'users', 'roles', 'support', 'deletion', 'leads', 'payments', 'tariffs', 'dicts', 'translations', 'stories', 'ads', 'system', 'outbox', 'audit']) {
       await open(page, '#/admin' + (sec ? '/' + sec : ''));
       assert.ok((await page.locator('#body').innerText()).trim().length > 10, 'section ' + sec + ' has content');
     }
@@ -586,9 +586,9 @@ describe('Админ-панель', () => {
     await page.waitForSelector('.sheet[role="dialog"] .admin-sheet a');
     await page.waitForTimeout(450);
     const links = page.locator('.admin-sheet a');
-    assert.equal(await links.count(), 18, 'all sections in the sheet');
+    assert.equal(await links.count(), 19, 'all sections in the sheet');
     assert.equal(await page.locator('.admin-sheet a[aria-current="page"] .grow').innerText(), 'Модерация');
-    assert.equal(await page.locator('.admin-sheet a .ic').count(), 18, 'icons');
+    assert.equal(await page.locator('.admin-sheet a .ic').count(), 19, 'icons');
     const sheetSum = await page.evaluate(() => [...document.querySelectorAll('.admin-sheet .cnt')].reduce((s, e) => s + +e.textContent, 0));
     assert.equal(sheetSum, total, 'counters in the sheet add up to the badge');
     const [a, b] = [await links.nth(0).boundingBox(), await links.nth(1).boundingBox()];
@@ -654,6 +654,32 @@ describe('Навигация и права доступа', () => {
     assert.ok(r.small <= 20, 'значок в кнопке ' + r.small + ' px');
     assert.equal(r.smallColor, r.btnColor, 'значок в кнопке — цвета текста кнопки');
     await page.context().close();
+  });
+  it('рекламная строка: тонкая, между шапкой и блоком поиска; «›» листает; ссылка рекламная; длинный текст на телефоне бежит', async () => {
+    for (const vp of [{ width: 1280, height: 800 }, { width: 360, height: 740 }]) {
+      const page = await newPage({ viewport: vp, touch: vp.width < 600 });
+      await open(page, '#/');
+      const line = page.locator('#adLine');
+      const box = await line.boundingBox(), hero = await page.locator('.hero-blk').boundingBox(), top = await page.locator('#top').boundingBox();
+      assert.ok(box.height <= 42, 'тонкая: ' + box.height);
+      assert.ok(box.y >= top.y + top.height - 1 && box.y + box.height <= hero.y, 'между шапкой и «Поиск пропавших…»');
+      assert.equal(await page.locator('#adLine .ad-tag').innerText(), 'Реклама');
+      const on = page.locator('#adLine .ad-item.on');
+      assert.equal(await on.locator('b').innerText(), 'kadryzdes.ru');
+      assert.equal(await on.getAttribute('target'), '_blank');
+      assert.match(await on.getAttribute('rel'), /sponsored/);
+      assert.match(await on.getAttribute('href'), /^https:\/\/kadryzdes\.ru\//);
+      assert.equal(await page.locator('#adLine .ad-item:not(.on)[tabindex="-1"]').count(), 2, 'скрытые объявления вне Tab');
+      const first = await on.locator('.ad-tx').innerText();
+      await page.locator('#adLine .ad-next').click();
+      await page.waitForFunction((t) => document.querySelector('#adLine .ad-item.on .ad-tx').textContent !== t, first);
+      if (vp.width < 600) { // текст не помещается — через ~1 с начинает плавно ехать влево
+        await page.waitForFunction(() => { const s = document.querySelector('#adLine .ad-item.on .ad-tx > span'); return new DOMMatrix(getComputedStyle(s).transform).m41 < -5; }, null, { timeout: 5000 });
+      }
+      await noOverflow(page, 'рекламная строка ' + vp.width);
+      assert.deepEqual(page.errors, []);
+      await page.context().close();
+    }
   });
   it('кнопка SOS в шапке на любой ширине открывает окно служб: звонок в одно касание, «Разместить заявку» ведёт в мастер', async () => {
     for (const vp of [{ width: 1280, height: 800 }, { width: 360, height: 740 }]) {

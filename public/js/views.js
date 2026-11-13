@@ -57,10 +57,74 @@ const levelName = (l) => (state.lang === 'en' ? l.en : l.ru);
 const initials = (n) => String(n || '?').split(/\s+/).map((x) => x[0]).slice(0, 2).join('').toUpperCase();
 const avatar = (u, cls = '') => h`<div class="ava ${cls}" style="${u.avatar ? `background-image:url('${esc(u.avatar)}')` : ''}">${u.avatar ? '' : initials(u.name)}</div>`;
 
+/* =================== РЕКЛАМНАЯ СТРОКА =================== */
+// Тонкая строка между шапкой и первым блоком главной. Объявления сменяют друг друга сами (плавно, не чаще раза в 6 с),
+// «›» или свайп — следующее. Текст, который не помещается (узкий экран), сначала спокойно проезжает до конца — как бегущая строка.
+// Пауза при наведении мыши, фокусе, в фоновой вкладке и вне экрана; при «уменьшить движение» — без автопрокрутки, только вручную.
+// Метка «Реклама», рекламодатель и токен erid — по закону о рекламе. Объявления задаёт администратор: админка → «Реклама».
+const AD_EVERY = 6000, AD_SPEED = 38; // мс на объявление; px/с бегущей строки
+function adLine() {
+  const ads = state.config?.ads || [];
+  if (!ads.length) return '';
+  const who = (a) => [a.advertiser ? tr('Рекламодатель: ', 'Advertiser: ') + a.advertiser : '', a.erid ? 'erid: ' + a.erid : ''].filter(Boolean).join('. ');
+  return h`<aside class="adline" id="adLine" aria-label="${tr('Реклама', 'Advertising')}" ${ads.length > 1 ? raw(`aria-roledescription="${esc(tr('карусель', 'carousel'))}"`) : ''}>
+    <span class="ad-tag" title="${who(ads[0])}">${tr('Реклама', 'Ad')}</span>
+    <div class="ad-vp">${ads.map((a, i) => h`<a class="ad-item ${i ? '' : 'on'}" href="${a.url}" target="_blank" rel="noopener sponsored" data-who="${who(a)}" ${i ? raw('tabindex="-1" aria-hidden="true"') : ''}>
+      <b>${a.host}</b><span class="ad-tx"><span>${state.lang === 'en' ? a.en : a.ru}</span></span>${icon('arrowUR', 'ic-sm ad-go')}</a>`)}</div>
+    ${ads.length > 1 ? h`<button type="button" class="ad-next" aria-label="${tr('Следующее объявление', 'Next ad')}" title="${tr('Листать', 'Next')}">${icon('chevR', 'ic-sm')}</button>` : ''}
+  </aside>`;
+}
+function startAdLine(view) {
+  const box = $('#adLine', view); if (!box) return;
+  const items = $$('.ad-item', box), tag = $('.ad-tag', box), many = items.length > 1;
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let cur = 0, timer = 0, runT = 0, dwell = 0, hover = false, focus = false, seen = true;
+  // бегущая строка для длинного текста: через секунду доезжает до конца; возвращает, сколько показывать объявление (0 — текст помещается)
+  const reset = (it) => { const tx = $('.ad-tx', it); tx.firstElementChild.style.transition = 'none'; tx.firstElementChild.style.transform = ''; tx.classList.remove('run'); return tx; };
+  const run = (it) => {
+    clearTimeout(runT); const tx = reset(it), line = tx.firstElementChild;
+    const over = still ? 0 : tx.scrollWidth - tx.clientWidth;
+    if (over <= 2) return 0;
+    tx.classList.add('run');
+    const dist = over + 20, dur = Math.max(2, dist / AD_SPEED);
+    runT = setTimeout(() => { line.style.transition = `transform ${dur}s linear`; line.style.transform = `translateX(${-dist}px)`; }, 1200);
+    return 1200 + dur * 1000 + 1800;
+  };
+  const show = (n) => {
+    const prev = items[cur]; cur = (n + items.length) % items.length; const next = items[cur];
+    if (prev === next) return;
+    prev.classList.remove('on', 'back'); prev.classList.add('out'); prev.setAttribute('aria-hidden', 'true'); prev.tabIndex = -1;
+    next.classList.remove('out', 'back'); next.classList.add('on'); next.removeAttribute('aria-hidden'); next.removeAttribute('tabindex');
+    setTimeout(() => { if (prev.classList.contains('out')) { prev.classList.replace('out', 'back'); reset(prev); } }, 600);
+    dwell = run(next);
+    tag.title = next.dataset.who || '';
+  };
+  const tick = () => {
+    clearTimeout(timer);
+    if (still || hover || focus || !seen || document.hidden || (!many && !dwell)) return;
+    timer = setTimeout(() => { if (many) show(cur + 1); else dwell = run(items[0]); tick(); }, Math.max(many ? AD_EVERY : 0, dwell));
+  };
+  if (many) $('.ad-next', box).onclick = () => { const had = document.activeElement?.classList.contains('ad-item'); show(cur + 1); if (had) items[cur].focus(); tick(); };
+  box.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') { hover = true; tick(); } });
+  box.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') { hover = false; tick(); } });
+  box.addEventListener('focusin', () => { focus = true; tick(); });
+  box.addEventListener('focusout', (e) => { if (!box.contains(e.relatedTarget)) { focus = false; tick(); } });
+  let x0 = null;
+  box.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; }, { passive: true });
+  box.addEventListener('touchend', (e) => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (many && Math.abs(dx) > 40) { show(cur + (dx < 0 ? 1 : -1)); tick(); } }, { passive: true });
+  const io = 'IntersectionObserver' in window ? new IntersectionObserver(([en]) => { seen = en.isIntersecting; tick(); }) : null;
+  io?.observe(box);
+  const vis = () => tick(); document.addEventListener('visibilitychange', vis);
+  onLeave(() => { clearTimeout(timer); clearTimeout(runT); io?.disconnect(); document.removeEventListener('visibilitychange', vis); });
+  dwell = run(items[0]);
+  tick();
+}
+
 /* =================== ГЛАВНАЯ =================== */
 route('/', async (view) => {
   mount(view, h`
   <div class="wrap home">
+    ${adLine()}
     <section class="blk hero-blk">
       <div class="hb-top">
         <div class="hb-text">
@@ -164,6 +228,7 @@ route('/', async (view) => {
       try { await POST('/leads', Object.assign(f, { kind: leadKind })); e.target.reset(); toast(t('home.inv_ok', 'Спасибо! Заявка отправлена', 'Thank you! Request sent')); } catch (er) { toastErr(er); }
     });
   };
+  startAdLine(view);
   $('#homeSearch', view).onsubmit = (e) => { e.preventDefault(); const q = e.target.q.value.trim(), c = e.target.category.value; const ps = new URLSearchParams(); if (q) ps.set('q', q); if (c) ps.set('category', c); go('#/map' + (ps.toString() ? '?' + ps : '')); };
   $('#regForm', view).onsubmit = (e) => { e.preventDefault(); go('#/registry?q=' + encodeURIComponent(e.target.q.value.trim())); };
 

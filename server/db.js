@@ -207,6 +207,11 @@ CREATE TABLE IF NOT EXISTS outbox (
 CREATE TABLE IF NOT EXISTS uploads (
   name TEXT PRIMARY KEY, user_id INTEGER NOT NULL, size INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS ads (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, text_ru TEXT NOT NULL, text_en TEXT NOT NULL DEFAULT '', url TEXT NOT NULL,
+  advertiser TEXT NOT NULL DEFAULT '', erid TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1, sort INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 CREATE TABLE IF NOT EXISTS deletion_requests (
   id INTEGER PRIMARY KEY AUTOINCREMENT, application_id INTEGER NOT NULL, name TEXT NOT NULL, contact TEXT NOT NULL,
   reason TEXT DEFAULT '', status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -246,6 +251,21 @@ if (ver < 3) {
     if (!cols.includes('details')) db.exec("ALTER TABLE applications ADD COLUMN details TEXT NOT NULL DEFAULT '{}'");
     if (!cols.includes('event_time')) db.exec("ALTER TABLE applications ADD COLUMN event_time TEXT DEFAULT ''");
     db.exec('PRAGMA user_version = 3;');
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+}
+
+if (ver < 4) {
+  // v4: рекламная строка на главной — первыми крутятся объявления платформы «Кадры здесь» (меняются в админке → «Реклама»)
+  db.exec('BEGIN');
+  try {
+    const url = 'https://kadryzdes.ru/?utm_source=my-bestagent.ru&utm_medium=ticker&utm_campaign=platforms';
+    const ins = db.prepare('INSERT INTO ads (text_ru, text_en, url, advertiser, sort) VALUES (?,?,?,?,?)');
+    [['Вакансии и вахта по всей России', 'Jobs and rotational work across Russia'],
+      ['Подбор персонала для вашей компании', 'Staff recruitment for your company'],
+      ['Документы, визы, квоты и переезд в одном месте', 'Documents, visas, quotas and relocation in one place']]
+      .forEach(([ru, en], i) => ins.run(ru, en, url, 'Кадры здесь', i + 1));
+    db.exec('PRAGMA user_version = 4;');
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
 }

@@ -214,6 +214,14 @@ app.post('/api/auth/logout', h((req, res) => {
 
 /* ---------- конфигурация и словари ---------- */
 const GEO = require('./geo');
+/* ---------- рекламная строка на главной: только активные объявления, ссылка с токеном erid (если задан) ---------- */
+const adUrl = (v) => { try { const u = new URL(String(v || '').trim()); return /^https?:$/.test(u.protocol) && u.hostname.includes('.') ? u.href : ''; } catch (e) { return ''; } };
+function publicAds() {
+  return all('SELECT id, text_ru, text_en, url, advertiser, erid FROM ads WHERE active = 1 ORDER BY sort, id LIMIT 20').map((a) => {
+    const u = new URL(a.url); if (a.erid) u.searchParams.set('erid', a.erid);
+    return { id: a.id, ru: a.text_ru, en: a.text_en || a.text_ru, url: u.href, host: u.hostname.replace(/^www\./, ''), advertiser: a.advertiser, erid: a.erid };
+  });
+}
 app.get('/api/config', h((req, res) => {
   const dicts = {};
   for (const d of all('SELECT * FROM dicts ORDER BY type, sort, id')) (dicts[d.type] = dicts[d.type] || []).push({ id: d.id, ru: d.value_ru, en: d.value_en });
@@ -221,7 +229,7 @@ app.get('/api/config', h((req, res) => {
   if (PUBLIC_DEMO) res.set('Cache-Control', 'private, no-store');
   // какими способами сейчас можно войти: в рабочем режиме — только через подключённого провайдера
   const login = { email: DEV || !!S.channels.email, phone: DEV || !!S.channels.sms };
-  res.json({ ...demo, login, vapidPublic: S.vapidPublic, dev: DEV, payments: PAY, levels: S.LEVELS, dicts, map: { provider: 'osm', center: [55.7558, 37.6173], zoom: 11, geocoder: GEO.enabled } });
+  res.json({ ...demo, login, vapidPublic: S.vapidPublic, dev: DEV, payments: PAY, levels: S.LEVELS, dicts, ads: publicAds(), map: { provider: 'osm', center: [55.7558, 37.6173], zoom: 11, geocoder: GEO.enabled } });
 }));
 app.get('/api/i18n/:lang', h((req, res) => {
   const out = {}; for (const r of all('SELECT key, value FROM translations WHERE lang = ?', req.params.lang)) out[r.key] = r.value;
@@ -1349,6 +1357,17 @@ AD.post('/stories', h((req, res) => {
   audit(req, 'story.save', 'story:' + (b.id || 'new')); res.json({ ok: true });
 }));
 AD.delete('/stories/:id', h((req, res) => { run('DELETE FROM stories WHERE id = ?', Number(req.params.id)); res.json({ ok: true }); }));
+AD.get('/ads', h((req, res) => res.json({ items: all('SELECT * FROM ads ORDER BY sort, id') })));
+AD.post('/ads', h((req, res) => {
+  const b = req.body, url = adUrl(b.url);
+  const v = [str(b.text_ru, 90), str(b.text_en, 90), url, str(b.advertiser, 120), str(b.erid, 64).replace(/[^\w-]/g, ''), b.active === false ? 0 : 1, Math.max(0, Math.min(999, parseInt(b.sort, 10) || 0))];
+  if (!v[0]) fail(400, 'required', 'Текст объявления');
+  if (!url) fail(400, 'bad_url', 'Ссылка должна начинаться с https://');
+  if (b.id) { if (!run('UPDATE ads SET text_ru=?, text_en=?, url=?, advertiser=?, erid=?, active=?, sort=? WHERE id = ?', ...v, Number(b.id)).changes) fail(404, 'not_found', 'Объявление не найдено'); }
+  else run('INSERT INTO ads (text_ru, text_en, url, advertiser, erid, active, sort) VALUES (?,?,?,?,?,?,?)', ...v);
+  audit(req, 'ad.save', 'ad:' + (b.id || 'new')); res.json({ ok: true });
+}));
+AD.delete('/ads/:id', h((req, res) => { run('DELETE FROM ads WHERE id = ?', Number(req.params.id)); audit(req, 'ad.delete', 'ad:' + Number(req.params.id)); res.json({ ok: true }); }));
 AD.post('/backup', h((req, res) => { const f = backup(); audit(req, 'system.backup', path.basename(f)); res.json({ ok: true, file: path.basename(f) }); }));
 
 const KIND = { lost: 'Потеряно', found: 'Найдено' }, CAT = { people: 'Люди', animals: 'Животные', things: 'Вещи' };

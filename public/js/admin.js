@@ -23,6 +23,7 @@ const SECTIONS = () => [
     ['dicts', 'list', tr('Справочники', 'Dictionaries'), null],
     ['translations', 'globe', tr('Переводы', 'Translations'), null],
     ['stories', 'book', tr('Истории', 'Stories'), null],
+    ['ads', 'spark', tr('Реклама', 'Advertising'), null],
     ['system', 'db', tr('Система', 'System'), null],
     ['outbox', 'mail', tr('Исходящие', 'Outbox'), null]
   ] : []),
@@ -380,6 +381,33 @@ sec('stories', () => tr('Истории успешных находок', 'Succe
     $('form', s.el).onsubmit = async (e) => { e.preventDefault(); try { await POST('/admin/stories', Object.assign(formData(e.target), { id: x.id })); s.close(); load(); } catch (er) { toastErr(er); } };
   };
   mount(act, h`<button class="btn btn-sm" id="ns">${icon('plus')}${tr('История', 'Story')}</button>`); $('#ns', act).onclick = () => form();
+  await load();
+}, { admin: true });
+sec('ads', () => tr('Рекламная строка', 'Ad strip'), async (el, act) => {
+  const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return u; } };
+  const load = async () => {
+    const { items } = await GET('/admin/ads');
+    mount(el, h`<div class="note note-blue" style="margin-bottom:14px">${icon('spark')}<div>${tr('Тонкая строка на главной между шапкой и блоком поиска. Объявления сменяются сами раз в 6 секунд в порядке номера; посетитель может листать их кнопкой «›» или свайпом. Метка «Реклама» ставится автоматически. Для рекламы сторонних компаний по закону нужен токен erid (выдаёт оператор рекламных данных) — укажите его в объявлении.', 'A thin strip on the home page between the header and the search block. Ads rotate every 6 seconds in order; visitors can flip them with “›” or a swipe. The “Ad” label is added automatically. Third-party ads need an erid token from an ad data operator.')}</div></div>
+      ${items.length ? h`<div class="stack">${items.map((a) => h`<div class="card pad row" style="align-items:flex-start"><div class="grow" style="min-width:0">
+        <div class="row-wrap"><span class="chip">№ ${a.sort}</span>${a.active ? h`<span class="chip chip-ok">${tr('Показывается', 'Live')}</span>` : h`<span class="chip chip-warn">${tr('Скрыто', 'Hidden')}</span>`}${a.erid ? h`<span class="chip">erid: ${a.erid}</span>` : ''}</div>
+        <b style="display:block;margin-top:8px">${a.text_ru}</b>${a.text_en ? h`<div class="small muted">${a.text_en}</div>` : ''}
+        <a class="small" href="${a.url}" target="_blank" rel="noopener" style="overflow-wrap:anywhere">${host(a.url)}</a>${a.advertiser ? h`<span class="small muted"> · ${a.advertiser}</span>` : ''}</div>
+        <button class="btn btn-ghost btn-xs" data-ed="${a.id}" aria-label="${tr('Изменить', 'Edit')}">${icon('edit', 'ic-sm')}</button><button class="btn btn-ghost btn-xs" data-rm="${a.id}" aria-label="${tr('Удалить', 'Delete')}">${icon('trash', 'ic-sm')}</button></div>`)}</div>`
+      : h`<div class="empty card pad"><p class="muted">${tr('Объявлений нет — строка на главной скрыта.', 'No ads — the strip is hidden on the home page.')}</p></div>`}`);
+    $$('[data-ed]', el).forEach((b) => b.onclick = () => form(items.find((x) => x.id === +b.dataset.ed)));
+    $$('[data-rm]', el).forEach((b) => b.onclick = async () => { if (await confirmBox(tr('Удалить объявление?', 'Delete ad?'), '', { danger: true })) { await DEL('/admin/ads/' + b.dataset.rm); load(); } });
+  };
+  const form = (x = { active: 1, sort: 10, url: 'https://' }) => {
+    const s = sheet(h`${sheetHead(x.id ? tr('Изменить объявление', 'Edit ad') : tr('Новое объявление', 'New ad'))}<form class="stack">
+      <label class="field"><span>${tr('Текст (RU), до 90 знаков', 'Text (RU), up to 90 chars')}</span><input name="text_ru" value="${x.text_ru || ''}" maxlength="90" required></label>
+      <label class="field"><span>${tr('Текст (EN)', 'Text (EN)')}</span><input name="text_en" value="${x.text_en || ''}" maxlength="90"></label>
+      <label class="field"><span>${tr('Ссылка', 'Link')}</span><input name="url" type="url" inputmode="url" value="${x.url || ''}" placeholder="https://" required></label>
+      <div class="grid-2"><label class="field"><span>${tr('Рекламодатель', 'Advertiser')}</span><input name="advertiser" value="${x.advertiser || ''}" maxlength="120"></label><label class="field"><span>${tr('Токен erid (если есть)', 'erid token (if any)')}</span><input name="erid" value="${x.erid || ''}" maxlength="64" autocomplete="off"></label></div>
+      <div class="grid-2"><label class="field"><span>${tr('Порядок показа', 'Order')}</span><input name="sort" type="number" min="0" max="999" value="${x.sort ?? 10}"></label><label class="check" style="align-self:end;min-height:48px"><input type="checkbox" name="active" ${x.active ? 'checked' : ''}> ${tr('Показывать', 'Show')}</label></div>
+      <button class="btn btn-block">${tr('Сохранить', 'Save')}</button></form>`, { wide: true });
+    $('form', s.el).onsubmit = async (e) => { e.preventDefault(); try { await POST('/admin/ads', Object.assign(formData(e.target), { id: x.id })); s.close(); toast(tr('Сохранено. На главной — после обновления страницы', 'Saved. Shows on the home page after a reload')); load(); } catch (er) { toastErr(er); } };
+  };
+  mount(act, h`<button class="btn btn-sm" id="nad">${icon('plus')}${tr('Объявление', 'Ad')}</button>`); $('#nad', act).onclick = () => form();
   await load();
 }, { admin: true });
 sec('system', () => tr('Система', 'System'), async (el) => {
