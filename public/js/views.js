@@ -67,9 +67,14 @@ function adLine() {
   const ads = state.config?.ads || [];
   if (!ads.length) return '';
   const who = (a) => [a.advertiser ? tr('Рекламодатель: ', 'Advertiser: ') + a.advertiser : '', a.erid ? 'erid: ' + a.erid : ''].filter(Boolean).join('. ');
-  return h`<aside class="adline" id="adLine" aria-label="${tr('Реклама', 'Advertising')}"><div class="wrap adline-in">
+  // название рекламодателя: по-русски — как задано в админке («Кадры здесь»), по-английски — адрес сайта
+  const brand = (a) => (state.lang === 'en' ? a.host : a.advertiser || a.host);
+  // у всех объявлений один рекламодатель — его название стоит слева один раз, в строке едут только сами предложения
+  const one = new Set(ads.map(brand)).size === 1;
+  return h`<aside class="adline${one ? ' one' : ''}" id="adLine" aria-label="${tr('Реклама', 'Advertising')}"><div class="wrap adline-in">
     <span class="ad-tag" title="${[...new Set(ads.map(who).filter(Boolean))].join('; ')}">${tr('Реклама', 'Ad')}</span>
-    <div class="ad-vp"><div class="ad-track"><div class="ad-run">${ads.map((a) => h`<a class="ad-item" href="${a.url}" target="_blank" rel="noopener sponsored" title="${who(a)}"><b>${a.host}</b><span class="ad-tx">${state.lang === 'en' ? a.en : a.ru}</span>${icon('arrowUR', 'ic-sm ad-go')}</a><i class="ad-sep" aria-hidden="true"></i>`)}</div></div></div>
+    ${one ? h`<span class="ad-who">${brand(ads[0])}</span>` : ''}
+    <div class="ad-vp"><div class="ad-track"><div class="ad-run">${ads.map((a) => h`<a class="ad-item" href="${a.url}" target="_blank" rel="noopener sponsored" title="${who(a)}"><b class="ad-brand">${brand(a)}</b><span class="ad-tx">${state.lang === 'en' ? a.en : a.ru}</span>${icon('arrowUR', 'ic-sm ad-go')}</a><i class="ad-sep" aria-hidden="true"></i>`)}</div></div></div>
   </div></aside>`;
 }
 function startAdLine(view) {

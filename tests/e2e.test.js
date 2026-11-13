@@ -864,7 +864,15 @@ describe('Навигация и права доступа', () => {
       assert.ok(Math.abs(box.width - vp.width) <= 1, 'на всю ширину: ' + box.width);
       assert.equal(await page.locator('#adLine .ad-tag').innerText(), 'Реклама');
       const first = page.locator('#adLine .ad-run:not(.copy) .ad-item').first();
-      assert.equal(await first.locator('b').innerText(), 'kadryzdes.ru');
+      // один рекламодатель: на компьютере его название слева один раз, на телефоне — в каждом объявлении
+      if (vp.width > 640) {
+        assert.equal(await page.locator('#adLine .ad-who').innerText(), 'Кадры здесь');
+        assert.equal(await first.locator('.ad-brand').isVisible(), false);
+      } else {
+        assert.equal(await page.locator('#adLine .ad-who').isVisible(), false);
+        assert.equal(await first.locator('.ad-brand').innerText(), 'Кадры здесь');
+      }
+      assert.equal(await first.locator('.ad-tx').innerText(), 'Работа и вахта у проверенных работодателей по всей России');
       assert.equal(await first.getAttribute('target'), '_blank');
       assert.match(await first.getAttribute('rel'), /sponsored/);
       assert.match(await first.getAttribute('href'), /^https:\/\/kadryzdes\.ru\//);

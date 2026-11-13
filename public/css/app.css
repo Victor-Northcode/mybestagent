@@ -2067,11 +2067,14 @@ select[aria-expanded="true"] { border-color: var(--search) !important; }
 /* =========================================================
    Рекламная строка: бегущая, на всю ширину под шапкой
    ========================================================= */
-.adline { background: linear-gradient(90deg, var(--search-2), var(--search) 55%, var(--search-2)); color: #fff; font-size: 15px; line-height: 1.2; box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .08); }
+.adline { background: var(--search); color: #fff; font-size: 15px; line-height: 1.2; box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .1); }
 .adline-in { display: flex; align-items: center; gap: 14px; height: 46px; min-width: 0; }
-.ad-tag { flex: none; padding: 3px 8px; border-radius: 6px; font: 600 11.5px/1.2 var(--font); color: #fff; background: rgba(255, 255, 255, .16); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .38); cursor: help; }
+.ad-tag { flex: none; padding: 3px 7px; border-radius: 5px; font: 600 11.5px/1.2 var(--font); letter-spacing: .01em; color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55); cursor: help; }
+/* один рекламодатель: название слева, отделено тонкой чертой */
+.ad-who { flex: none; display: flex; align-items: center; height: 22px; padding-right: 14px; font-weight: 700; white-space: nowrap; box-shadow: 1px 0 0 rgba(255, 255, 255, .35); }
+.adline.one .ad-brand { display: none; }
 .ad-vp { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; overflow: hidden;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent); }
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
 .ad-track { display: flex; width: max-content; will-change: transform; }
 .ad-run { display: flex; align-items: center; flex: none; }
 .adline.go .ad-track { animation: adRun var(--ad-dur, 30s) linear infinite; }
@@ -2079,20 +2082,24 @@ select[aria-expanded="true"] { border-color: var(--search) !important; }
 @media (hover: hover) { .adline:hover .ad-track { animation-play-state: paused; } }
 .adline:focus-within .ad-track { animation-play-state: paused; }
 @keyframes adRun { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-.ad-item { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 4px; border-radius: 8px; white-space: nowrap; color: rgba(255, 255, 255, .9); text-decoration: none; }
-.ad-item b { color: #fff; font-weight: 700; }
-.ad-go { flex: none; opacity: .75; transition: opacity .2s, transform .2s; }
-.ad-item:hover .ad-tx { color: #fff; text-decoration: underline; text-decoration-color: rgba(255, 255, 255, .55); text-underline-offset: 3px; }
+.ad-item { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 4px; border-radius: 6px; white-space: nowrap; color: #fff; text-decoration: none; }
+.ad-brand { font-weight: 700; }
+.ad-tx { font-weight: 500; }
+.ad-go { flex: none; width: 15px; height: 15px; opacity: .7; transition: opacity .2s, transform .2s; }
+.ad-item:hover .ad-tx { text-decoration: underline; text-decoration-color: rgba(255, 255, 255, .6); text-underline-offset: 4px; }
 .ad-item:hover .ad-go { opacity: 1; transform: translate(1px, -1px); }
-.ad-item:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
-.ad-sep { flex: none; width: 5px; height: 5px; margin: 0 24px; border-radius: 50%; background: rgba(255, 255, 255, .6); }
+.ad-item:focus-visible { outline: 2px solid #fff; outline-offset: 0; }
+.ad-sep { flex: none; width: 4px; height: 4px; margin: 0 28px; border-radius: 50%; background: rgba(255, 255, 255, .55); }
 .adline.still .ad-vp { overflow-x: auto; scrollbar-width: none; }
 .adline.still .ad-vp::-webkit-scrollbar { display: none; }
 @media (max-width: 640px) {
   .adline { font-size: 14px; }
   .adline-in { height: 44px; gap: 10px; }
   .ad-tag { font-size: 11px; padding: 2px 6px; }
-  .ad-sep { margin: 0 18px; }
+  /* на телефоне места мало: название — внутри каждого объявления */
+  .ad-who { display: none; }
+  .adline.one .ad-brand { display: inline; }
+  .ad-sep { margin: 0 20px; }
 }
 @media print { .adline { display: none; } }
 

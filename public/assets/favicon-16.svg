@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- Значок для вкладки 16 px: та же лупа, в линзе — один крупный силуэт, чтобы не расплывался -->
+  <defs><clipPath id="l"><circle cx="6.5" cy="6.5" r="4.4"/></clipPath></defs>
+  <path d="M11.3 11.3 L14.2 14.2" stroke="#d71f26" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M10 10 L11.8 11.8" stroke="#151515" stroke-width="2.4"/>
+  <circle cx="6.5" cy="6.5" r="5.2" fill="#fff" stroke="#151515" stroke-width="1.6"/>
+  <g clip-path="url(#l)" fill="#1e88d6">
+    <circle cx="6.5" cy="5" r="2"/>
+    <ellipse cx="6.5" cy="11.6" rx="4" ry="3.6"/>
+  </g>
+</svg>

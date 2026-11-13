@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Значок «Мой лучший агент» (32 px и крупнее): лупа из логотипа — двое людей в линзе, красная ручка.
+       Белая обводка снаружи — чтобы значок читался и на тёмной вкладке. Для 16 px — упрощённый favicon-16.svg. -->
+  <defs><clipPath id="lens"><circle cx="26" cy="26" r="15.5"/></clipPath></defs>
+  <g stroke="#fff" stroke-linecap="round" fill="none">
+    <circle cx="26" cy="26" r="20.5" stroke-width="10"/>
+    <path d="M40 40 L56.5 56.5" stroke-width="16"/>
+  </g>
+  <path d="M39 39 L44.5 44.5" stroke="#151515" stroke-width="8.5" stroke-linecap="round"/>
+  <path d="M45 45 L56.5 56.5" stroke="#d71f26" stroke-width="11" stroke-linecap="round"/>
+  <circle cx="26" cy="26" r="19" fill="#fff" stroke="#151515" stroke-width="7"/>
+  <g clip-path="url(#lens)">
+    <circle cx="20" cy="22.4" r="5.2" fill="#1e88d6"/>
+    <path d="M7 46 C7 34 12 29.6 20 29.6 C28 29.6 32 34 32 46 Z" fill="#1e88d6"/>
+    <circle cx="31.2" cy="20.4" r="5.6" fill="#151515" stroke="#fff" stroke-width="2" paint-order="stroke"/>
+    <path d="M19.4 46 C19.4 33 24 28.2 31.2 28.2 C38.4 28.2 43 33 43 46 Z" fill="#151515" stroke="#fff" stroke-width="2.4" paint-order="stroke"/>
+  </g>
+</svg>

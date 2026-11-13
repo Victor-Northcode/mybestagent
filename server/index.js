@@ -1506,8 +1506,8 @@ app.get(['/a/:id(\\d+)', '/a/:id(\\d+)/'], h((req, res) => {
 }));
 // поиск из выдачи (SearchAction) → карта с запросом
 app.get('/search', (req, res) => { const q = str(req.query.q, 100); res.redirect(302, '/#/map' + (q ? '?q=' + encodeURIComponent(q) : '')); });
-// браузеры и поисковики сами запрашивают /favicon.ico — отдаём значок сайта, а не 404
-app.get('/favicon.ico', (req, res) => res.type('image/png').sendFile(path.join(PUB, 'assets', 'favicon.png'), { maxAge: '7d' }));
+// браузеры и поисковики сами запрашивают /favicon.ico — настоящий ICO: 16 px (упрощённый, чёткий во вкладке), 32 и 48 px
+app.get('/favicon.ico', (req, res) => res.type('image/x-icon').sendFile(path.join(PUB, 'assets', 'favicon.ico'), { maxAge: '7d' }));
 app.get('/robots.txt', (req, res) => res.type('text/plain').send(SEO.robots(SITE, NOINDEX)));
 app.get('/sitemap.xml', (req, res) => {
   if (NOINDEX) return res.status(404).type('text/plain').send('Not found');

@@ -137,8 +137,10 @@ describe('SEO: страницы заявок', () => {
   });
   it('/favicon.ico отдаёт значок сайта (его запрашивают браузеры и Яндекс)', async () => {
     const r = await fetch(S.base + '/favicon.ico');
-    assert.equal(r.status, 200); assert.match(r.headers.get('content-type'), /image\/png/);
-    assert.ok((await r.arrayBuffer()).byteLength > 100);
+    assert.equal(r.status, 200); assert.match(r.headers.get('content-type'), /image\/(x-icon|vnd\.microsoft\.icon)/);
+    const b = Buffer.from(await r.arrayBuffer());
+    assert.equal(b.readUInt16LE(2), 1, 'формат ICO'); assert.equal(b.readUInt16LE(4), 3, 'три размера: 16, 32, 48');
+    assert.deepEqual([0, 1, 2].map((i) => b[6 + i * 16]), [16, 32, 48]);
   });
 });
 

@@ -58,8 +58,9 @@ describe('Рекламная строка', () => {
       assert.equal(a.host, 'kadryzdes.ru');
       assert.match(a.url, /^https:\/\/kadryzdes\.ru\/\?utm_source=my-bestagent\.ru/);
       assert.equal(a.advertiser, 'Кадры здесь');
-      assert.ok(a.ru && a.en && a.ru.length <= 90);
+      assert.ok(a.ru && a.en && a.ru.length <= 60, 'коротко: ' + a.ru);
     }
+    assert.deepEqual(ads.map((a) => a.ru), ['Работа и вахта у проверенных работодателей по всей России', 'Ищете сотрудников? Подберём персонал для вашей компании', 'Помощь с документами, визой, квотой и переездом']);
   });
 
   it('управляет только администратор; гость и модератор — отказ', async () => {

@@ -276,6 +276,20 @@ if (ver < 4) {
   } catch (e) { db.exec('ROLLBACK'); throw e; }
 }
 
+if (ver < 5) {
+  // v5: тексты рекламной строки — короче и конкретнее; меняем только те, что не правил администратор
+  db.exec('BEGIN');
+  try {
+    const up = db.prepare('UPDATE ads SET text_ru = ?, text_en = ? WHERE text_ru = ?');
+    [['Вакансии и вахта по всей России', 'Работа и вахта у проверенных работодателей по всей России', 'Jobs and rotational work with verified employers across Russia'],
+      ['Подбор персонала для вашей компании', 'Ищете сотрудников? Подберём персонал для вашей компании', 'Hiring? We will find staff for your company'],
+      ['Документы, визы, квоты и переезд в одном месте', 'Помощь с документами, визой, квотой и переездом', 'Help with documents, visas, work quotas and relocation']]
+      .forEach(([old, ru, en]) => up.run(ru, en, old));
+    db.exec('PRAGMA user_version = 5;');
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+}
+
 // Хелперы для запросов
 function all(sql, ...p) { return db.prepare(sql).all(...p); }
 function get(sql, ...p) { return db.prepare(sql).get(...p); }
