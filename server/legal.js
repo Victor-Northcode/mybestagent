@@ -10,12 +10,12 @@ const EDITION = '2026-11-09'; // дата редакции документов
 const DOC_IDS = ['terms', 'privacy', 'consent', 'publication'];
 
 /* ---------- реквизиты оператора ---------- */
-// Реквизиты фонда-оператора. Любое поле можно заменить в админке → «Переводы» (ключ legal.op.<поле>) или переменной LEGAL_<ПОЛЕ>.
+// Реквизиты фонда-оператора (сверены с ЕГРЮЛ по ИНН/ОГРН 13.11.2026). Любое поле можно заменить в админке → «Переводы» (ключ legal.op.<поле>) или переменной LEGAL_<ПОЛЕ>.
 const OP_FIELDS = ['name', 'inn', 'kpp', 'ogrn', 'address', 'account', 'bank', 'bik', 'corr', 'email'];
 const OP_COMMON = { inn: '6685217330', kpp: '668501001', ogrn: '1246600008434', account: '40703810005000000829', bik: '046577975', corr: '30101810500000000975', email: 'support@my-bestagent.ru' };
 const OP_DEFAULTS = {
-  ru: { ...OP_COMMON, name: '', address: '', bank: 'Уральский филиал ПАО «Банк ПСБ», г.\u00a0Екатеринбург' },
-  en: { ...OP_COMMON, name: '', address: '', bank: 'Ural branch of PSB Bank PJSC, Yekaterinburg' }
+  ru: { ...OP_COMMON, name: 'Благотворительный фонд социальных программ «Уральский»', address: '620100, Свердловская обл., г. Екатеринбург, ул. Декабристов, д. 3, помещ. 10', bank: 'Уральский филиал ПАО «Банк ПСБ», г.\u00a0Екатеринбург' },
+  en: { ...OP_COMMON, name: 'Charitable Foundation for Social Programmes "Uralsky"', address: '3 Dekabristov St., premises 10, Yekaterinburg, Sverdlovsk Region, 620100, Russia', bank: 'Ural branch of PSB Bank PJSC, Yekaterinburg' }
 };
 const OP_LOCALIZED = ['name', 'bank']; // остальные поля от языка не зависят
 function overrides(lang) {

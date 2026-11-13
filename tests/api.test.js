@@ -1351,6 +1351,8 @@ describe('Правовые документы', () => {
       assert.equal(req['ИНН'], '6685217330'); assert.equal(req['КПП'], '668501001'); assert.equal(req['ОГРН'], '1246600008434');
       assert.equal(req['Расчётный счёт'], '40703810005000000829'); assert.equal(req['БИК'], '046577975'); assert.equal(req['Корр. счёт'], '30101810500000000975');
       assert.match(req['Банк'], /ПАО «Банк ПСБ»/);
+      assert.ok(Object.values(req).some((v) => /620100, Свердловская обл\., г\.\s?Екатеринбург, ул\.\s?Декабристов/.test(v)), 'юридический адрес фонда');
+      assert.ok(Object.values(req).some((v) => /Благотворительный фонд социальных программ «Уральский»/.test(v)) || /«Уральский»/.test(JSON.stringify(d)), 'название фонда');
     }
     const en = Object.fromEntries((await anon().get('/api/legal/terms?lang=en')).body.requisites);
     assert.equal(en['KPP'], '668501001'); assert.match(en['Bank'], /PSB Bank/);
@@ -1376,7 +1378,7 @@ describe('Правовые документы', () => {
       await admin.post('/api/admin/translations', { key: 'legal.op.bank', lang: 'ru', value: '' });
     }
     const d = (await anon().get('/api/legal/consent')).body;
-    assert.match(d.sections[0].items[0].text, /оператору платформы \(далее — «Оператор»\)/);
+    assert.match(d.sections[0].items[0].text, /оператору платформы — Благотворительный фонд социальных программ «Уральский» \(далее — «Оператор»\)/, 'без настроек — название фонда по умолчанию');
   });
 });
 
