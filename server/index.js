@@ -136,12 +136,19 @@ function loginTarget(req, res) {
   }
   return { ...t, otpKey: t.value + ':' + browser.hash };
 }
+function deviceName(ua = '') {
+  const b = /YaBrowser/.test(ua) ? 'Яндекс Браузер' : /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox'
+    : /SamsungBrowser/.test(ua) ? 'Samsung Internet' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Браузер';
+  const os = /iPhone|iPad|iPod/.test(ua) ? 'iPhone' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Mac OS X/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : '';
+  return (os ? `${b} · ${os}` : b).slice(0, 60);
+}
 function meDto(u) {
   const lvl = S.levelOf(u.points);
   const subs = all('SELECT s.*, t.code, t.name_ru, t.name_en, t.feature FROM subscriptions s JOIN tariffs t ON t.id = s.tariff_id WHERE s.user_id = ? AND s.until > ?', u.id, now());
   return {
     id: u.id, email: u.email, phone: u.phone, name: u.name, birthdate: u.birthdate, city: u.city, role: u.role, lang: u.lang,
-    avatar: u.avatar, org_name: u.org_name, points: u.points, level: lvl, notify_push: !!u.notify_push, notify_email: !!u.notify_email,
+    avatar: u.avatar, org_name: u.org_name, points: u.points, level: lvl, notify_push: !!u.notify_push, notify_email: !!u.notify_email, push_prefs: S.pushPrefs(u),
+    push_devices: get('SELECT COUNT(*) c FROM push_subs WHERE user_id = ?', u.id).c,
     zone: { enabled: !!u.zone_enabled, lat: u.zone_lat, lng: u.zone_lng, radius: u.zone_radius },
     family_id: u.family_id, card: u.card_mask || null, subscriptions: subs, created_at: u.created_at,
     stats: get(`SELECT (SELECT COUNT(*) FROM applications WHERE user_id = ?) apps, (SELECT COUNT(*) FROM applications WHERE user_id = ? AND found_at IS NOT NULL) found,
@@ -266,6 +273,12 @@ app.patch('/api/me', needAuth, h((req, res) => {
   if ('avatar' in b) set.avatar = /^\/uploads\/[a-f0-9]{32}\.(jpg|png|webp)$/.test(b.avatar || '') ? b.avatar : '';
   if ('notify_push' in b) set.notify_push = b.notify_push ? 1 : 0;
   if ('notify_email' in b) set.notify_email = b.notify_email ? 1 : 0;
+  if (b.push_prefs && typeof b.push_prefs === 'object') {
+    const p = { ...S.pushPrefs(u) };
+    for (const k of S.PUSH_KEYS) if (k in b.push_prefs) p[k] = !!b.push_prefs[k];
+    set.push_prefs = JSON.stringify(p);
+    set.notify_push = Object.values(p).some(Boolean) ? 1 : 0; // всё выключено — push не шлём вовсе
+  }
   // E-mail и телефон — это логины: меняются только с подтверждением кодом (/api/me/contact/*), иначе опечатка закроет вход в аккаунт
   if (('email' in b && (b.email || null) !== (u.email || null)) || ('phone' in b && (b.phone || null) !== (u.phone || null))) {
     fail(400, 'verify_contact', 'Контакт для входа меняется только с подтверждением кодом');
@@ -378,12 +391,27 @@ app.post('/api/push/subscribe', needAuth, h((req, res) => {
   if (typeof keys.p256dh !== 'string' || typeof keys.auth !== 'string' || keys.p256dh.length > 200 || keys.auth.length > 100) fail(400, 'bad_sub', 'Некорректная подписка');
   if (get('SELECT COUNT(*) c FROM push_subs WHERE user_id = ?', req.user.id).c >= 10) run('DELETE FROM push_subs WHERE id = (SELECT MIN(id) FROM push_subs WHERE user_id = ?)', req.user.id);
   const clean = { endpoint: sub.endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } }; // храним только нужное для отправки
-  run('INSERT INTO push_subs (user_id, endpoint, data) VALUES (?,?,?) ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, data = excluded.data', req.user.id, clean.endpoint, JSON.stringify(clean));
-  res.json({ ok: true });
+  // браузер сменил подписку (pushsubscriptionchange) — старый адрес больше не нужен
+  if (typeof req.body.oldEndpoint === 'string' && req.body.oldEndpoint !== sub.endpoint) run('DELETE FROM push_subs WHERE endpoint = ? AND user_id = ?', req.body.oldEndpoint, req.user.id);
+  run(`INSERT INTO push_subs (user_id, endpoint, data, ua, created_at) VALUES (?,?,?,?,datetime('now'))
+    ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, data = excluded.data, ua = excluded.ua`, req.user.id, clean.endpoint, JSON.stringify(clean), deviceName(req.get('user-agent')));
+  res.json({ ok: true, devices: get('SELECT COUNT(*) c FROM push_subs WHERE user_id = ?', req.user.id).c });
+}));
+// Выключить push на этом устройстве (или при выходе из аккаунта)
+app.post('/api/push/unsubscribe', needAuth, h((req, res) => {
+  if (typeof req.body.endpoint === 'string') run('DELETE FROM push_subs WHERE endpoint = ? AND user_id = ?', req.body.endpoint, req.user.id);
+  res.json({ ok: true, devices: get('SELECT COUNT(*) c FROM push_subs WHERE user_id = ?', req.user.id).c });
+}));
+app.get('/api/push/devices', needAuth, h((req, res) => {
+  res.json({ items: all('SELECT id, ua, created_at, last_at, last_title FROM push_subs WHERE user_id = ? ORDER BY id DESC', req.user.id) });
 }));
 app.post('/api/push/test', needAuth, h(async (req, res) => {
-  await S.sendPush(req.user.id, { title: 'Мой лучший агент', body: 'Push-уведомления работают', url: '/#/me/settings' });
-  res.json({ ok: true, subs: get('SELECT COUNT(*) c FROM push_subs WHERE user_id = ?', req.user.id).c });
+  if (!get('SELECT 1 FROM push_subs WHERE user_id = ?', req.user.id)) fail(400, 'no_devices', 'Нет устройств с включёнными уведомлениями — включите их на этом устройстве');
+  const en = I18N.isEn(req);
+  const r = await S.sendPush(req.user.id, { type: 'test', tag: 'test', url: '/#/me/settings',
+    title: en ? 'My Best Agent' : 'Мой лучший агент', body: en ? 'Notifications work. This is how you will learn about matches and messages.' : 'Уведомления работают. Так вы узнаете о совпадениях и сообщениях.' });
+  if (!r.sent) fail(502, 'push_failed', 'Не удалось доставить уведомление — выключите и снова включите уведомления на этом устройстве');
+  res.json({ ok: true, ...r });
 }));
 app.get('/api/stream', needAuth, (req, res) => {
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });

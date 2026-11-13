@@ -84,15 +84,53 @@ function sendSms(to, body, secret) {
 }
 
 /* ---------- Push (без персональных данных) ---------- */
+// Группы, которые пользователь включает и выключает в настройках (для всех своих устройств).
+const PUSH_KEYS = ['match', 'chat', 'support', 'emergency', 'moderation', 'account'];
+const PUSH_GROUP = { match: 'match', registry: 'match', chat: 'chat', support: 'support', emergency: 'emergency',
+  moderation: 'moderation', status: 'moderation', role: 'moderation', payment: 'account', points: 'account', family: 'account' };
+function pushPrefs(u) {
+  let p = {}; try { p = JSON.parse((u && u.push_prefs) || '{}') || {}; } catch (e) { p = {}; }
+  return Object.fromEntries(PUSH_KEYS.map((k) => [k, p[k] !== false]));
+}
+// Склейка: новое уведомление по тому же чату/заявке/обращению заменяет предыдущее, а не копится стопкой
+function pushTag(type, link) {
+  const m = String(link || '').match(/#\/(chat|a|support)\/(\d+)/);
+  return m ? `${m[1]}-${m[2]}` : type || 'mba';
+}
+// В тестах адреса https://push.test/… не уходят в интернет: …/gone… отвечает 410 (устройство отписалось), остальные — «доставлено»
+const TEST_PUSH = process.env.NODE_ENV === 'test';
+const pushSend = (sub, body, opts) => {
+  if (TEST_PUSH && sub.endpoint.startsWith('https://push.test/')) return sub.endpoint.includes('/gone') ? Promise.reject(Object.assign(new Error('gone'), { statusCode: 410 })) : Promise.resolve({ statusCode: 201 });
+  return webpush.sendNotification(sub, body, opts);
+};
+// Возвращает { sent, failed, removed }. payload: title, body, url, type, tag
 async function sendPush(userId, payload) {
   const subs = all('SELECT * FROM push_subs WHERE user_id = ?', userId);
+  const out = { sent: 0, failed: 0, removed: 0 };
+  if (!subs.length) return out;
+  const type = payload.type || 'info';
+  const full = {
+    title: payload.title || 'Мой лучший агент', body: payload.body || '', url: payload.url || '/', type,
+    tag: payload.tag || pushTag(type, payload.url), icon: '/assets/icon-192.png', badge: '/assets/badge-96.png',
+    n: get('SELECT COUNT(*) c FROM notifications WHERE user_id = ? AND read = 0', userId).c, ts: Date.now()
+  };
+  const urgent = type === 'emergency' || type === 'chat';
+  // заголовок Topic не ставим: FCM с ним откладывает доставку обычных уведомлений; склейку делает tag на устройстве
+  const opts = { TTL: type === 'emergency' ? 6 * 3600 : 24 * 3600, urgency: urgent ? 'high' : 'normal' };
   await Promise.all(subs.map(async (s) => {
     try {
-      await webpush.sendNotification(JSON.parse(s.data), JSON.stringify(payload), { TTL: 3600 });
+      await pushSend(JSON.parse(s.data), JSON.stringify(full), opts);
+      run("UPDATE push_subs SET last_at = datetime('now'), last_title = ? WHERE id = ?", String(full.title).slice(0, 120), s.id);
+      out.sent++;
     } catch (e) {
-      if (e.statusCode === 404 || e.statusCode === 410) run('DELETE FROM push_subs WHERE id = ?', s.id);
+      // 404/410 — устройство отписалось, адрес больше не нужен. Но только что выданный адрес push-сервис (FCM) иногда
+      // ещё не знает несколько секунд — такой не удаляем, а считаем неудачной попыткой
+      const fresh = !TEST_PUSH && s.created_at && Date.now() - Date.parse(s.created_at.replace(' ', 'T') + 'Z') < 120e3;
+      if ((e.statusCode === 404 || e.statusCode === 410) && !fresh) { run('DELETE FROM push_subs WHERE id = ?', s.id); out.removed++; }
+      else { out.failed++; if (!TEST_PUSH) console.error('Push не доставлен:', e.statusCode || '', String(e.body || e.message || e).slice(0, 160)); }
     }
   }));
+  return out;
 }
 
 /**
@@ -100,12 +138,14 @@ async function sendPush(userId, payload) {
  * title/body в платформе могут быть подробными; в push уходит только обезличенный текст (pushTitle/pushBody).
  */
 function notify(userId, { type, title, body = '', link = '', pushTitle, pushBody, email = true }) {
-  const user = get('SELECT id, email, lang, notify_push, notify_email, blocked FROM users WHERE id = ?', userId);
+  const user = get('SELECT id, email, lang, notify_push, notify_email, push_prefs, blocked FROM users WHERE id = ?', userId);
   if (!user || user.blocked) return;
   const id = run('INSERT INTO notifications (user_id, type, title, body, link) VALUES (?,?,?,?,?)', userId, type, title, body, link).lastInsertRowid;
   const en = user.lang === 'en', L = en ? toEn : (x) => x; // в БД — русский текст, получателю — на его языке
   emit(userId, 'notification', { id, type, title: L(title), body: L(body), link });
-  if (user.notify_push) sendPush(userId, { title: L(pushTitle || 'Мой лучший агент'), body: L(pushBody || 'Новое уведомление'), url: '/' + (link || '') }).catch(() => {});
+  if (user.notify_push && pushPrefs(user)[PUSH_GROUP[type] || 'account']) {
+    sendPush(userId, { type, title: L(pushTitle || 'Мой лучший агент'), body: L(pushBody || 'Новое уведомление'), url: '/' + (link || '') }).catch(() => {});
+  }
   if (email && user.notify_email && user.email) { const m = MAIL.notifyMail(en ? 'en' : 'ru', { type, title: L(title), body: L(body), link }); sendEmail(user.email, m.subject, m); }
 }
 
@@ -234,6 +274,6 @@ function addPoints(userId, delta, reason) {
 }
 
 module.exports = {
-  vapidPublic: vapid.publicKey, addStream, dropStreams, emit, notify, sendEmail, sendSms, sendPush, channels, MAIL,
+  vapidPublic: vapid.publicKey, addStream, dropStreams, emit, notify, sendEmail, sendSms, sendPush, pushPrefs, PUSH_KEYS, channels, MAIL,
   distKm, matchScore, runMatching, broadcastEmergency, LEVELS, levelOf, addPoints, BASE_URL
 };

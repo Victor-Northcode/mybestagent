@@ -99,7 +99,7 @@ export const PATCH = (u, b = {}) => api('PATCH', u, b);
 export const DEL = (u) => api('DELETE', u);
 
 export async function refreshMe() {
-  const r = await GET('/me'); state.user = r.user; renderChrome(); return r.user;
+  const r = await GET('/me'); state.user = r.user; renderChrome(); appBadge(r.user ? r.user.unread : 0); return r.user;
 }
 
 /* ---------- роутер ---------- */
@@ -474,20 +474,41 @@ function b64ToUint8(b64) { const p = '='.repeat((4 - b64.length % 4) % 4); const
 export const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 export const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 export const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+export const isAndroid = () => /android/i.test(navigator.userAgent);
+const swReg = async () => { try { return (await navigator.serviceWorker.getRegistration()) || null; } catch (e) { return null; } };
+const currentSub = async () => { const reg = await swReg(); try { return reg ? await reg.pushManager.getSubscription() : null; } catch (e) { return null; } };
+// Включить push на этом устройстве: разрешение спрашиваем только по нажатию кнопки
 export async function enablePush() {
-  if (!pushSupported()) throw new Error(isIOS() && !isStandalone() ? tr('На iPhone push работают после установки на экран «Домой» (iOS 16.4+)', 'On iPhone, push works after adding to Home Screen (iOS 16.4+)') : tr('Браузер не поддерживает push-уведомления', 'This browser does not support push'));
-  const perm = await Notification.requestPermission();
-  if (perm !== 'granted') throw new Error(tr('Уведомления запрещены в настройках браузера', 'Notifications are blocked in browser settings'));
+  if (!pushSupported()) throw new Error(isIOS() && !isStandalone() ? tr('На iPhone уведомления работают в установленном приложении: «Поделиться» → «На экран „Домой“» (iOS 16.4+)', 'On iPhone, notifications work in the installed app: Share → Add to Home Screen (iOS 16.4+)') : tr('Этот браузер не поддерживает уведомления', 'This browser does not support notifications'));
+  const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+  if (perm !== 'granted') { const e = new Error(tr('Уведомления запрещены в настройках браузера', 'Notifications are blocked in browser settings')); e.code = perm; throw e; }
   const reg = await navigator.serviceWorker.ready;
   let sub = await reg.pushManager.getSubscription();
   if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToUint8(state.config.vapidPublic) });
-  await POST('/push/subscribe', { subscription: sub.toJSON() });
-  return true;
+  return POST('/push/subscribe', { subscription: sub.toJSON() });
 }
+// Выключить на этом устройстве (и при выходе из аккаунта): сервер забывает адрес, браузер отписывается
+export async function disablePush() {
+  const sub = await currentSub();
+  if (!sub) return;
+  if (state.user) await POST('/push/unsubscribe', { endpoint: sub.endpoint }).catch(() => {});
+  await sub.unsubscribe().catch(() => {});
+}
+// 'on' | 'off' | 'denied' | 'unsupported'
 export async function pushStatus() {
   if (!pushSupported()) return 'unsupported';
   if (Notification.permission === 'denied') return 'denied';
-  try { const reg = await navigator.serviceWorker.getRegistration(); const s = reg && await reg.pushManager.getSubscription(); return s ? 'on' : 'off'; } catch (e) { return 'off'; }
+  return (Notification.permission === 'granted' && await currentSub()) ? 'on' : 'off';
+}
+// При входе: подписка этого браузера снова привязывается к аккаунту (сервер мог её удалить или сменился пользователь)
+export async function syncPush() {
+  if (!state.user || !pushSupported() || Notification.permission !== 'granted') return;
+  const sub = await currentSub();
+  if (sub) POST('/push/subscribe', { subscription: sub.toJSON() }).catch(() => {});
+}
+// Счётчик непрочитанных на иконке установленного приложения
+export function appBadge(n) {
+  try { if (n > 0) navigator.setAppBadge?.(n); else navigator.clearAppBadge?.(); } catch (e) { /* не поддерживается */ }
 }
 
 /* ---------- поделиться ---------- */

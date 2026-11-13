@@ -1476,6 +1476,54 @@ describe('Защита от злоупотреблений', () => {
     assert.equal((await max.post('/api/push/subscribe', { subscription: { endpoint: 'https://push.example.com/abc' } })).status, 400);
     assert.equal((await max.post('/api/push/subscribe', { subscription: { endpoint: 'https://push.example.com/abc', keys: { p256dh: 'k', auth: 'a' }, junk: 'x'.repeat(1000) } })).status, 200);
   });
+  it('push: устройства, что присылать, доставка по событию, отписавшееся устройство удаляется, выключение на устройстве', async () => {
+    const sub = (endpoint) => ({ subscription: { endpoint, keys: { p256dh: 'k', auth: 'a' } } });
+    const devices = async () => (await anna.get('/api/push/devices')).body.items;
+    const lastTitle = async (want) => { // отправка идёт в фоне — ждём, пока устройство отметит доставку
+      for (let i = 0; i < 40; i++) { const d = (await devices())[0]; if (d && d.last_title === want) return true; await new Promise((r) => setTimeout(r, 50)); }
+      return false;
+    };
+    assert.equal((await anna.post('/api/push/test')).body.error, 'no_devices', 'без устройств проверочное не отправить');
+    assert.equal((await anna.post('/api/push/subscribe', sub('https://push.test/ok-anna'))).status, 200);
+    assert.equal((await anna.post('/api/push/subscribe', sub('https://push.test/gone-anna'))).body.devices, 2);
+    let me = (await anna.get('/api/me')).body.user;
+    assert.equal(me.push_devices, 2);
+    assert.deepEqual(me.push_prefs, { match: true, chat: true, support: true, emergency: true, moderation: true, account: true }, 'по умолчанию — всё');
+    // проверочное: живое устройство получает, отписавшееся (410) удаляется
+    const t = await anna.post('/api/push/test');
+    assert.equal(t.status, 200); assert.equal(t.body.sent, 1); assert.equal(t.body.removed, 1);
+    const list = await devices();
+    assert.equal(list.length, 1); assert.equal(list[0].last_title, 'Мой лучший агент'); assert.ok(list[0].created_at);
+    // событие: ответ поддержки → push
+    const tk = (await anna.post('/api/tickets', { subject: 'Проверка push', text: 'Тест уведомлений' })).body.id;
+    await mod.post(`/api/tickets/${tk}/messages`, { text: 'Ответ 1' });
+    assert.ok(await lastTitle('Ответ поддержки'), 'ответ поддержки пришёл push-уведомлением');
+    // выключили «Ответы поддержки» — в кабинете уведомление есть, push нет
+    await anna.post('/api/push/test');
+    assert.ok(await lastTitle('Мой лучший агент'));
+    const off = await anna.patch('/api/me', { push_prefs: { support: false, bogus: true } });
+    assert.equal(off.status, 200);
+    me = (await anna.get('/api/me')).body.user;
+    assert.equal(me.push_prefs.support, false); assert.equal(me.push_prefs.chat, true); assert.equal('bogus' in me.push_prefs, false); assert.equal(me.notify_push, true);
+    const before = (await anna.get('/api/notifications')).body.items.length;
+    await mod.post(`/api/tickets/${tk}/messages`, { text: 'Ответ 2' });
+    await new Promise((r) => setTimeout(r, 300));
+    assert.equal((await devices())[0].last_title, 'Мой лучший агент', 'push не отправлен');
+    assert.equal((await anna.get('/api/notifications')).body.items.length, before + 1, 'в кабинете уведомление есть');
+    // всё выключено — push не шлём вовсе
+    await anna.patch('/api/me', { push_prefs: { match: false, chat: false, support: false, emergency: false, moderation: false, account: false } });
+    assert.equal((await anna.get('/api/me')).body.user.notify_push, false);
+    await anna.patch('/api/me', { push_prefs: { match: true, chat: true, support: true, emergency: true, moderation: true, account: true } });
+    assert.equal((await anna.get('/api/me')).body.user.notify_push, true);
+    // смена подписки браузером: старый адрес заменяется новым
+    await anna.post('/api/push/subscribe', { ...sub('https://push.test/ok-anna-2'), oldEndpoint: 'https://push.test/ok-anna' });
+    assert.deepEqual((await devices()).length, 1);
+    // выключение на устройстве — чужой адрес не трогаем, свой удаляется
+    await igor.post('/api/push/unsubscribe', { endpoint: 'https://push.test/ok-anna-2' });
+    assert.equal((await devices()).length, 1, 'чужой адрес не удалить');
+    assert.equal((await anna.post('/api/push/unsubscribe', { endpoint: 'https://push.test/ok-anna-2' })).body.devices, 0);
+    assert.equal((await anna.get('/api/me')).body.user.push_devices, 0);
+  });
 });
 
 describe('Оплата в тестовом режиме и уведомления на английском', () => {

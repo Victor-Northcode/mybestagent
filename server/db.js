@@ -218,6 +218,12 @@ CREATE TABLE IF NOT EXISTS deletion_requests (
 );
 `);
 
+// Push: какие уведомления присылать (по группам) и сведения об устройствах. Столбцы добавляются, если их нет.
+for (const [table, col, def] of [['users', 'push_prefs', "TEXT NOT NULL DEFAULT ''"], ['push_subs', 'ua', "TEXT NOT NULL DEFAULT ''"],
+  ['push_subs', 'created_at', "TEXT NOT NULL DEFAULT ''"], ['push_subs', 'last_at', "TEXT NOT NULL DEFAULT ''"], ['push_subs', 'last_title', "TEXT NOT NULL DEFAULT ''"]]) {
+  if (!db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
+}
+
 // Миграции по номеру версии схемы
 const ver = db.prepare('PRAGMA user_version').get().user_version;
 if (ver < 1) {

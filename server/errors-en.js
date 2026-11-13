@@ -51,6 +51,8 @@ const EN = {
   'Недостаточно прав': 'Not enough permissions',
   'Некорректная дата': 'Invalid date',
   'Некорректная подписка': 'Invalid subscription',
+  'Нет устройств с включёнными уведомлениями — включите их на этом устройстве': 'No devices with notifications on — turn them on on this device',
+  'Не удалось доставить уведомление — выключите и снова включите уведомления на этом устройстве': 'The notification could not be delivered — turn notifications off and on again on this device',
   'Некорректная точка': 'Invalid location',
   'Некорректное время': 'Invalid time',
   'Нельзя изменить собственную роль': 'You cannot change your own role',

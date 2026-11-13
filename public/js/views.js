@@ -3,10 +3,11 @@ import {
   state, t, tr, dict, h, raw, mount, $, $$, icon, CAT, catName, kindName, statusName, statusChip,
   fmtDate, ago, timeOf, km, money, plural, GET, POST, PATCH, DEL, refreshMe, route, onLeave, go, query, currentPath,
   toast, toastErr, sheet, sheetHead, confirmBox, lightbox, photoField, upload, makeMap, pinIcon, mapPicker, mapFull, getPosition,
-  onEvent, connectStream, mediaPh, enablePush, pushStatus, isIOS, isStandalone, shareSheet, countUp, formData, busy, observeReveal, safeSet, esc, setShell,
+  onEvent, connectStream, mediaPh, enablePush, disablePush, pushStatus, isIOS, isStandalone, shareSheet, countUp, formData, busy, observeReveal, safeSet, esc, setShell,
   emergencyPhones
 } from './core.js';
 import { BREEDS, COLORS, parksOf } from './places.js';
+import { pushCard, installCard, meNudge } from './push.js';
 
 /* =================== общие компоненты =================== */
 // Псевдоним собеседника в анонимном чате (сервер отдаёт по-русски, здесь — перевод).
@@ -1391,6 +1392,7 @@ async function meOverview(el, u) {
       <div class="list reveal">${notes.items.slice(0, 4).map((n) => h`<a href="${n.link || '#/notifications'}"><div class="t-ic feed-ic n-${n.type}">${icon(NIC[n.type] || 'bell', '', 'duo')}</div>
         <div class="grow" style="min-width:0"><b style="display:block">${n.title}</b><div class="small muted ellipsis">${n.body}</div></div><span class="xs muted" style="flex:none">${ago(n.created_at)}</span></a>`)}</div>` : ''}
     <div class="row" style="margin-top:16px"><a class="btn btn-lost grow" href="#/new/lost">${icon('plus')}${t('home.lost', 'Я потерял', 'I lost')}</a><a class="btn btn-found grow" href="#/new/found">${icon('plus')}${t('home.found', 'Я нашёл', 'I found')}</a></div>`);
+  meNudge(el); // одна подсказка: установить приложение или включить уведомления
 }
 async function meApps(el) {
   const { items } = await GET('/my/applications');
@@ -1721,20 +1723,12 @@ async function meRewards(el, u) {
     </div></div>`);
 }
 async function meSettings(el, u) {
-  const ps = await pushStatus();
   mount(el, h`<div class="stack-lg" style="max-width:720px">
     <div class="card pad stack">
       <h3>${t('set.lang', 'Язык', 'Language')}</h3>
       <div class="seg" id="lang"><button class="${state.lang === 'ru' ? 'on' : ''}" data-v="ru">Русский</button><button class="${state.lang === 'en' ? 'on' : ''}" data-v="en">English</button></div>
     </div>
-    <div class="card pad stack">
-      <h3>${t('set.notif', 'Уведомления', 'Notifications')}</h3>
-      <label class="row between" style="cursor:pointer"><div><b>${t('set.push', 'Push на этом устройстве', 'Push on this device')}</b><div class="xs muted">${ps === 'unsupported' ? (isIOS() && !isStandalone() ? t('set.push_ios', 'На iPhone: «Поделиться» → «На экран Домой», затем откройте приложение (iOS 16.4+)', 'On iPhone: Share → Add to Home Screen, then open the app (iOS 16.4+)') : tr('Не поддерживается браузером', 'Not supported by this browser')) : ps === 'denied' ? tr('Запрещено в настройках браузера', 'Blocked in browser settings') : tr('Совпадения, сообщения, экстренные оповещения', 'Matches, messages, emergency alerts')}</div></div>
-        <span class="switch"><input type="checkbox" id="pushOn" ${ps === 'on' ? 'checked' : ''} ${['unsupported', 'denied'].includes(ps) ? 'disabled' : ''}></span></label>
-      ${ps === 'on' ? h`<button class="btn btn-ghost btn-sm" id="pushTest" style="align-self:flex-start">${icon('bell')}${t('set.push_test', 'Проверить push', 'Test push')}</button>` : ''}
-      <label class="row between" style="cursor:pointer"><div><b>${t('set.push_all', 'Push-уведомления (все устройства)', 'Push notifications (all devices)')}</b></div><span class="switch"><input type="checkbox" id="np" ${u.notify_push ? 'checked' : ''}></span></label>
-      <label class="row between" style="cursor:pointer"><div><b>${t('set.email', 'Уведомления на e-mail', 'E-mail notifications')}</b><div class="xs muted">${u.email || tr('E-mail не указан в профиле', 'No e-mail in profile')}</div></div><span class="switch"><input type="checkbox" id="ne" ${u.notify_email ? 'checked' : ''}></span></label>
-    </div>
+    <div class="card pad stack" id="pushCard"></div>
     <div class="card pad stack" id="installCard"></div>
     <div class="list">
       <a href="#/legal">${icon('file')}<span class="grow">${t('legal.all', 'Документы и согласия', 'Legal documents')}<span class="xs muted" style="display:block;font-weight:500">${tr('Соглашение, политика, согласия · PDF', 'Terms, policy, consents · PDF')}</span></span>${icon('chevR')}</a>
@@ -1743,28 +1737,15 @@ async function meSettings(el, u) {
     <div class="row"><button class="btn btn-ghost grow" id="logout">${icon('logout')}${t('set.logout', 'Выйти', 'Sign out')}</button><button class="btn btn-danger" id="delAcc">${icon('trash')}${t('set.delete', 'Удалить аккаунт', 'Delete account')}</button></div>
   </div>`);
   $$('#lang button', el).forEach((b) => b.onclick = async () => { await setLang(b.dataset.v, true); meSettings(el, state.user); });
-  $('#pushOn', el).onchange = async (e) => {
-    if (e.target.checked) { try { await enablePush(); toast(tr('Push-уведомления включены', 'Push enabled')); meSettings(el, u); } catch (er) { e.target.checked = false; toastErr(er); } }
-    else { const reg = await navigator.serviceWorker.getRegistration(); const s = reg && await reg.pushManager.getSubscription(); if (s) await s.unsubscribe(); toast(tr('Push выключены на этом устройстве', 'Push disabled on this device')); }
-  };
-  const pt = $('#pushTest', el); if (pt) pt.onclick = async () => { await POST('/push/test'); toast(tr('Отправлено — уведомление придёт через пару секунд', 'Sent — it will arrive in a few seconds')); };
-  $('#np', el).onchange = (e) => PATCH('/me', { notify_push: e.target.checked }).then(refreshMe);
-  $('#ne', el).onchange = (e) => PATCH('/me', { notify_email: e.target.checked }).then(refreshMe);
+  pushCard($('#pushCard', el));
   installCard($('#installCard', el));
-  $('#logout', el).onclick = async () => { await POST('/auth/logout'); state.user = null; connectStream(); go('#/'); };
+  $('#logout', el).onclick = async () => { await disablePush(); await POST('/auth/logout'); state.user = null; connectStream(); go('#/'); };
   $('#delAcc', el).onclick = async () => {
     if (await confirmBox(t('set.delete', 'Удалить аккаунт', 'Delete account'), t('set.delete_t', 'Профиль, заявки и реестр удалятся навсегда.', 'Your profile, reports and registry will be deleted for good.'), { danger: true, ok: tr('Удалить навсегда', 'Delete forever') })) {
       await DEL('/me'); state.user = null; connectStream(); toast(tr('Аккаунт удалён', 'Account deleted')); go('#/');
     }
   };
 }
-export function installCard(el) {
-  if (isStandalone()) { mount(el, h`<div class="row">${icon('check')}<b>${t('set.installed', 'Приложение установлено на этом устройстве', 'App is installed on this device')}</b></div>`); return; }
-  mount(el, h`<div class="row">${icon('phoneapp', 'ic-lg')}<div class="grow"><b>${t('set.install', 'Установить на телефон', 'Install on your phone')}</b><div class="xs muted">${t('set.install_t', 'Иконка на экране, полноэкранный режим и push-уведомления', 'Home screen icon, full screen and push notifications')}</div></div></div>
-    ${state.installPrompt ? h`<button class="btn btn-sm" id="inst">${tr('Установить', 'Install')}</button>` : isIOS() ? h`<p class="small muted">${t('set.install_ios', 'Safari: нажмите «Поделиться» → «На экран „Домой“».', 'Safari: tap Share → Add to Home Screen.')}</p>` : h`<p class="small muted">${t('set.install_other', 'Chrome / Яндекс Браузер / Edge: меню ⋮ → «Установить приложение».', 'Chrome / Edge: menu ⋮ → Install app.')}</p>`}`);
-  const b = $('#inst', el); if (b) b.onclick = async () => { state.installPrompt.prompt(); await state.installPrompt.userChoice; state.installPrompt = null; installCard(el); };
-}
-
 /* =================== РЕЕСТР: ПУБЛИЧНАЯ ПРОВЕРКА =================== */
 route('/registry', async (view) => {
   const q0 = query().get('q') || '';

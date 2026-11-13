@@ -282,10 +282,68 @@ describe('Личный кабинет (Анна)', () => {
       assert.deepEqual(page.errors, []);
     });
   }
+  it('настройки → уведомления: включение одной кнопкой, что присылать (сохраняется), запрет в браузере — инструкция; установка — шаги', async () => {
+    page.errors = [];
+    await page.addInitScript(() => { try { Object.defineProperty(Notification, 'permission', { get: () => 'default' }); } catch (e) { /* нет Notification */ } }); // headless-сборка Chromium всегда отвечает «denied»; у людей до первого вопроса — «default»
+    await open(page, '#/me/settings');
+    await page.waitForSelector('#pushCard .pn-types');
+    assert.ok(await page.locator('#pnOn').isVisible(), 'кнопка «Включить уведомления»: ' + (await page.locator('#pushCard').innerText()).slice(0, 200));
+    assert.equal(await page.locator('#pushCard .pn-types input[data-k]').count(), 6);
+    const sup = page.locator('#pushCard input[data-k="support"]');
+    assert.equal(await sup.isChecked(), true);
+    await page.locator('#pushCard label.pn-type:has(input[data-k="support"])').click();
+    await page.waitForFunction(() => document.querySelector('.toast') && /Сохранено/.test(document.body.innerText));
+    await open(page, '#/me/settings');
+    await page.waitForSelector('#pushCard .pn-types');
+    assert.equal(await page.locator('#pushCard input[data-k="support"]').isChecked(), false, 'выбор сохранён');
+    await page.locator('#pushCard label.pn-type:has(input[data-k="support"])').click();
+    await page.waitForFunction(() => document.querySelector('#pushCard input[data-k="support"]').checked);
+    assert.ok(await page.locator('#installCard .ins-steps li').count() >= 2, 'шаги установки');
+    await noOverflow(page, 'настройки уведомлений');
+    assert.deepEqual(page.errors, []);
+    // уведомления запрещены в браузере — понятная инструкция и «Я разрешил — проверить»
+    const p2 = await newPage({ viewport: { width: 1280, height: 800 } });
+    await p2.addInitScript(() => { try { Object.defineProperty(Notification, 'permission', { get: () => 'denied' }); } catch (e) { /* нет Notification */ } });
+    await login(p2, 'igor@example.com');
+    await open(p2, '#/me/settings');
+    await p2.waitForSelector('#pushCard .pn-warn');
+    assert.match(await p2.locator('#pushCard').innerText(), /запрещены в браузере/);
+    assert.match(await p2.locator('#pushCard').innerText(), /замка слева от адреса/);
+    assert.ok(await p2.locator('#pnRetry').isVisible());
+    assert.deepEqual(p2.errors, []);
+    await p2.context().close();
+  });
+  it('телефон, главная кабинета: подсказка «Установите приложение» (кнопка от браузера / «Не сейчас»), затем — «включите уведомления»', async () => {
+    const p = await newPage({ viewport: { width: 390, height: 844 }, touch: true });
+    await p.addInitScript(() => { try { Object.defineProperty(Notification, 'permission', { get: () => 'default' }); } catch (e) { /* нет Notification */ } }); // headless-сборка Chromium всегда отвечает «denied»; у людей до первого вопроса — «default»
+    await login(p, 'igor@example.com');
+    await open(p, '#/me');
+    await p.waitForSelector('.me-nudge .ins-compact');
+    assert.equal(await p.locator('.me-nudge .ins-more').isVisible(), false, 'шаги свёрнуты — подсказка компактная');
+    await p.locator('#insHow').click();
+    assert.ok(await p.locator('.me-nudge .ins-steps li').count() >= 2, 'без кнопки браузера — шаги по нажатию');
+    // браузер разрешил установку — появляется кнопка «Установить», нажатие вызывает системный диалог
+    await p.evaluate(() => { const e = new Event('beforeinstallprompt', { cancelable: true }); e.prompt = () => { window.__prompted = true; }; e.userChoice = Promise.resolve({ outcome: 'dismissed' }); dispatchEvent(e); });
+    await p.waitForSelector('.me-nudge #insGo');
+    await p.locator('.me-nudge #insGo').click();
+    assert.equal(await p.evaluate(() => window.__prompted), true);
+    await p.waitForSelector('.me-nudge #insHow');
+    await p.locator('#insLater').click();
+    assert.equal(await p.locator('.me-nudge .ins').count(), 0, '«Не сейчас» скрывает');
+    await open(p, '#/me');
+    await p.waitForSelector('.me-nudge .pn-nudge');
+    assert.equal(await p.locator('.me-nudge .ins').count(), 0, 'установку больше не предлагаем');
+    await p.locator('#nuX').click();
+    assert.equal(await p.locator('.pn-nudge').count(), 0);
+    await noOverflow(p, 'кабинет с подсказкой');
+    assert.deepEqual(p.errors, []);
+    await p.context().close();
+  });
   it('переключатели и кнопки радиуса: область нажатия не меньше 40 px', async () => {
     for (const hash of ['#/me/settings', '#/me/zone']) {
       await open(page, hash);
       const hits = await page.evaluate(() => [...document.querySelectorAll('.switch, .range, .rchip')].filter((e) => e.getClientRects().length).map((e) => {
+        e.scrollIntoView({ block: 'center', behavior: 'instant' }); // за пределами окна elementFromPoint ничего не находит
         const b = e.getBoundingClientRect(), cx = b.left + b.width / 2, cy = b.top + b.height / 2;
         const ok = (y) => { const t = document.elementFromPoint(cx, y); return !!t && (t === e || e.contains(t)); };
         let up = 0, dn = 0; while (up < 30 && ok(cy - up - 1)) up++; while (dn < 30 && ok(cy + dn + 1)) dn++;

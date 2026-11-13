@@ -1,5 +1,5 @@
 // Точка входа: оболочка (шапка, нижнее меню, подвал), язык, тема, realtime, PWA.
-import { state, t, tr, h, raw, mount, $, $$, icon, GET, refreshMe, handleRoute, setChrome, currentPath, connectStream, onEvent, toast, go, observeReveal, emergencyPhones, sosSheet } from './core.js';
+import { state, t, tr, h, raw, mount, $, $$, icon, GET, refreshMe, handleRoute, setChrome, currentPath, connectStream, onEvent, toast, go, observeReveal, emergencyPhones, sosSheet, syncPush, appBadge } from './core.js';
 import { setLang } from './views.js';
 import './admin.js';
 
@@ -115,7 +115,9 @@ async function boot() {
     const onVv = () => { document.documentElement.style.setProperty('--vvh', Math.round(vv.height) + 'px'); if (document.body.dataset.route === 'chat' && touch) scrollTo(0, 0); };
     vv.addEventListener('resize', onVv); onVv();
   }
-  addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); state.installPrompt = e; });
+  // установка приложения: кнопка «Установить» появляется, как только браузер разрешит (карточки в кабинете слушают mba:install)
+  addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); state.installPrompt = e; dispatchEvent(new Event('mba:install')); });
+  addEventListener('appinstalled', () => { state.installPrompt = null; state.installed = true; dispatchEvent(new Event('mba:install')); });
   setChrome(chrome);
 
   const [cfg, me] = await Promise.all([GET('/config'), GET('/me').catch(() => ({ user: null }))]);
@@ -125,6 +127,7 @@ async function boot() {
   await setLang(lang, !state.lang && !!state.user);
 
   connectStream();
+  syncPush(); appBadge(state.user ? state.user.unread : 0);
   onEvent((type, d) => {
     if (type === 'notification') {
       toast(d.title, d.type === 'emergency' ? 'err' : 'info', d.body, () => d.link && go(d.link));
@@ -136,7 +139,14 @@ async function boot() {
   await handleRoute();
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
-  navigator.serviceWorker?.addEventListener('message', (e) => { if (e.data && e.data.url) location.href = e.data.url; });
+  // нажали на уведомление, а сайт уже открыт — переходим на нужный экран без перезагрузки
+  navigator.serviceWorker?.addEventListener('message', (e) => {
+    if (!e.data || !e.data.url) return;
+    const u = new URL(e.data.url, location.origin);
+    if (u.origin !== location.origin) return;
+    if (u.hash) { if (location.hash !== u.hash) location.hash = u.hash; else handleRoute(); } else location.href = u.href;
+    refreshMe().catch(() => {});
+  });
   // обновлять счётчики при возврате во вкладку
   document.addEventListener('visibilitychange', () => { if (!document.hidden && state.user) refreshMe().catch(() => {}); });
 }
